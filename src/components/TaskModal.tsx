@@ -1,6 +1,5 @@
 import { Fragment, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { v4 as uuid } from 'uuid';
 import type { Category, Task } from '../types';
 
 interface Props {
@@ -29,7 +28,7 @@ export default function TaskModal({
   const isSaveDisabled          = title.trim() === '';
 
   function handleSave() {
-    addTask({ id: uuid(), title: title.trim(), notes, category: cat, order: 0 });
+    addTask({ title: title.trim(), notes, category: cat, order: 0 });
     // reset & close
     setTitle('');
     setNotes('');
