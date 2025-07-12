@@ -1,13 +1,16 @@
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import Lane from './Lane';
-import { useTasks } from '../hooks/useTasks';
-import type { Category } from '../types';
+import type { Category, Task } from '../types';
+
+interface Props {
+  tasks: Task[];
+  updateTask: (id: string, changes: Partial<Task>) => void;
+}
 
 const categories: Category[] = ['critical', 'fun', 'important', 'normal'];
 
-export default function Board() {
-  const { tasks, updateTask } = useTasks();
+export default function Board({ tasks, updateTask }: Props) {
 
   function handleDragEnd(ev: DragEndEvent) {
     const { active, over } = ev;
