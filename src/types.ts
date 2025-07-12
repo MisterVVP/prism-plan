@@ -1,7 +1,9 @@
-export type TaskType = 'critical' | 'fun' | 'important' | 'normal';
+export type Category = 'critical' | 'fun' | 'important' | 'normal';
 
 export interface Task {
   id: string;
   title: string;
-  type: TaskType;
+  notes?: string;
+  category: Category;
+  order?: number;
 }
