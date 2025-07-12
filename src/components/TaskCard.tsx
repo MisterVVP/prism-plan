@@ -20,9 +20,9 @@ export default function TaskCard({ task }: { task: Task }) {
   };
 
   const shapeClasses = {
-    critical: 'clip-hex',
+    critical: 'clip-hex-tab',
     fun: 'rounded-full',
-    important: 'clip-bookmark',
+    important: 'clip-bookmark-notch',
     normal: 'rounded-md'
   } as const;
 
