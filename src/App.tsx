@@ -1,27 +1,25 @@
 import { useState } from 'react';
 import TaskLane from './components/Lane';
-import { Task, TaskType } from './types';
+import type { Task, Category } from './types';
 
 const initialTasks: Task[] = [
-  { id: '1', title: 'Pay taxes', type: 'critical' },
-  { id: '2', title: 'Go jogging', type: 'fun' },
-  { id: '3', title: 'Quarterly report', type: 'important' },
-  { id: '4', title: 'Buy groceries', type: 'normal' },
+  { id: '1', title: 'Pay taxes', category: 'critical' },
+  { id: '2', title: 'Go jogging', category: 'fun' },
+  { id: '3', title: 'Quarterly report', category: 'important' },
+  { id: '4', title: 'Buy groceries', category: 'normal' },
 ];
 
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
 
-  const moveTask = (id: string, to: TaskType) =>
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, type: to } : t)));
 
-  const lanes: Record<TaskType, Task[]> = {
+  const lanes: Record<Category, Task[]> = {
     critical: [],
     fun: [],
     important: [],
     normal: [],
   };
-  tasks.forEach((t) => lanes[t.type].push(t));
+  tasks.forEach((t) => lanes[t.category].push(t));
 
   return (
     <div className="p-4 space-y-4">
@@ -32,8 +30,8 @@ export default function App() {
         </button>
       </header>
 
-      {(Object.keys(lanes) as TaskType[]).map((k) => (
-        <TaskLane key={k} type={k} tasks={lanes[k]} onMove={moveTask} />
+      {(Object.keys(lanes) as Category[]).map((k) => (
+        <TaskLane key={k} category={k} tasks={lanes[k]} />
       ))}
     </div>
   );
