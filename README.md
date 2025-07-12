@@ -17,3 +17,4 @@ npm run dev
 docker build -t time-manager .
 # Serve on http://localhost:8080
 docker run --rm -p 8080:80 time-manager
+```
