@@ -22,8 +22,8 @@ docker run --rm -p 8080:80 time-manager
 
 ### Local API with Docker Compose
 ```bash
-# Build and run the frontend and Go API
-cp api/.env.example api/.env  # update with your storage creds
+# Build and run the frontend, Go API and local Azurite storage
+cp api/.env.example api/.env  # connection string already points to azurite
 docker-compose up --build
 ```
 
@@ -31,7 +31,7 @@ docker-compose up --build
 The frontend expects an API base URL. Set `VITE_API_BASE_URL` along with the Auth0 variables in `.env`.
 An example is provided in `.env.example`.
 
-The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string and table name in `api/.env` based on `api/.env.example`.
+The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string and table name in `api/.env` based on `api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline.
 
 ## ☁️ Deploying to Azure (free tiers)
 1. Build the static site:
