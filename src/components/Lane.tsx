@@ -29,12 +29,12 @@ export default function Lane({ category, tasks }: Props) {
       }
     : undefined;
   return (
-    <section className="mb-4">
+    <section className="mb-4 flex h-full flex-col ">
       <h2 className={`mx-2 mb-1 font-bold text-${category}`}>{titleMap[category]}</h2>
       <div
         ref={setNodeRef}
         style={droppableStyle}
-        className="flex gap-2 overflow-x-auto px-2 pb-4 sm:flex-wrap sm:overflow-visible transition-colors"
+        className="flex flex-1 gap-2 overflow-x-auto px-2 pb-4 sm:flex-wrap sm:overflow-visible transition-colors"
       >
         {tasks.map((task) => (
           <TaskCard key={task.id} task={task} />
