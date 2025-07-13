@@ -32,16 +32,22 @@ export default function Board({ tasks, updateTask }: Props) {
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      {categories.map((cat) => {
-        const laneTasks = tasks
-          .filter((t) => t.category === cat)
-          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        return (
-          <SortableContext items={laneTasks.map((t) => t.id)} strategy={horizontalListSortingStrategy} key={cat}>
-            <Lane category={cat} tasks={laneTasks} />
-          </SortableContext>
-        );
-      })}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {categories.map((cat) => {
+          const laneTasks = tasks
+            .filter((t) => t.category === cat)
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+          return (
+            <SortableContext
+              items={laneTasks.map((t) => t.id)}
+              strategy={horizontalListSortingStrategy}
+              key={cat}
+            >
+              <Lane category={cat} tasks={laneTasks} />
+            </SortableContext>
+          );
+        })}
+      </div>
     </DndContext>
   );
 }
