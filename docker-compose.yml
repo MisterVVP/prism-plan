@@ -18,6 +18,11 @@ services:
       - azurite
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:10002/devstoreaccount1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     ports:
       - "10000:10000"
       - "10001:10001"
