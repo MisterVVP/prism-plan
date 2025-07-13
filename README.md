@@ -20,6 +20,13 @@ docker build -t time-manager .
 docker run --rm -p 8080:80 time-manager
 ```
 
+### Local API with Docker Compose
+```bash
+# Build and run the frontend and Go API
+cp api/.env.example api/.env  # update with your storage creds
+docker-compose up --build
+```
+
 ## 📦 Environment variables
 The frontend expects an API base URL. Set `VITE_API_BASE_URL` along with the Auth0 variables in `.env`.
 An example is provided in `.env.example`.

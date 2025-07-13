@@ -1,5 +1,16 @@
+version: '3'
 services:
   web:
     build: .
     ports:
       - "8080:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:7071/api
+    depends_on:
+      - api
+  api:
+    build: ./api
+    env_file:
+      - ./api/.env
+    ports:
+      - "7071:7071"
