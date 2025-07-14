@@ -32,6 +32,11 @@ npm run provision:table
 ## 📦 Environment variables
 The frontend expects an API base URL. Set `VITE_API_BASE_URL` along with the Auth0 variables in `.env`.
 An example is provided in `.env.example`.
+When running with Docker Compose the value is passed as a build argument so the
+generated bundle calls the local API correctly.
+
+The Auth0 integration stores tokens in `localStorage` and uses refresh tokens so
+the login persists for about an hour even after refreshing the page.
 
 The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string and table name in `api/.env` based on `api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline. CORS is enabled by default so the frontend can call the API from `localhost`.
 
