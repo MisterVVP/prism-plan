@@ -6,14 +6,13 @@ services:
         VITE_API_BASE_URL: http://localhost:7071/api
     ports:
       - "8080:80"
-    environment:
-      - VITE_API_BASE_URL=http://localhost:7071/api
     depends_on:
       - api
   api:
     build: ./api
-    env_file:
-      - ./api/.env
+    environment:
+      - STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
+      - TABLE_NAME=tasks
     ports:
       - "7071:7071"
     depends_on:

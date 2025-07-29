@@ -1,17 +1,17 @@
 package main
 
 import (
-        "context"
-        "encoding/json"
-        "errors"
-        "log"
-        "net/http"
-        "os"
+	"context"
+	"encoding/json"
+	"errors"
+	"log"
+	"net/http"
+	"os"
 
-        "github.com/Azure/azure-sdk-for-go/sdk/azcore"
-        "github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
-        "github.com/labstack/echo/v4"
-        "github.com/labstack/echo/v4/middleware"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 type Task struct {
@@ -39,19 +39,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("service client: %v", err)
 	}
-        tableClient = svc.NewClient(tableName)
-        ctx := context.Background()
-        if _, err = tableClient.CreateTable(ctx, nil); err != nil {
-                var respErr *azcore.ResponseError
-                if !(errors.As(err, &respErr) && respErr.ErrorCode == string(aztables.TableAlreadyExists)) {
-                        log.Fatalf("create table: %v", err)
-                }
-        }
+	tableClient = svc.NewClient(tableName)
+	ctx := context.Background()
+	if _, err = tableClient.CreateTable(ctx, nil); err != nil {
+		var respErr *azcore.ResponseError
+		if !(errors.As(err, &respErr) && respErr.ErrorCode == string(aztables.TableAlreadyExists)) {
+			log.Fatalf("create table: %v", err)
+		}
+	}
 
-       e := echo.New()
-       e.Use(middleware.CORS())
-       e.GET("/api/tasks", getTasks)
-       e.POST("/api/tasks", postTasks)
+	e := echo.New()
+	e.Use(middleware.CORS())
+	e.GET("/api/tasks", getTasks)
+	e.POST("/api/tasks", postTasks)
 
 	port := os.Getenv("FUNCTIONS_CUSTOMHANDLER_PORT")
 	if port == "" {
@@ -63,7 +63,7 @@ func main() {
 func getTasks(c echo.Context) error {
 	ctx := c.Request().Context()
 	pager := tableClient.NewListEntitiesPager(nil)
-	var tasks []Task
+	tasks := make([]Task, 0)
 	for pager.More() {
 		resp, err := pager.NextPage(ctx)
 		if err != nil {
