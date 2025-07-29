@@ -3,10 +3,12 @@ package main
 import (
         "context"
         "encoding/json"
+        "errors"
         "log"
         "net/http"
         "os"
 
+        "github.com/Azure/azure-sdk-for-go/sdk/azcore"
         "github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
         "github.com/labstack/echo/v4"
         "github.com/labstack/echo/v4/middleware"
@@ -37,9 +39,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("service client: %v", err)
 	}
-	tableClient = svc.NewClient(tableName)
-	ctx := context.Background()
-	_, _ = tableClient.CreateTable(ctx, nil)
+        tableClient = svc.NewClient(tableName)
+        ctx := context.Background()
+        if _, err = tableClient.CreateTable(ctx, nil); err != nil {
+                var respErr *azcore.ResponseError
+                if !(errors.As(err, &respErr) && respErr.ErrorCode == string(aztables.TableAlreadyExists)) {
+                        log.Fatalf("create table: %v", err)
+                }
+        }
 
        e := echo.New()
        e.Use(middleware.CORS())
