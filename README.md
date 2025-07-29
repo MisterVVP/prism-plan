@@ -25,9 +25,8 @@ docker run --rm -p 8080:80 time-manager
 # Build and run the frontend, Go API and local Azurite storage
 cp api/.env.example api/.env  # connection string already points to azurite
 docker-compose up --build
-# Once the containers are running, create the table
-npm run provision:table
 ```
+The API will automatically create the table if it does not already exist.
 
 ## 📦 Environment variables
 The frontend expects an API base URL. Set `VITE_API_BASE_URL` along with the Auth0 variables in `.env`.
