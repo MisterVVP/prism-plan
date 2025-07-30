@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import type { Category, Task } from '../types';
 
@@ -26,6 +26,11 @@ export default function TaskModal({
   const [notes, setNotes]       = useState('');
   const [cat, setCat]           = useState<Category>(presetCategory);
   const isSaveDisabled          = title.trim() === '';
+
+  // reset selected category when preset changes or modal is reopened
+  useEffect(() => {
+    if (isOpen) setCat(presetCategory);
+  }, [presetCategory, isOpen]);
 
   function handleSave() {
     addTask({ title: title.trim(), notes, category: cat, order: 0 });
@@ -94,7 +99,11 @@ export default function TaskModal({
                         ${bg} ${value === 'fun' ? 'rounded-full' : value === 'critical' ? 'clip-hex-tab' :
                         value === 'important' ? 'clip-bookmark-notch' : 'rounded-md'}
                         px-3 py-1 text-sm font-medium text-white shadow
-                        ${cat === value ? 'outline outline-2 outline-offset-2 outline-indigo-500' : 'opacity-80 hover:opacity-100'}
+                        ${
+                          cat === value
+                            ? 'ring-offset ring-4 ring-indigo-500'
+                            : 'opacity-80 hover:opacity-100'
+                        }
                       `}
                     >
                       {label}
