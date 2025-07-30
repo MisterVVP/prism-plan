@@ -23,16 +23,16 @@ docker run --rm -p 8080:80 time-manager
 ### Local API with Docker Compose
 ```bash
 # Build and run the frontend, Go API and local Azurite storage
+cp .env.example .env          # set Auth0 variables for the web build
 cp api/.env.example api/.env  # connection string already points to azurite
 docker-compose up --build
 ```
 The API will automatically create the table if it does not already exist.
 
 ## 📦 Environment variables
-The frontend expects an API base URL. Set `VITE_API_BASE_URL` along with the Auth0 variables in `.env`.
-An example is provided in `.env.example`.
-When running with Docker Compose the value is passed as a build argument so the
-generated bundle calls the local API correctly.
+The frontend expects an API base URL. Set `VITE_API_BASE_URL` along with the Auth0 variables in `frontend/.env` for local development.
+An example is provided in `frontend/.env.example`.
+When running with Docker Compose the Auth0 values come from the project `.env` file and are passed as build arguments so the generated bundle calls the local API correctly.
 
 The Auth0 integration stores tokens in `localStorage` and uses refresh tokens so
 the login persists for about an hour even after refreshing the page.
