@@ -3,9 +3,9 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_BASE_URL: http://localhost:7071/api
-        VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
-        VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
+        VITE_AUTH0_DOMAIN: # REPLACE ME from .env
+        VITE_AUTH0_CLIENT_ID: # REPLACE ME from .env
+        VITE_API_BASE_URL: # REPLACE ME from .env
     ports:
       - "8080:80"
     depends_on:
