@@ -94,7 +94,7 @@ export default function TaskModal({
                         ${bg} ${value === 'fun' ? 'rounded-full' : value === 'critical' ? 'clip-hex-tab' :
                         value === 'important' ? 'clip-bookmark-notch' : 'rounded-md'}
                         px-3 py-1 text-sm font-medium text-white shadow
-                        ${cat === value ? 'ring-2 ring-offset-2 ring-indigo-500' : 'opacity-80 hover:opacity-100'}
+                        ${cat === value ? 'outline outline-2 outline-offset-2 outline-indigo-500' : 'opacity-80 hover:opacity-100'}
                       `}
                     >
                       {label}

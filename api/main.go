@@ -15,11 +15,11 @@ import (
 )
 
 type Task struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Lane  string `json:"lane"`
-	Color string `json:"color"`
-	Shape string `json:"shape"`
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Notes    string `json:"notes,omitempty"`
+	Category string `json:"category"`
+	Order    int    `json:"order"`
 }
 
 type entity struct {
