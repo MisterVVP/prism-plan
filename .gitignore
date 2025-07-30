@@ -137,3 +137,8 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+# Azure Functions
+api/local.settings.json
+api/.func
+api/handler
+api/main
