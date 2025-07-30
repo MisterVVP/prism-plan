@@ -15,7 +15,10 @@ npm run dev
 ## 🐳 Build & run with Docker
 ```bash
 # Build production bundle & nginx image
-docker build -t time-manager frontend
+# Make sure Auth0 vars are provided so the login URL is correct
+docker build -t time-manager \
+  --build-arg VITE_AUTH0_DOMAIN=your-auth0-domain \
+  --build-arg VITE_AUTH0_CLIENT_ID=your-client-id frontend
 # Serve on http://localhost:8080
 docker run --rm -p 8080:80 time-manager
 ```
