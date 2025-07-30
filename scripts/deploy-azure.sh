@@ -5,7 +5,9 @@ LOCATION="westeurope"
 STORAGE="prismplanstorage"
 FUNCAPP="prism-plan-api"
 
+cd frontend
 npm run build
+cd ..
 az group create --name $RESOURCE_GROUP --location $LOCATION
 az storage account create --name $STORAGE --resource-group $RESOURCE_GROUP --sku Standard_LRS
 az storage blob service-properties update --static-website --account-name $STORAGE --index-document index.html

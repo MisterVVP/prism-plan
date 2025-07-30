@@ -6,7 +6,7 @@ This is a **minimal but functional prototype** of the four‑lane task board wit
 ## 🚀 Quick start (dev)
 ```bash
 # 1. Install deps
-npm install
+cd frontend && npm install
 # 2. Copy env vars and start Vite dev server (http://localhost:5173)
 cp .env.example .env
 npm run dev
@@ -15,7 +15,7 @@ npm run dev
 ## 🐳 Build & run with Docker
 ```bash
 # Build production bundle & nginx image
-docker build -t time-manager .
+docker build -t time-manager frontend
 # Serve on http://localhost:8080
 docker run --rm -p 8080:80 time-manager
 ```
@@ -39,9 +39,12 @@ the login persists for about an hour even after refreshing the page.
 
 The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string and table name in `api/.env` based on `api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline. CORS is enabled by default so the frontend can call the API from `localhost`.
 
+The service stores task events and reconstructs entities on request. Fetch assembled tasks from `/api/tasks` and post user events to `/api/events`.
+
 ## ☁️ Deploying to Azure (free tiers)
 1. Build the static site:
    ```bash
+   cd frontend
    npm run build
    ```
 2. Create resources and upload the site:

@@ -14,19 +14,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type Task struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	Notes    string `json:"notes,omitempty"`
-	Category string `json:"category"`
-	Order    int    `json:"order"`
-}
-
-type entity struct {
-	aztables.Entity
-	Data string `json:"Data"`
-}
-
 var tableClient *aztables.Client
 
 func main() {
@@ -50,8 +37,10 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.CORS())
+	e.GET("/api/events", getEvents)
 	e.GET("/api/tasks", getTasks)
-	e.POST("/api/tasks", postTasks)
+	e.POST("/api/events", postEvents)
+	e.POST("/api/user", postUser)
 
 	port := os.Getenv("FUNCTIONS_CUSTOMHANDLER_PORT")
 	if port == "" {
@@ -60,64 +49,77 @@ func main() {
 	e.Logger.Fatal(e.Start(":" + port))
 }
 
-func getTasks(c echo.Context) error {
+func getEvents(c echo.Context) error {
 	ctx := c.Request().Context()
-	pager := tableClient.NewListEntitiesPager(nil)
-	tasks := make([]Task, 0)
-	for pager.More() {
-		resp, err := pager.NextPage(ctx)
-		if err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
-		}
-		for _, e := range resp.Entities {
-			var ent entity
-			if err := json.Unmarshal(e, &ent); err != nil {
-				continue
-			}
-			var t Task
-			if err := json.Unmarshal([]byte(ent.Data), &t); err == nil {
-				tasks = append(tasks, t)
-			}
-		}
+	userID, err := userIDFromAuthHeader(c.Request().Header.Get("Authorization"))
+	if err != nil {
+		return c.String(http.StatusUnauthorized, err.Error())
 	}
-	return c.JSON(http.StatusOK, tasks)
+	events, err := fetchEvents(ctx, userID)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, events)
 }
 
-func postTasks(c echo.Context) error {
+func postEvents(c echo.Context) error {
 	ctx := c.Request().Context()
-	var tasks []Task
-	if err := c.Bind(&tasks); err != nil {
+	userID, err := userIDFromAuthHeader(c.Request().Header.Get("Authorization"))
+	if err != nil {
+		return c.String(http.StatusUnauthorized, err.Error())
+	}
+	var events []Event
+	if err := c.Bind(&events); err != nil {
 		return c.String(http.StatusBadRequest, "invalid body")
 	}
-	existing := map[string]struct{}{}
-	pager := tableClient.NewListEntitiesPager(nil)
-	for pager.More() {
-		resp, err := pager.NextPage(ctx)
-		if err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
-		}
-		for _, e := range resp.Entities {
-			var row struct{ RowKey string }
-			if err := json.Unmarshal(e, &row); err == nil {
-				existing[row.RowKey] = struct{}{}
-			}
-		}
-	}
-	for _, t := range tasks {
-		data, _ := json.Marshal(t)
+	for _, ev := range events {
+		data, _ := json.Marshal(ev)
 		ent := map[string]interface{}{
-			"PartitionKey": "main",
-			"RowKey":       t.ID,
+			"PartitionKey": userID,
+			"RowKey":       ev.ID,
 			"Data":         string(data),
 		}
 		payload, _ := json.Marshal(ent)
-		if _, err := tableClient.AddEntity(ctx, payload, nil); err != nil {
-			tableClient.UpsertEntity(ctx, payload, nil)
-		}
-		delete(existing, t.ID)
-	}
-	for id := range existing {
-		tableClient.DeleteEntity(ctx, "main", id, nil)
+		tableClient.UpsertEntity(ctx, payload, nil)
 	}
 	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+}
+
+func fetchEvents(ctx context.Context, userID string) ([]Event, error) {
+	filter := "PartitionKey eq '" + userID + "'"
+	pager := tableClient.NewListEntitiesPager(&aztables.ListEntitiesOptions{
+		Filter: &filter,
+	})
+	events := make([]Event, 0)
+	for pager.More() {
+		resp, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range resp.Entities {
+			var ent eventEntity
+			if err := json.Unmarshal(e, &ent); err != nil {
+				continue
+			}
+			var ev Event
+			if err := json.Unmarshal([]byte(ent.Data), &ev); err == nil {
+				events = append(events, ev)
+			}
+		}
+	}
+	return events, nil
+}
+
+func getTasks(c echo.Context) error {
+	ctx := c.Request().Context()
+	userID, err := userIDFromAuthHeader(c.Request().Header.Get("Authorization"))
+	if err != nil {
+		return c.String(http.StatusUnauthorized, err.Error())
+	}
+	events, err := fetchEvents(ctx, userID)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	tasks := applyEvents(events)
+	return c.JSON(http.StatusOK, tasks)
 }
