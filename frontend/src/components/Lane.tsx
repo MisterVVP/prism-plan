@@ -13,9 +13,8 @@ const colorMap = {
 interface Props {
   category: Category | 'done';
   tasks: Task[];
-  onDone?: (id: string) => void;
 }
-export default function Lane({ category, tasks, onDone }: Props) {
+export default function Lane({ category, tasks }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: category, data: { category } });
   const titleMap = {
     critical: 'Critical',
@@ -40,7 +39,7 @@ export default function Lane({ category, tasks, onDone }: Props) {
         className="flex flex-1 gap-2 overflow-x-auto px-2 pb-4 sm:flex-wrap sm:overflow-visible transition-colors"
       >
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} onDone={onDone} />
+          <TaskCard key={task.id} task={task} />
         ))}
       </div>
     </section>
