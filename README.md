@@ -1,33 +1,10 @@
 # Prism plan
 
-This is a **minimal but functional prototype** of the four‑lane task board with colour + shape categories and a Dockerised static host.
 
----
-## 🚀 Quick start (dev)
-```bash
-# 1. Install deps
-cd frontend && npm install
-# 2. Copy env vars and start Vite dev server (http://localhost:5173)
-cp .env.example .env
-npm run dev
-```
+## Local API with Docker Compose
+Make sure to set up env variables in .env file (see .env.example)
 
-## 🐳 Build & run with Docker
 ```bash
-# Build production bundle & nginx image
-# Make sure Auth0 vars are provided so the login URL is correct
-docker build -t time-manager \
-  --build-arg VITE_AUTH0_DOMAIN=your-auth0-domain \
-  --build-arg VITE_AUTH0_CLIENT_ID=your-client-id frontend
-# Serve on http://localhost:8080
-docker run --rm -p 8080:80 time-manager
-```
-
-### Local API with Docker Compose
-```bash
-# Build and run the frontend, Go API and local Azurite storage
-cp .env.example .env          # set Auth0 variables for the web build
-cp api/.env.example api/.env  # connection string already points to azurite
 docker-compose up --build
 ```
 The API will automatically create the table if it does not already exist.

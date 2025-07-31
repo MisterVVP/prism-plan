@@ -3,9 +3,10 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_AUTH0_DOMAIN: # REPLACE ME from .env
-        VITE_AUTH0_CLIENT_ID: # REPLACE ME from .env
-        VITE_API_BASE_URL: # REPLACE ME from .env
+        VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+        VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
+        VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
     ports:
       - "8080:80"
     depends_on:
@@ -13,8 +14,8 @@ services:
   api:
     build: ./api
     environment:
-      - STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
-      - TABLE_NAME=events
+      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
+      - TABLE_NAME=${TABLE_NAME}
     ports:
       - "7071:7071"
     depends_on:
