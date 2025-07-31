@@ -6,11 +6,12 @@ import type { Category, Task } from '../types';
 interface Props {
   tasks: Task[];
   updateTask: (id: string, changes: Partial<Task>) => void;
+  completeTask: (id: string) => void;
 }
 
 const categories: Category[] = ['critical', 'fun', 'important', 'normal'];
 
-export default function Board({ tasks, updateTask }: Props) {
+export default function Board({ tasks, updateTask, completeTask }: Props) {
 
   function handleDragEnd(ev: DragEndEvent) {
     const { active, over } = ev;
@@ -32,10 +33,10 @@ export default function Board({ tasks, updateTask }: Props) {
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {categories.map((cat) => {
           const laneTasks = tasks
-            .filter((t) => t.category === cat)
+            .filter((t) => t.category === cat && !t.done)
             .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
           return (
             <SortableContext
@@ -43,10 +44,11 @@ export default function Board({ tasks, updateTask }: Props) {
               strategy={horizontalListSortingStrategy}
               key={cat}
             >
-              <Lane category={cat} tasks={laneTasks} />
+              <Lane category={cat} tasks={laneTasks} onDone={completeTask} />
             </SortableContext>
           );
         })}
+        <Lane category="done" tasks={tasks.filter((t) => t.done)} />
       </div>
     </DndContext>
   );

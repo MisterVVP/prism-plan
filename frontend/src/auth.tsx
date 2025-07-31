@@ -8,12 +8,13 @@ interface Props {
 export function AuthProvider({ children }: Props) {
   const domain = import.meta.env.VITE_AUTH0_DOMAIN as string;
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID as string;
+  const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
 
   return (
     <Auth0Provider
       domain={domain}
       clientId={clientId}
-      authorizationParams={{ redirect_uri: window.location.origin }}
+      authorizationParams={{ redirect_uri: window.location.origin, audience }}
       cacheLocation="localstorage"
       useRefreshTokens
     >

@@ -6,20 +6,23 @@ const colorMap = {
   critical: '#FF5252',
   fun: '#4CAF50',
   important: '#3F7FBF',
-  normal: '#D2D2D2'
+  normal: '#D2D2D2',
+  done: '#9CA3AF'
 } as const;
 
 interface Props {
-  category: Category;
+  category: Category | 'done';
   tasks: Task[];
+  onDone?: (id: string) => void;
 }
-export default function Lane({ category, tasks }: Props) {
+export default function Lane({ category, tasks, onDone }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: category, data: { category } });
   const titleMap = {
     critical: 'Critical',
     fun: 'Fun',
     important: 'Important',
-    normal: 'Normal'
+    normal: 'Normal',
+    done: 'Done'
   };
   const droppableStyle: React.CSSProperties | undefined = isOver
     ? {
@@ -37,7 +40,7 @@ export default function Lane({ category, tasks }: Props) {
         className="flex flex-1 gap-2 overflow-x-auto px-2 pb-4 sm:flex-wrap sm:overflow-visible transition-colors"
       >
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
+          <TaskCard key={task.id} task={task} onDone={onDone} />
         ))}
       </div>
     </section>

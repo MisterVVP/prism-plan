@@ -5,7 +5,7 @@ import TaskModal from './components/TaskModal';
 import { useTasks } from './hooks/useTasks';
 
 export default function App() {
-  const { tasks, addTask, updateTask } = useTasks();
+  const { tasks, addTask, updateTask, completeTask } = useTasks();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { loginWithRedirect, logout, isAuthenticated } = useAuth0();
 
@@ -40,7 +40,7 @@ export default function App() {
         </div>
       </header>
 
-      <Board tasks={tasks} updateTask={updateTask} />
+      <Board tasks={tasks} updateTask={updateTask} completeTask={completeTask} />
 
       <TaskModal
         isOpen={isModalOpen}
