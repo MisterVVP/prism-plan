@@ -16,6 +16,8 @@ services:
     environment:
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TABLE_NAME=${TABLE_NAME}
+      - AUTH0_DOMAIN=${AUTH0_DOMAIN}
+      - AUTH0_AUDIENCE=${AUTH0_AUDIENCE}
     ports:
       - "7071:7071"
     depends_on:

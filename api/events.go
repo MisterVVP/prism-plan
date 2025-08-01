@@ -1,12 +1,12 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 type Event struct {
@@ -31,23 +31,26 @@ func userIDFromAuthHeader(h string) (string, error) {
 	if len(parts) != 2 {
 		return "", errors.New("bad auth header")
 	}
-	token := parts[1]
-	segments := strings.Split(token, ".")
-	if len(segments) < 2 {
-		return "", errors.New("invalid token")
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(segments[1])
+	token, err := jwt.Parse(parts[1], jwtJWKS.Keyfunc)
 	if err != nil {
 		return "", err
 	}
-	var claims struct {
-		Sub string `json:"sub"`
+	if !token.Valid {
+		return "", errors.New("invalid token")
 	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return "", err
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("invalid claims")
 	}
-	if claims.Sub == "" {
+	if !claims.VerifyAudience(jwtAudience, false) {
+		return "", errors.New("invalid audience")
+	}
+	if !claims.VerifyIssuer(jwtIssuer, false) {
+		return "", errors.New("invalid issuer")
+	}
+	sub, ok := claims["sub"].(string)
+	if !ok || sub == "" {
 		return "", errors.New("missing sub")
 	}
-	return claims.Sub, nil
+	return sub, nil
 }
