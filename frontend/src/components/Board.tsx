@@ -15,10 +15,16 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
 
   function handleDragEnd(ev: DragEndEvent) {
     const { active, over } = ev;
-    if (!over) return;
+    if (!over) {
+      return;
+    }
+
     const toCat = over.data.current?.category as Category | 'done';
     const activeTask = tasks.find((t) => t.id === active.id);
-    if (!activeTask) return;
+    if (!activeTask) {
+      return;
+    }
+
     const fromCat = activeTask.category;
 
     if (toCat === 'done') {
@@ -35,7 +41,10 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
     const laneTasks = tasks.filter((t) => t.category === fromCat && !t.done);
     const oldIndex = laneTasks.findIndex((t) => t.id === active.id);
     const newIndex = laneTasks.findIndex((t) => t.id === over.id);
-    if (oldIndex === newIndex) return;
+    if (oldIndex === newIndex || newIndex === -1) {
+      return;
+    }
+
     const ordered = arrayMove(laneTasks, oldIndex, newIndex);
     ordered.forEach((task, idx) => updateTask(task.id, { order: idx }));
   }
