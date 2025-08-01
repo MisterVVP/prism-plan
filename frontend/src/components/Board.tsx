@@ -35,6 +35,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
     const laneTasks = tasks.filter((t) => t.category === fromCat && !t.done);
     const oldIndex = laneTasks.findIndex((t) => t.id === active.id);
     const newIndex = laneTasks.findIndex((t) => t.id === over.id);
+    if (oldIndex === newIndex) return;
     const ordered = arrayMove(laneTasks, oldIndex, newIndex);
     ordered.forEach((task, idx) => updateTask(task.id, { order: idx }));
   }
