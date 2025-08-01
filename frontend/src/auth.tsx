@@ -14,7 +14,11 @@ export function AuthProvider({ children }: Props) {
     <Auth0Provider
       domain={domain}
       clientId={clientId}
-      authorizationParams={{ redirect_uri: window.location.origin, audience }}
+      authorizationParams={{
+        redirect_uri: window.location.origin,
+        audience,
+        scope: 'openid profile email offline_access'
+      }}
       cacheLocation="localstorage"
       useRefreshTokens
     >
