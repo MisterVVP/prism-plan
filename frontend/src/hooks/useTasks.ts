@@ -76,7 +76,8 @@ export function useTasks() {
     setTasks((t) => [...t, newTask]);
     const ev: TaskEvent = {
       id: uuid(),
-      taskId: id,
+      entityId: id,
+      entityType: 'task',
       type: 'task-created',
       data: partial,
       time: Date.now()
@@ -88,7 +89,8 @@ export function useTasks() {
     setTasks((t) => t.map((task) => (task.id === id ? { ...task, ...changes } : task)));
     const ev: TaskEvent = {
       id: uuid(),
-      taskId: id,
+      entityId: id,
+      entityType: 'task',
       type: 'task-updated',
       data: changes,
       time: Date.now()
@@ -100,7 +102,8 @@ export function useTasks() {
     setTasks((t) => t.map((task) => (task.id === id ? { ...task, done: true } : task)));
     const ev: TaskEvent = {
       id: uuid(),
-      taskId: id,
+      entityId: id,
+      entityType: 'task',
       type: 'task-completed',
       time: Date.now()
     };

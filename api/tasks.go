@@ -21,15 +21,18 @@ func applyEvents(events []Event) []Task {
 
 	tasks := make(map[string]*Task)
 	for _, ev := range events {
+		if ev.EntityType != "task" {
+			continue
+		}
 		switch ev.Type {
 		case "task-created":
 			var t Task
 			if err := json.Unmarshal(ev.Data, &t); err == nil {
-				t.ID = ev.TaskID
-				tasks[ev.TaskID] = &t
+				t.ID = ev.EntityID
+				tasks[ev.EntityID] = &t
 			}
 		case "task-updated":
-			t, ok := tasks[ev.TaskID]
+			t, ok := tasks[ev.EntityID]
 			if !ok {
 				continue
 			}
@@ -50,7 +53,7 @@ func applyEvents(events []Event) []Task {
 				t.Order = int(v)
 			}
 		case "task-completed":
-			if t, ok := tasks[ev.TaskID]; ok {
+			if t, ok := tasks[ev.EntityID]; ok {
 				t.Done = true
 			}
 		}
