@@ -17,7 +17,7 @@ export default function App() {
         {/* User avatar / login */}
         <div className="flex items-center">
           {isAuthenticated ? (
-            <Menu as="div" className="relative">
+            <Menu as="div" className="flex">
               <Menu.Button className="focus:outline-none">
                 <img
                   src={user?.picture}
