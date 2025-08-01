@@ -16,15 +16,23 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
   function handleDragEnd(ev: DragEndEvent) {
     const { active, over } = ev;
     if (!over) return;
-    const fromCat = active.data.current?.category as Category;
-    const toCat = over.data.current?.category as Category;
+    const toCat = over.data.current?.category as Category | 'done';
+    const activeTask = tasks.find((t) => t.id === active.id);
+    if (!activeTask) return;
+    const fromCat = activeTask.category;
+
+    if (toCat === 'done') {
+      if (!activeTask.done) completeTask(active.id as string);
+      return;
+    }
 
     if (fromCat !== toCat) {
       updateTask(active.id as string, { category: toCat });
       return;
     }
+
     // reorder within lane
-    const laneTasks = tasks.filter((t) => t.category === fromCat);
+    const laneTasks = tasks.filter((t) => t.category === fromCat && !t.done);
     const oldIndex = laneTasks.findIndex((t) => t.id === active.id);
     const newIndex = laneTasks.findIndex((t) => t.id === over.id);
     const ordered = arrayMove(laneTasks, oldIndex, newIndex);
@@ -44,7 +52,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
               strategy={horizontalListSortingStrategy}
               key={cat}
             >
-              <Lane category={cat} tasks={laneTasks} onDone={completeTask} />
+              <Lane category={cat} tasks={laneTasks} />
             </SortableContext>
           );
         })}

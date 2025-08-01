@@ -11,8 +11,7 @@ export default function App() {
 
   return (
     <div className="p-4 space-y-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Task Groups</h1>
+      <header className="flex items-center justify-end">
         <div className="flex items-center space-x-2">
           {isAuthenticated ? (
             <button
