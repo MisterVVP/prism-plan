@@ -18,9 +18,9 @@ The same `.env` file supplies `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` for the backen
 The Auth0 integration stores tokens in `localStorage` and uses refresh tokens so
 the login persists for about an hour even after refreshing the page.
 
-The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string and task events table name in `api/.env` based on `api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline. Set `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` so the API can fetch the JWKS from Auth0 and validate incoming tokens. CORS is enabled by default so the frontend can call the API from `localhost`.
+The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string, task events table name, and users table name in `api/.env` based on `api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline. Set `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` so the API can fetch the JWKS from Auth0 and validate incoming tokens. CORS is enabled by default so the frontend can call the API from `localhost`.
 
-Use the `TASK_EVENTS_TABLE` variable to configure where task events are stored. Additional tables for other entities can be configured in the same way by exposing more variables and initializing new table clients.
+Use the `TASK_EVENTS_TABLE` variable to configure where task events are stored and `USERS_TABLE_NAME` for user information. Additional tables for other entities can be configured in the same way by exposing more variables and initializing new table clients.
 
 The service stores task events and reconstructs entities on request. Fetch assembled tasks from `/api/tasks` and post user events to `/api/events`.
 
