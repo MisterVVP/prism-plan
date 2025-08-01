@@ -65,7 +65,6 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.CORS())
-	e.GET("/api/events", getEvents)
 	e.GET("/api/tasks", getTasks)
 	e.POST("/api/events", postEvents)
 	e.POST("/api/user", postUser)
@@ -75,19 +74,6 @@ func main() {
 		port = "8080"
 	}
 	e.Logger.Fatal(e.Start(":" + port))
-}
-
-func getEvents(c echo.Context) error {
-	ctx := c.Request().Context()
-	userID, err := userIDFromAuthHeader(c.Request().Header.Get("Authorization"))
-	if err != nil {
-		return c.String(http.StatusUnauthorized, err.Error())
-	}
-	events, err := fetchEvents(ctx, userID)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(http.StatusOK, events)
 }
 
 func postEvents(c echo.Context) error {
