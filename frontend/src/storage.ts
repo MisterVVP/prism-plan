@@ -4,16 +4,20 @@ import type { Task, TaskEvent } from './types';
 const EVENT_KEY = 'events-v1';
 const TASK_KEY = 'tasks-v1';
 
-export async function loadEvents(): Promise<TaskEvent[]> {
-  return (await get(EVENT_KEY)) ?? [];
-}
-export async function saveEvents(events: TaskEvent[]) {
-  await set(EVENT_KEY, events);
+function key(base: string, userId?: string | null) {
+  return userId ? `${base}-${userId}` : `${base}-guest`;
 }
 
-export async function loadTasks(): Promise<Task[]> {
-  return (await get(TASK_KEY)) ?? [];
+export async function loadEvents(userId?: string | null): Promise<TaskEvent[]> {
+  return (await get(key(EVENT_KEY, userId))) ?? [];
 }
-export async function saveTasks(tasks: Task[]) {
-  await set(TASK_KEY, tasks);
+export async function saveEvents(userId: string | null | undefined, events: TaskEvent[]) {
+  await set(key(EVENT_KEY, userId), events);
+}
+
+export async function loadTasks(userId?: string | null): Promise<Task[]> {
+  return (await get(key(TASK_KEY, userId))) ?? [];
+}
+export async function saveTasks(userId: string | null | undefined, tasks: Task[]) {
+  await set(key(TASK_KEY, userId), tasks);
 }

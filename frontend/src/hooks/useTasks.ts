@@ -12,21 +12,22 @@ import type { Task, TaskEvent } from '../types';
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<TaskEvent[]>([]);
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently, user } = useAuth0();
   const baseUrl = import.meta.env.VITE_API_BASE_URL as string;
+  const userId = user?.sub ?? null;
 
   useEffect(() => {
-    loadTasks().then(setTasks);
-    loadEvents().then(setEvents);
-  }, []);
+    loadTasks(userId).then(setTasks);
+    loadEvents(userId).then(setEvents);
+  }, [userId]);
 
   useEffect(() => {
-    saveTasks(tasks);
-  }, [tasks]);
+    saveTasks(userId, tasks);
+  }, [tasks, userId]);
 
   useEffect(() => {
-    saveEvents(events);
-  }, [events]);
+    saveEvents(userId, events);
+  }, [events, userId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -39,14 +40,14 @@ export function useTasks() {
         if (res.ok) {
           const data: Task[] = await res.json();
           setTasks(data);
-          saveTasks(data);
+          saveTasks(userId, data);
         }
       } catch (err) {
         console.error(err);
       }
     }
     fetchRemote();
-  }, [isAuthenticated, baseUrl, getAccessTokenSilently]);
+  }, [isAuthenticated, baseUrl, getAccessTokenSilently, userId]);
 
   useEffect(() => {
     if (!isAuthenticated || events.length === 0) return;
@@ -62,13 +63,13 @@ export function useTasks() {
           body: JSON.stringify(events)
         });
         setEvents([]);
-        saveEvents([]);
+        saveEvents(userId, []);
       } catch (err) {
         console.error(err);
       }
     }, 500);
     return () => clearTimeout(id);
-  }, [events, isAuthenticated, baseUrl, getAccessTokenSilently]);
+  }, [events, isAuthenticated, baseUrl, getAccessTokenSilently, userId]);
 
   function addTask(partial: Omit<Task, 'id'>) {
     const id = uuid();

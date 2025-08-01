@@ -5,9 +5,10 @@
 Make sure to set up env variables in .env file (see .env.example)
 
 ```bash
+scripts/generate-cert.sh
 docker-compose up --build
 ```
-The API will automatically create the table if it does not already exist.
+The API will automatically create the table if it does not already exist. A self-signed certificate will be generated to serve the frontend over HTTPS.
 
 ## 📦 Environment variables
 The frontend expects an API base URL. Set `VITE_API_BASE_URL` along with the Auth0 variables in `frontend/.env` for local development.
