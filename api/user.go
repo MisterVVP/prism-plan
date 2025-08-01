@@ -37,6 +37,6 @@ func postUser(c echo.Context) error {
 		"Data":         string(data),
 	}
 	payload, _ := json.Marshal(ent)
-	tableClient.UpsertEntity(ctx, payload, nil)
+	userClient.UpsertEntity(ctx, payload, nil)
 	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 }
