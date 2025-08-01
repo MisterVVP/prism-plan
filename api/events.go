@@ -10,11 +10,12 @@ import (
 )
 
 type Event struct {
-	ID     string          `json:"id"`
-	TaskID string          `json:"taskId"`
-	Type   string          `json:"type"`
-	Data   json.RawMessage `json:"data,omitempty"`
-	Time   int64           `json:"time"`
+	ID         string          `json:"id"`
+	EntityID   string          `json:"entityId"`
+	EntityType string          `json:"entityType"`
+	Type       string          `json:"type"`
+	Data       json.RawMessage `json:"data,omitempty"`
+	Time       int64           `json:"time"`
 }
 
 type eventEntity struct {

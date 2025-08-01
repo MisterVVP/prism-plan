@@ -13,7 +13,8 @@ export type EventType = 'task-created' | 'task-updated' | 'task-completed';
 
 export interface TaskEvent {
   id: string;
-  taskId: string;
+  entityId: string;
+  entityType: string;
   type: EventType;
   data?: Partial<Task>;
   time: number;
