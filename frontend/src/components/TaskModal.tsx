@@ -66,7 +66,7 @@ export default function TaskModal({
                 Title<span className="text-red-500">*</span>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                  className="mt-1 p-2.5 w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="Buy birthday gift…"
