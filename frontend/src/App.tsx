@@ -13,7 +13,7 @@ export default function App() {
 
   return (
     <div className="p-4 space-y-6 sm:space-y-8">
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex items-center justify-between gap-4">
         {/* User avatar / login */}
         <div className="flex items-center">
           {isAuthenticated ? (
@@ -73,9 +73,9 @@ export default function App() {
         <div className="flex items-center">
           <button
             onClick={() => setIsModalOpen(true)}
-            className="rounded-full bg-indigo-600 p-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="h-10 w-10 rounded-full bg-indigo-600 p-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <PlusIcon className="h-6 w-6" />
+            <PlusIcon className="h-full w-full" />
           </button>
         </div>
       </header>
