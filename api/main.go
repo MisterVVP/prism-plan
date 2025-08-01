@@ -4,21 +4,28 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
+	"github.com/MicahParks/keyfunc"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
-var tableClient *aztables.Client
+var (
+	tableClient *aztables.Client
+	jwtJWKS     *keyfunc.JWKS
+	jwtAudience string
+	jwtIssuer   string
+)
 
 func main() {
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
-	tableName := os.Getenv("TABLE_NAME")
+	tableName := os.Getenv("TASK_EVENTS_TABLE")
 	if connStr == "" || tableName == "" {
 		log.Fatal("missing table storage config")
 	}
@@ -34,6 +41,18 @@ func main() {
 			log.Fatalf("create table: %v", err)
 		}
 	}
+
+	jwtAudience = os.Getenv("AUTH0_AUDIENCE")
+	domain := os.Getenv("AUTH0_DOMAIN")
+	if jwtAudience == "" || domain == "" {
+		log.Fatal("missing Auth0 config")
+	}
+	jwksURL := fmt.Sprintf("https://%s/.well-known/jwks.json", domain)
+	jwtJWKS, err = keyfunc.Get(jwksURL, keyfunc.Options{})
+	if err != nil {
+		log.Fatalf("jwks: %v", err)
+	}
+	jwtIssuer = "https://" + domain + "/"
 
 	e := echo.New()
 	e.Use(middleware.CORS())
