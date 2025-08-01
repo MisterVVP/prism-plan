@@ -25,7 +25,7 @@ var (
 
 func main() {
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
-	tableName := os.Getenv("TABLE_NAME")
+	tableName := os.Getenv("TASK_EVENTS_TABLE")
 	if connStr == "" || tableName == "" {
 		log.Fatal("missing table storage config")
 	}
