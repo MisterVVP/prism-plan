@@ -12,18 +12,19 @@ export default function App() {
   const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
 
   return (
-    <div className="p-4 space-y-4">
-      <header className="flex items-center gap-2 sm:gap-4">
+    <div className="p-4 space-y-6 sm:space-y-8">
+      <header className="flex items-center justify-between gap-4">
         {/* User avatar / login */}
-        {isAuthenticated ? (
-          <Menu as="div" className="relative">
-            <Menu.Button className="focus:outline-none">
-              <img
-                src={user?.picture}
-                alt="User avatar"
-                className="h-8 w-8 sm:h-10 sm:w-10 rounded-full"
-              />
-            </Menu.Button>
+        <div className="flex items-center">
+          {isAuthenticated ? (
+            <Menu as="div" className="flex">
+              <Menu.Button className="focus:outline-none">
+                <img
+                  src={user?.picture}
+                  alt="User avatar"
+                  className="h-10 w-10 rounded-full"
+                />
+              </Menu.Button>
             <Transition
               as={Fragment}
               enter="transition ease-out duration-100"
@@ -51,27 +52,32 @@ export default function App() {
               </Menu.Items>
             </Transition>
           </Menu>
-        ) : (
-          <UserCircleIcon
-            onClick={() => loginWithRedirect()}
-            className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400 cursor-pointer"
-          />
-        )}
+          ) : (
+            <UserCircleIcon
+              onClick={() => loginWithRedirect()}
+              className="h-10 w-10 text-gray-400 cursor-pointer"
+            />
+          )}
+        </div>
 
         {/* Search bar */}
-        <input
-          type="text"
-          placeholder="Search..."
-          className="flex-1 max-w-xs sm:max-w-sm md:max-w-md rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
-        />
+        <div className="flex-1 px-2 sm:px-4">
+          <input
+            type="text"
+            placeholder="Search..."
+            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
 
         {/* Add task */}
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="rounded-full bg-indigo-600 p-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <PlusIcon className="h-6 w-6 sm:h-8 sm:w-8" />
-        </button>
+        <div className="flex items-center">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="h-10 w-10 rounded-full bg-indigo-600 p-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <PlusIcon className="h-full w-full" />
+          </button>
+        </div>
       </header>
 
       <Board tasks={tasks} updateTask={updateTask} completeTask={completeTask} />
