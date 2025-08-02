@@ -145,4 +145,4 @@ api/main
 
 # Local SSL certificates
 certs/
-
+ca/
