@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/golang-jwt/jwt/v4"
@@ -31,16 +32,24 @@ func userIDFromAuthHeader(h string) (string, error) {
 	if len(parts) != 2 {
 		return "", errors.New("bad auth header")
 	}
-	token, err := jwt.Parse(parts[1], jwtJWKS.Keyfunc)
+
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}), jwt.WithoutClaimsValidation())
+	token, err := parser.Parse(parts[1], jwtJWKS.Keyfunc)
 	if err != nil {
 		return "", err
 	}
-	if !token.Valid {
-		return "", errors.New("invalid token")
-	}
+
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return "", errors.New("invalid claims")
+	}
+
+	now := time.Now().Add(time.Minute).Unix()
+	if !claims.VerifyExpiresAt(now, true) {
+		return "", errors.New("token expired")
+	}
+	if !claims.VerifyNotBefore(now, false) {
+		return "", errors.New("token not valid yet")
 	}
 	if !claims.VerifyAudience(jwtAudience, false) {
 		return "", errors.New("invalid audience")
@@ -52,5 +61,6 @@ func userIDFromAuthHeader(h string) (string, error) {
 	if !ok || sub == "" {
 		return "", errors.New("missing sub")
 	}
+
 	return sub, nil
 }
