@@ -1,55 +1,90 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM === Names that must be accepted by the certificate ===
-set "DNS1=localhost"
-set "DNS2=mistervvp"
-set "DNS3=mistervvp.local"
-
-REM === Certificate lifetime (days) and output path ===
-set "DAYS=365"
+:: ---------- Tweakables ----------
+set "ROOT_CN=My-CA"
+set "CA_DIR=%~dp0..\ca"
 set "CERT_DIR=%~dp0..\certs"
+set "CA_DAYS=3650"
+set "SRV_DAYS=825"
+:: ---------------------------------
 
+if not exist "%CA_DIR%"  mkdir "%CA_DIR%"
 if not exist "%CERT_DIR%" mkdir "%CERT_DIR%"
 
-REM === Build a temporary OpenSSL config that includes both DNS SANs ===
-set "CFG=%TEMP%\openssl_san.cnf"
+echo.
+set /p SERVER_DNS=Enter the host-name or IP for the certificate (e.g. mistervvp.local): 
+if "%SERVER_DNS%"=="" (
+    echo [ERROR] Nothing entered. Aborting.
+    exit /b 1
+)
+
+:: ---------- Root CA (create & trust if absent) ----------
+if not exist "%CA_DIR%\rootCA.key" (
+    echo [INFO] Generating root CA key ...
+    openssl genrsa -out "%CA_DIR%\rootCA.key" 4096
+
+    echo [INFO] Self-signing root certificate ...
+    openssl req -x509 -new -nodes -key "%CA_DIR%\rootCA.key" ^
+      -sha256 -days %CA_DAYS% -subj "/CN=%ROOT_CN%" ^
+      -out "%CA_DIR%\rootCA.crt"
+
+    openssl x509 -in "%CA_DIR%\rootCA.crt" -outform der -out "%CA_DIR%\rootCA.cer"
+
+    echo [INFO] Adding root CA to Windows trust store ...
+    certutil -addstore -f "Root" "%CA_DIR%\rootCA.crt"
+) else (
+    echo [OK] Root CA already exists — skipping CA creation.
+)
+
+:: ---------- Server cert for %SERVER_DNS% ----------
+set "CFG=%TEMP%\openssl_srv.cnf"
 > "%CFG%" (
     echo [req]
     echo default_bits = 2048
     echo prompt       = no
     echo default_md   = sha256
     echo distinguished_name = dn
-    echo x509_extensions    = v3_req
-
+    echo req_extensions      = v3
+    echo.
     echo [dn]
-    REM Use the first host as the common name (CN)
-    echo CN = !DNS1!
-
-    echo [v3_req]
-    echo subjectAltName = @alt_names
-
-    echo [alt_names]
-    echo DNS.1 = !DNS1!
-    echo DNS.2 = !DNS2!
-    echo DNS.3 = !DNS3!
+    echo CN = %SERVER_DNS%
+    echo.
+    echo [v3]
+    echo subjectAltName = @alt
+    echo basicConstraints = CA:FALSE
+    echo keyUsage = digitalSignature, keyEncipherment
+    echo extendedKeyUsage = serverAuth
+    echo.
+    echo [alt]
+    echo DNS.1 = %SERVER_DNS%
 )
 
-REM === Generate private key + certificate ===
-openssl req -x509 -nodes -days %DAYS% ^
-  -newkey rsa:2048 ^
-  -keyout "%CERT_DIR%\nginx.key" ^
-  -out    "%CERT_DIR%\nginx.crt" ^
-  -config "%CFG%" -extensions v3_req
+set "SRV_KEY=%CERT_DIR%\nginx.key"
+set "SRV_CRT=%CERT_DIR%\nginx.crt"
 
-del "%CFG%"
+echo [INFO] Generating server key + CSR ...
+openssl req -new -nodes -keyout "%SRV_KEY%" ^
+  -out "%CERT_DIR%\nginx.csr" ^
+  -config "%CFG%"
 
-REM === Trust the certificate (run this script from an elevated prompt) ===
-echo Adding cert to Trusted Root Certification Authorities...
-certutil -addstore -f "Root" "%CERT_DIR%\nginx.crt"
+echo [INFO] Signing server certificate ...
+openssl x509 -req -in "%CERT_DIR%\nginx.csr" ^
+  -CA "%CA_DIR%\rootCA.crt" -CAkey "%CA_DIR%\rootCA.key" ^
+  -CAcreateserial -out "%SRV_CRT%" -days %SRV_DAYS% -sha256 ^
+  -extfile "%CFG%" -extensions v3
+
+del "%CFG%" "%CERT_DIR%\nginx.csr" "%CA_DIR%\rootCA.srl"
 
 echo.
-echo ✔ Certificate trusted for: %DNS1% and %DNS2% and %DNS3%
-echo   Key : %CERT_DIR%\nginx.key
-echo   Cert: %CERT_DIR%\nginx.crt
+echo ============================================
+echo   ✔  Finished
+echo   Root CA  : %CA_DIR%\rootCA.crt
+echo   Server   : %SRV_CRT%
+echo   Key      : %SRV_KEY%
+echo ============================================
+echo ➊ Configure your web-server with the key & cert
+echo ➋ Make %SERVER_DNS% resolve to this machine
+echo ➌ Install rootCA.crt on other devices (iPhone, etc.)
+echo.
 endlocal

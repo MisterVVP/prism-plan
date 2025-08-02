@@ -106,6 +106,24 @@ func postEvents(c echo.Context) error {
 			table = userTable
 		}
 		data, _ := json.Marshal(ev)
+
+		if table == userTable && ev.Type == "user-registered" {
+			ent := map[string]interface{}{
+				"PartitionKey": userID,
+				"RowKey":       ev.EntityID,
+				"Data":         string(data),
+			}
+			payload, _ := json.Marshal(ent)
+			if _, err := clientFor(table).AddEntity(ctx, payload, nil); err != nil {
+				var respErr *azcore.ResponseError
+				if errors.As(err, &respErr) && respErr.ErrorCode == string(aztables.EntityAlreadyExists) {
+					continue
+				}
+				log.Printf("add entity: %v", err)
+			}
+			continue
+		}
+
 		ent := map[string]interface{}{
 			"PartitionKey": userID,
 			"RowKey":       ev.ID,
