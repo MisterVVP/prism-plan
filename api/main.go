@@ -18,7 +18,6 @@ import (
 
 var (
 	tableClient *aztables.Client
-	userClient  *aztables.Client
 	jwtJWKS     *keyfunc.JWKS
 	jwtAudience string
 	jwtIssuer   string
@@ -27,8 +26,7 @@ var (
 func main() {
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
 	tableName := os.Getenv("TASK_EVENTS_TABLE")
-	usersTable := os.Getenv("USERS_TABLE_NAME")
-	if connStr == "" || tableName == "" || usersTable == "" {
+	if connStr == "" || tableName == "" {
 		log.Fatal("missing table storage config")
 	}
 	svc, err := aztables.NewServiceClientFromConnectionString(connStr, nil)
@@ -36,15 +34,8 @@ func main() {
 		log.Fatalf("service client: %v", err)
 	}
 	tableClient = svc.NewClient(tableName)
-	userClient = svc.NewClient(usersTable)
 	ctx := context.Background()
 	if _, err = tableClient.CreateTable(ctx, nil); err != nil {
-		var respErr *azcore.ResponseError
-		if !(errors.As(err, &respErr) && respErr.ErrorCode == string(aztables.TableAlreadyExists)) {
-			log.Fatalf("create table: %v", err)
-		}
-	}
-	if _, err = userClient.CreateTable(ctx, nil); err != nil {
 		var respErr *azcore.ResponseError
 		if !(errors.As(err, &respErr) && respErr.ErrorCode == string(aztables.TableAlreadyExists)) {
 			log.Fatalf("create table: %v", err)
@@ -68,7 +59,6 @@ func main() {
 	e.GET("/api/events", getEvents)
 	e.GET("/api/tasks", getTasks)
 	e.POST("/api/events", postEvents)
-	e.POST("/api/user", postUser)
 
 	port := os.Getenv("FUNCTIONS_CUSTOMHANDLER_PORT")
 	if port == "" {

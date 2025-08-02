@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
+import { v4 as uuid } from 'uuid';
 
 export function useRegisterUser() {
   const { isAuthenticated, user, getAccessTokenSilently } = useAuth0();
@@ -10,13 +11,21 @@ export function useRegisterUser() {
     async function register() {
       try {
         const token = await getAccessTokenSilently();
-        await fetch(`${baseUrl}/user`, {
+        const event = {
+          id: uuid(),
+          entityId: user?.sub,
+          entityType: 'users',
+          type: 'user-registered',
+          data: { name: user?.name, email: user?.email },
+          time: Date.now()
+        };
+        await fetch(`${baseUrl}/events`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify({ name: user?.name, email: user?.email })
+          body: JSON.stringify([event])
         });
       } catch (err) {
         console.error(err);

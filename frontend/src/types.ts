@@ -9,13 +9,17 @@ export interface Task {
   done?: boolean;
 }
 
-export type EventType = 'task-created' | 'task-updated' | 'task-completed';
+export type EventType =
+  | 'task-created'
+  | 'task-updated'
+  | 'task-completed'
+  | 'user-registered';
 
 export interface TaskEvent {
   id: string;
   entityId: string;
   entityType: string;
   type: EventType;
-  data?: Partial<Task>;
+  data?: any;
   time: number;
 }
