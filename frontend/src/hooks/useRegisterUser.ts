@@ -7,7 +7,7 @@ export function useRegisterUser() {
   const baseUrl = import.meta.env.VITE_API_BASE_URL as string;
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !user?.sub) return;
     async function register() {
       try {
         const token = await getAccessTokenSilently();
