@@ -142,3 +142,7 @@ api/local.settings.json
 api/.func
 api/handler
 api/main
+
+# Local SSL certificates
+certs/
+

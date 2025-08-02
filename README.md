@@ -1,13 +1,23 @@
 # Prism plan
 
 
+## Prerequisites
+- Docker
+- Latest NodeJs and Golang
+- OpenSSL (to generate dev SSL certificates)
+- Auth0 account (free tier is fine)
+
 ## Local API with Docker Compose
 Make sure to set up env variables in .env file (see .env.example)
+> [!TIP]
+> use generate-cert.bat for Windows
 
-```bash
-docker-compose up --build
-```
-The API will automatically create the table if it does not already exist.
+1. Generate SSL certificates via  scripts/generate-cert.sh or generate-cert.bat or manually
+2. ```bash
+      docker-compose up --build
+   ```
+
+The API will automatically create the table if it does not already exist. A self-signed certificate will be generated to serve the frontend over HTTPS.
 
 ## 📦 Environment variables
 The frontend expects an API base URL. Set `VITE_API_BASE_URL` along with the Auth0 variables in `frontend/.env` for local development.
@@ -18,11 +28,11 @@ The same `.env` file supplies `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` for the backen
 The Auth0 integration stores tokens in `localStorage` and uses refresh tokens so
 the login persists for about an hour even after refreshing the page.
 
-The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string, task events table name, and users table name in `api/.env` based on `api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline. Set `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` so the API can fetch the JWKS from Auth0 and validate incoming tokens. CORS is enabled by default so the frontend can call the API from `localhost`.
+The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string and table names for task and user events in `api/.env` based on `api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline. Set `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` so the API can fetch the JWKS from Auth0 and validate incoming tokens. CORS is enabled by default so the frontend can call the API from `localhost`.
 
-Use the `TASK_EVENTS_TABLE` variable to configure where task events are stored and `USERS_TABLE_NAME` for user information. Additional tables for other entities can be configured in the same way by exposing more variables and initializing new table clients.
+Use the `TASK_EVENTS_TABLE` and `USER_EVENTS_TABLE` variables to configure where task and user events are stored. Additional tables for other entities can be configured in the same way; the API reuses the same table client for all tables.
 
-The service stores task events and reconstructs entities on request. Fetch assembled tasks from `/api/tasks` and post user events to `/api/events`.
+The service stores task and user events separately and reconstructs entities on request. Fetch assembled tasks from `/api/tasks` and post events (including user registration) to `/api/events`.
 
 ## ☁️ Deploying to Azure (free tiers)
 1. Build the static site:

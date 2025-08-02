@@ -5,11 +5,13 @@ import { UserCircleIcon, PlusIcon } from '@heroicons/react/24/solid';
 import Board from './components/Board';
 import TaskModal from './components/TaskModal';
 import { useTasks } from './hooks/useTasks';
+import { useRegisterUser } from './hooks/useRegisterUser';
 
 export default function App() {
   const { tasks, addTask, updateTask, completeTask } = useTasks();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
+  useRegisterUser();
 
   return (
     <div className="p-4 space-y-6 sm:space-y-8">
