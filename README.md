@@ -1,13 +1,22 @@
 # Prism plan
 
 
+## Prerequisites
+- Docker
+- Latest NodeJs and Golang
+- OpenSSL (to generate dev SSL certificates)
+- Auth0 account (free tier is fine)
+
 ## Local API with Docker Compose
 Make sure to set up env variables in .env file (see .env.example)
+> [!TIP]
+> use generate-cert.bat for Windows
 
-```bash
-scripts/generate-cert.sh
-docker-compose up --build
-```
+1. Generate SSL certificates via  scripts/generate-cert.sh or generate-cert.bat or manually
+2. ```bash
+      docker-compose up --build
+   ```
+
 The API will automatically create the table if it does not already exist. A self-signed certificate will be generated to serve the frontend over HTTPS.
 
 ## 📦 Environment variables

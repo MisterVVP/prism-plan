@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sort"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
@@ -81,7 +80,6 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.CORS())
-	e.GET("/api/events", getEvents)
 	e.GET("/api/tasks", getTasks)
 	e.POST("/api/events", postEvents)
 
@@ -90,19 +88,6 @@ func main() {
 		port = "8080"
 	}
 	e.Logger.Fatal(e.Start(":" + port))
-}
-
-func getEvents(c echo.Context) error {
-	ctx := c.Request().Context()
-	userID, err := userIDFromAuthHeader(c.Request().Header.Get("Authorization"))
-	if err != nil {
-		return c.String(http.StatusUnauthorized, err.Error())
-	}
-	events, err := allEvents(ctx, userID)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(http.StatusOK, events)
 }
 
 func postEvents(c echo.Context) error {
@@ -154,20 +139,6 @@ func fetchEvents(ctx context.Context, userID, table string) ([]Event, error) {
 			}
 		}
 	}
-	return events, nil
-}
-
-func allEvents(ctx context.Context, userID string) ([]Event, error) {
-	taskEvents, err := fetchEvents(ctx, userID, taskTable)
-	if err != nil {
-		return nil, err
-	}
-	userEvents, err := fetchEvents(ctx, userID, userTable)
-	if err != nil {
-		return nil, err
-	}
-	events := append(taskEvents, userEvents...)
-	sort.Slice(events, func(i, j int) bool { return events[i].Time < events[j].Time })
 	return events, nil
 }
 
