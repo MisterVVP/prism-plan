@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
@@ -79,27 +78,8 @@ func main() {
 	}
 	jwtIssuer = "https://" + domain + "/"
 
-	allowedOrigins := []string{
-		"https://localhost:8080",
-		"https://mistervvp:8080",
-		"https://mistervvp.local:8080",
-		"https://192.168.50.162:8080",
-	}
-	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
-		allowedOrigins = []string{}
-		for _, o := range strings.Split(origins, ",") {
-			o = strings.TrimSpace(strings.TrimSuffix(o, "/"))
-			if o != "" {
-				allowedOrigins = append(allowedOrigins, o)
-			}
-		}
-	}
-
 	e := echo.New()
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: allowedOrigins,
-		AllowHeaders: []string{echo.HeaderAuthorization, echo.HeaderContentType, echo.HeaderAccept},
-	}))
+	e.Use(middleware.CORS())
 	e.GET("/api/tasks", getTasks)
 	e.POST("/api/events", postEvents)
 
