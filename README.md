@@ -28,7 +28,7 @@ The same `.env` file supplies `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` for the backen
 The Auth0 integration stores tokens in `localStorage` and uses refresh tokens so
 the login persists for about an hour even after refreshing the page.
 
-The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string and table names for task and user events in `api/.env` based on `api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline. Set `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` so the API can fetch the JWKS from Auth0 and validate incoming tokens. CORS is enabled by default so the frontend can call the API from `localhost`.
+The backend is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string and table names for task and user events in `api/.env` based on `api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline. Set `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` so the API can fetch the JWKS from Auth0 and validate incoming tokens. CORS allows `https://localhost:8080`, `https://mistervvp:8080`, `https://mistervvp.local:8080` and `https://192.168.50.162:8080` by default. Customize this list with the `CORS_ALLOWED_ORIGINS` environment variable if needed.
 
 Use the `TASK_EVENTS_TABLE` and `USER_EVENTS_TABLE` variables to configure where task and user events are stored. Additional tables for other entities can be configured in the same way; the API reuses the same table client for all tables.
 
