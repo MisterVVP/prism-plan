@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -64,9 +65,17 @@ func streamEvents(c echo.Context) error {
 	if !ok {
 		return c.String(http.StatusInternalServerError, "stream unsupported")
 	}
+	// Write an initial comment to ensure headers are flushed to the client.
+	if _, err := c.Response().Write([]byte(":ok\n\n")); err != nil {
+		return nil
+	}
+	flusher.Flush()
+
 	ch := addSubscriber(userID)
 	defer removeSubscriber(userID, ch)
 	ctx := c.Request().Context()
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case ev := <-ch:
@@ -78,6 +87,12 @@ func streamEvents(c echo.Context) error {
 				return nil
 			}
 			if _, err := c.Response().Write([]byte("\n\n")); err != nil {
+				return nil
+			}
+			flusher.Flush()
+		case <-ticker.C:
+			// Send a comment as a heartbeat to keep the connection alive.
+			if _, err := c.Response().Write([]byte(":keepalive\n\n")); err != nil {
 				return nil
 			}
 			flusher.Flush()
