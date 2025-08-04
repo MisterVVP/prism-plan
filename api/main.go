@@ -79,7 +79,10 @@ func main() {
 	jwtIssuer = "https://" + domain + "/"
 
 	e := echo.New()
-	e.Use(middleware.CORS())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
 	e.GET("/api/tasks", getTasks)
 	e.POST("/api/events", postEvents)
 
