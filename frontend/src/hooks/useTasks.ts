@@ -8,13 +8,19 @@ export function useTasks() {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const { isAuthenticated, getAccessTokenSilently, loginWithRedirect, user } = useAuth0();
   const baseUrl = import.meta.env.VITE_API_BASE_URL as string;
+  const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
   const userId = user?.sub ?? null;
 
   useEffect(() => {
     if (!isAuthenticated) return;
     async function fetchRemote() {
       try {
-        const token = await getAccessTokenSilently();
+        const token = await getAccessTokenSilently({
+          authorizationParams: {
+            audience,
+            scope: 'openid profile email offline_access'
+          }
+        });
         const res = await fetch(`${baseUrl}/tasks`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -33,14 +39,19 @@ export function useTasks() {
     fetchRemote();
     const interval = setInterval(fetchRemote, 60000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, baseUrl, getAccessTokenSilently, loginWithRedirect]);
+  }, [isAuthenticated, baseUrl, getAccessTokenSilently, loginWithRedirect, audience]);
 
   useEffect(() => {
     if (!isAuthenticated || events.length === 0) return;
     let cancelled = false;
     async function flushEvents() {
       try {
-        const token = await getAccessTokenSilently();
+        const token = await getAccessTokenSilently({
+          authorizationParams: {
+            audience,
+            scope: 'openid profile email offline_access'
+          }
+        });
         await fetch(`${baseUrl}/events`, {
           method: 'POST',
           headers: {
@@ -66,7 +77,7 @@ export function useTasks() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [events, isAuthenticated, baseUrl, getAccessTokenSilently, loginWithRedirect]);
+  }, [events, isAuthenticated, baseUrl, getAccessTokenSilently, loginWithRedirect, audience]);
 
   function addTask(partial: Omit<Task, 'id'>) {
     const id = uuid();

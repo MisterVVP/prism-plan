@@ -18,7 +18,7 @@ RUN npm run build
 
 # ---------- run stage ----------
 FROM nginx:alpine
-ENV CORS_ALLOWED_ORIGINS=https://localhost:8080|https://mistervvp:8080|https://mistervvp\.local:8080|https://192\.168\.50\.162:8080
+ENV CORS_ALLOWED_ORIGINS=.*
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 EXPOSE 443

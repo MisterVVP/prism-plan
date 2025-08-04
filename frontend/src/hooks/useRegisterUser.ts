@@ -5,12 +5,18 @@ import { v4 as uuid } from 'uuid';
 export function useRegisterUser() {
   const { isAuthenticated, user, getAccessTokenSilently } = useAuth0();
   const baseUrl = import.meta.env.VITE_API_BASE_URL as string;
+  const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
 
   useEffect(() => {
     if (!isAuthenticated || !user?.sub) return;
     async function register() {
       try {
-        const token = await getAccessTokenSilently();
+        const token = await getAccessTokenSilently({
+          authorizationParams: {
+            audience,
+            scope: 'openid profile email offline_access'
+          }
+        });
         const event = {
           id: uuid(),
           entityId: user?.sub,
@@ -32,5 +38,5 @@ export function useRegisterUser() {
       }
     }
     register();
-  }, [isAuthenticated, user, baseUrl, getAccessTokenSilently]);
+  }, [isAuthenticated, user, baseUrl, getAccessTokenSilently, audience]);
 }
