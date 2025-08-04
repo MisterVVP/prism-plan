@@ -20,7 +20,8 @@ export function AuthProvider({ children }: Props) {
         scope: 'openid profile email offline_access'
       }}
       cacheLocation="localstorage"
-      useRefreshTokens
+      useRefreshTokens={true}
+      useRefreshTokensFallback={true}
     >
       {children}
     </Auth0Provider>

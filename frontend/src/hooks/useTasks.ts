@@ -1,33 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { v4 as uuid } from 'uuid';
-import {
-  loadEvents,
-  saveEvents,
-  loadTasks,
-  saveTasks
-} from '../storage';
 import type { Task, TaskEvent } from '../types';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<TaskEvent[]>([]);
-  const { isAuthenticated, getAccessTokenSilently, user } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently, loginWithRedirect, user } = useAuth0();
   const baseUrl = import.meta.env.VITE_API_BASE_URL as string;
   const userId = user?.sub ?? null;
-
-  useEffect(() => {
-    loadTasks(userId).then(setTasks);
-    loadEvents(userId).then(setEvents);
-  }, [userId]);
-
-  useEffect(() => {
-    saveTasks(userId, tasks);
-  }, [tasks, userId]);
-
-  useEffect(() => {
-    saveEvents(userId, events);
-  }, [events, userId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -40,16 +21,19 @@ export function useTasks() {
         if (res.ok) {
           const data: Task[] = await res.json();
           setTasks(data);
-          saveTasks(userId, data);
         }
       } catch (err) {
-        console.error(err);
+        if (err instanceof Error && err.message.includes('Missing Refresh Token')) {
+          loginWithRedirect();
+        } else {
+          console.error(err);
+        }
       }
     }
     fetchRemote();
     const interval = setInterval(fetchRemote, 60000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, baseUrl, getAccessTokenSilently, userId]);
+  }, [isAuthenticated, baseUrl, getAccessTokenSilently, loginWithRedirect]);
 
   useEffect(() => {
     if (!isAuthenticated || events.length === 0) return;
@@ -67,10 +51,13 @@ export function useTasks() {
         });
         if (!cancelled) {
           setEvents([]);
-          saveEvents(userId, []);
         }
       } catch (err) {
-        console.error(err);
+        if (err instanceof Error && err.message.includes('Missing Refresh Token')) {
+          loginWithRedirect();
+        } else {
+          console.error(err);
+        }
       }
     }
     flushEvents();
@@ -79,7 +66,7 @@ export function useTasks() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [events, isAuthenticated, baseUrl, getAccessTokenSilently, userId]);
+  }, [events, isAuthenticated, baseUrl, getAccessTokenSilently, loginWithRedirect]);
 
   function addTask(partial: Omit<Task, 'id'>) {
     const id = uuid();
