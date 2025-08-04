@@ -20,8 +20,8 @@ Make sure to set up env variables in .env file (see .env.example)
 The API will automatically create the table if it does not already exist. A self-signed certificate will be generated to serve the frontend over HTTPS.
 
 ## 📦 Environment variables
-The frontend expects an API base URL. Set `VITE_API_BASE_URL` along with the Auth0 variables in `frontend/.env` for local development. With Docker Compose Nginx terminates TLS and proxies `/api` calls to the Go backend so the API is available over HTTPS at `https://localhost:8080/api`.
-An example is provided in `frontend/.env.example`.
+The frontend uses the current origin for API requests, so no extra configuration is needed when the API is served from the same host. Override the API location by setting `VITE_API_BASE_URL` along with the Auth0 variables in `frontend/.env`. With Docker Compose Nginx terminates TLS and proxies `/api` calls to the Go backend so the API is available over HTTPS at `https://localhost:8080/api`.
+An example is provided in `frontend/.env.example` for the Auth0 values.
 When running with Docker Compose the Auth0 values come from the project `.env` file and are passed as build arguments so the generated bundle calls the local API correctly.
 The same `.env` file supplies `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` for the backend so it can verify JWTs.
 
