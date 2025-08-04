@@ -47,11 +47,14 @@ export function useTasks() {
       }
     }
     fetchRemote();
+    const interval = setInterval(fetchRemote, 60000);
+    return () => clearInterval(interval);
   }, [isAuthenticated, baseUrl, getAccessTokenSilently, userId]);
 
   useEffect(() => {
     if (!isAuthenticated || events.length === 0) return;
-    const id = setTimeout(async () => {
+    let cancelled = false;
+    async function flushEvents() {
       try {
         const token = await getAccessTokenSilently();
         await fetch(`${baseUrl}/events`, {
@@ -62,13 +65,20 @@ export function useTasks() {
           },
           body: JSON.stringify(events)
         });
-        setEvents([]);
-        saveEvents(userId, []);
+        if (!cancelled) {
+          setEvents([]);
+          saveEvents(userId, []);
+        }
       } catch (err) {
         console.error(err);
       }
-    }, 500);
-    return () => clearTimeout(id);
+    }
+    flushEvents();
+    const interval = setInterval(flushEvents, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [events, isAuthenticated, baseUrl, getAccessTokenSilently, userId]);
 
   function addTask(partial: Omit<Task, 'id'>) {
