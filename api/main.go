@@ -85,6 +85,7 @@ func main() {
 	}))
 	e.GET("/api/tasks", getTasks)
 	e.POST("/api/events", postEvents)
+	e.GET("/api/stream", streamEvents)
 
 	port := os.Getenv("FUNCTIONS_CUSTOMHANDLER_PORT")
 	if port == "" {
@@ -124,6 +125,7 @@ func postEvents(c echo.Context) error {
 				}
 				log.Printf("add entity: %v", err)
 			}
+			broadcast(userID, ev)
 			continue
 		}
 
@@ -134,6 +136,7 @@ func postEvents(c echo.Context) error {
 		}
 		payload, _ := json.Marshal(ent)
 		clientFor(table).UpsertEntity(ctx, payload, nil)
+		broadcast(userID, ev)
 	}
 	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 }

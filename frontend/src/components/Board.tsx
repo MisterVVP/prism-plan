@@ -1,4 +1,11 @@
-import { DndContext, DragEndEvent } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragEndEvent,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import Lane from './Lane';
 import type { Category, Task } from '../types';
@@ -12,6 +19,7 @@ interface Props {
 const categories: Category[] = ['critical', 'fun', 'important', 'normal'];
 
 export default function Board({ tasks, updateTask, completeTask }: Props) {
+  const sensors = useSensors(useSensor(MouseSensor), useSensor(TouchSensor));
 
   function handleDragEnd(ev: DragEndEvent) {
     const { active, over } = ev;
@@ -50,7 +58,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
   }
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {categories.map((cat) => {
           const laneTasks = tasks
