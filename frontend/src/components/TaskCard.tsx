@@ -29,7 +29,13 @@ export default function TaskCard({ task, onClick }: Props) {
   };
 
   const maxLines = isMobile ? 1 : isLarge ? 6 : 4;
-  const clampClass = `line-clamp-${maxLines}`;
+  const noteStyle: React.CSSProperties = {
+    WebkitLineClamp: maxLines,
+    lineClamp: maxLines as any,
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical' as any,
+    overflow: 'hidden'
+  };
 
   return (
     <div
@@ -42,7 +48,10 @@ export default function TaskCard({ task, onClick }: Props) {
     >
       <div className="font-medium">{task.title}</div>
       {task.notes && (
-        <div className={`mt-1 text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'} ${clampClass}`} style={{ WebkitLineClamp: maxLines, lineClamp: maxLines as any }}>
+        <div
+          className={`mt-1 text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'}`}
+          style={noteStyle}
+        >
           {task.notes}
         </div>
       )}
