@@ -12,4 +12,12 @@
   .clip-bookmark-notch {
     clip-path: polygon(12% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 12%, 12% 0%);
   }
+
+  /* Utility to clamp text to two lines */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }

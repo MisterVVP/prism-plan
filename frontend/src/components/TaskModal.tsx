@@ -89,25 +89,20 @@ export default function TaskModal({
               {/* Category picker */}
               <fieldset className="mt-4">
                 <legend className="mb-1 text-sm font-medium text-gray-700">Category</legend>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-1">
                   {categories.map(({ value, label, bg }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setCat(value)}
-                      className={`
-                        ${bg} ${value === 'fun' ? 'rounded-full' : value === 'critical' ? 'clip-hex-tab' :
-                        value === 'important' ? 'clip-bookmark-notch' : 'rounded-md'}
-                        px-3 py-1 text-sm font-medium text-white shadow
-                        ${
-                          cat === value
-                            ? 'ring-offset ring-4 ring-indigo-500'
-                            : 'opacity-80 hover:opacity-100'
-                        }
-                      `}
-                    >
+                    <label key={value} className="flex cursor-pointer items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="category"
+                        value={value}
+                        checked={cat === value}
+                        onChange={() => setCat(value)}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className={`h-2 w-2 rounded-full ${bg}`} />
                       {label}
-                    </button>
+                    </label>
                   ))}
                 </div>
               </fieldset>

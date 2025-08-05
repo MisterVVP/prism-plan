@@ -84,6 +84,10 @@ export default function App() {
 
       <Board tasks={tasks} updateTask={updateTask} completeTask={completeTask} />
 
+      <footer className="pt-4 text-center text-xs text-gray-500">
+        Copyright © 2025 Vladimir Pavlov. All rights reserved.
+      </footer>
+
       <TaskModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
