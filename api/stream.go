@@ -60,6 +60,8 @@ func streamEvents(c echo.Context) error {
 	}
 	c.Response().Header().Set(echo.HeaderContentType, "text/event-stream")
 	c.Response().Header().Set(echo.HeaderCacheControl, "no-cache")
+	c.Response().Header().Set(echo.HeaderConnection, "keep-alive")
+	c.Response().Header().Set("X-Accel-Buffering", "no")
 	c.Response().WriteHeader(http.StatusOK)
 	flusher, ok := c.Response().Writer.(http.Flusher)
 	if !ok {
