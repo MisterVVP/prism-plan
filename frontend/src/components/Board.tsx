@@ -9,6 +9,7 @@ import {
 import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import Lane from './Lane';
 import type { Category, Task } from '../types';
+import { useState } from 'react';
 
 interface Props {
   tasks: Task[];
@@ -20,6 +21,7 @@ const categories: Category[] = ['critical', 'fun', 'important', 'normal'];
 
 export default function Board({ tasks, updateTask, completeTask }: Props) {
   const sensors = useSensors(useSensor(MouseSensor), useSensor(TouchSensor));
+  const [expanded, setExpanded] = useState<Category | 'done' | null>(null);
 
   function handleDragEnd(ev: DragEndEvent) {
     const { active, over } = ev;
@@ -57,6 +59,30 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
     ordered.forEach((task, idx) => updateTask(task.id, { order: idx }));
   }
 
+  if (expanded) {
+    const laneTasks = (expanded === 'done'
+      ? tasks.filter((t) => t.done)
+      : tasks.filter((t) => t.category === expanded && !t.done)
+    ).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    return (
+      <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
+        <div className="mx-auto max-w-5xl">
+          <button
+            type="button"
+            className="mb-4 flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+            onClick={() => setExpanded(null)}
+          >
+            ← Back to all categories
+          </button>
+          <SortableContext items={laneTasks.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
+            <Lane category={expanded} tasks={laneTasks} expanded />
+          </SortableContext>
+        </div>
+      </DndContext>
+    );
+  }
+
   return (
     <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -70,11 +96,11 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
               strategy={horizontalListSortingStrategy}
               key={cat}
             >
-              <Lane category={cat} tasks={laneTasks} />
+              <Lane category={cat} tasks={laneTasks} onExpand={() => setExpanded(cat)} />
             </SortableContext>
           );
         })}
-        <Lane category="done" tasks={tasks.filter((t) => t.done)} />
+        <Lane category="done" tasks={tasks.filter((t) => t.done)} onExpand={() => setExpanded('done')} />
       </div>
     </DndContext>
   );
