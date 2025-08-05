@@ -43,7 +43,7 @@ export default function Lane({ category, tasks }: Props) {
       <div
         ref={setNodeRef}
         style={droppableStyle}
-        className="flex flex-1 flex-wrap gap-2 overflow-hidden px-2 pb-4 transition-colors"
+        className="flex flex-1 flex-wrap gap-2 overflow-hidden px-2 pb-4 pt-4 transition-colors"
       >
         {visibleTasks.map((task) => (
           <TaskCard key={task.id} task={task} />
