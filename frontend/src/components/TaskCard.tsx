@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '../types';
+import { palette } from '../palette';
 
 export default function TaskCard({ task }: { task: Task }) {
   const {
@@ -16,15 +17,9 @@ export default function TaskCard({ task }: { task: Task }) {
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition
+    transition,
+    borderColor: palette[task.category]
   };
-
-  const shapeClasses = {
-    critical: 'clip-hex-tab',
-    fun: 'rounded-full',
-    important: 'clip-bookmark-notch',
-    normal: 'rounded-md'
-  } as const;
 
   return (
     <div
@@ -32,7 +27,7 @@ export default function TaskCard({ task }: { task: Task }) {
       style={style}
       {...listeners}
       {...attributes}
-      className={`relative min-w-[120px] px-3 py-2 text-sm text-white bg-${task.category} ${shapeClasses[task.category]} select-none touch-none shadow flex items-center justify-center text-center`}
+      className="relative min-w-[160px] select-none rounded-lg border-l-4 bg-white px-4 py-3 text-sm text-gray-800 shadow transition-shadow touch-none hover:shadow-md"
     >
       {task.title}
     </div>

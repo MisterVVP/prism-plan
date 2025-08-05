@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import { palette } from './src/palette';
 
 export default <Config>{
   content: [
@@ -10,12 +11,7 @@ export default <Config>{
   ],
   theme: {
     extend: {
-      colors: {
-        critical: '#FF5252',
-        fun: '#4CAF50',
-        important: '#3F7FBF',
-        normal: '#D2D2D2'
-      }
+      colors: palette
     }
   },
   plugins: []

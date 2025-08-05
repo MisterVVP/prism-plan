@@ -1,19 +1,13 @@
 import TaskCard from './TaskCard';
 import { useDroppable } from '@dnd-kit/core';
 import type { Task, Category } from '../types';
-
-const colorMap = {
-  critical: '#FF5252',
-  fun: '#4CAF50',
-  important: '#3F7FBF',
-  normal: '#D2D2D2',
-  done: '#9CA3AF'
-} as const;
+import { palette } from '../palette';
 
 interface Props {
   category: Category | 'done';
   tasks: Task[];
 }
+
 export default function Lane({ category, tasks }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: category, data: { category } });
   const titleMap = {
@@ -25,22 +19,40 @@ export default function Lane({ category, tasks }: Props) {
   };
   const droppableStyle: React.CSSProperties | undefined = isOver
     ? {
-        backgroundColor: `${colorMap[category]}20`,
-        border: `2px dashed ${colorMap[category]}`,
+        backgroundColor: `${palette[category]}20`,
+        border: `2px dashed ${palette[category]}`,
         borderRadius: '0.5rem'
       }
     : undefined;
+
+  const MAX_VISIBLE = 3;
+  const visibleTasks = tasks.slice(0, MAX_VISIBLE);
+  const extra = tasks.length - MAX_VISIBLE;
+
   return (
-    <section className="mb-4 flex h-full flex-col ">
-      <h2 className={`mx-2 mb-1 font-bold text-${category}`}>{titleMap[category]}</h2>
+    <section className="mb-4 flex h-full flex-col">
+      <h2 className="mx-2 mb-2">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-md bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-100"
+        >
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette[category] }} />
+          {titleMap[category]}
+        </button>
+      </h2>
       <div
         ref={setNodeRef}
         style={droppableStyle}
-        className="flex flex-1 gap-2 overflow-x-auto px-2 pb-4 sm:flex-wrap sm:overflow-visible transition-colors"
+        className="flex flex-1 flex-wrap gap-2 overflow-hidden px-2 pb-4 transition-colors"
       >
-        {tasks.map((task) => (
+        {visibleTasks.map((task) => (
           <TaskCard key={task.id} task={task} />
         ))}
+        {extra > 0 && (
+          <div className="flex min-w-[160px] items-center justify-center rounded-lg bg-gray-100 px-4 py-3 text-sm text-gray-500 shadow">
+            +{extra} more
+          </div>
+        )}
       </div>
     </section>
   );
