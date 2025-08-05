@@ -21,7 +21,10 @@ interface Props {
 const categories: Category[] = ['critical', 'fun', 'important', 'normal'];
 
 export default function Board({ tasks, updateTask, completeTask }: Props) {
-  const sensors = useSensors(useSensor(MouseSensor), useSensor(TouchSensor));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { distance: 5 } })
+  );
   const [expanded, setExpanded] = useState<Category | 'done' | null>(null);
   const [selected, setSelected] = useState<Task | null>(null);
 

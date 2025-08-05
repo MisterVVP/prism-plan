@@ -26,6 +26,10 @@ export default function TaskCard({ task, onClick }: Props) {
     borderColor: palette[task.category]
   };
 
+  const maxLines =
+    typeof window !== 'undefined' && window.innerWidth >= 1024 ? 6 : 4;
+  const clampClass = maxLines === 6 ? 'line-clamp-6' : 'line-clamp-4';
+
   return (
     <div
       ref={setNodeRef}
@@ -37,7 +41,7 @@ export default function TaskCard({ task, onClick }: Props) {
     >
       <div className="font-medium">{task.title}</div>
       {task.notes && (
-        <div className="mt-1 text-xs text-gray-500 line-clamp-2">{task.notes}</div>
+        <div className={`mt-1 text-xs text-gray-500 ${clampClass}`}>{task.notes}</div>
       )}
     </div>
   );
