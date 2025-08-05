@@ -10,11 +10,20 @@ import { useRegisterUser } from './hooks/useRegisterUser';
 export default function App() {
   const { tasks, addTask, updateTask, completeTask } = useTasks();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
   useRegisterUser();
 
+  const filteredTasks = tasks.filter((task) => {
+    const q = search.toLowerCase();
+    return (
+      task.title.toLowerCase().includes(q) ||
+      (task.notes ?? '').toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div className="p-4 space-y-6 sm:space-y-8">
+    <div className="flex min-h-screen flex-col p-4 space-y-6 sm:space-y-8">
       <header className="flex items-center justify-between gap-4">
         {/* User avatar / login */}
         <div className="flex items-center">
@@ -67,6 +76,8 @@ export default function App() {
           <input
             type="text"
             placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
           />
         </div>
@@ -82,7 +93,9 @@ export default function App() {
         </div>
       </header>
 
-      <Board tasks={tasks} updateTask={updateTask} completeTask={completeTask} />
+      <main className="flex-1">
+        <Board tasks={filteredTasks} updateTask={updateTask} completeTask={completeTask} />
+      </main>
 
       <footer className="pt-4 text-center text-xs text-gray-500">
         Copyright © 2025 Vladimir Pavlov. All rights reserved.
