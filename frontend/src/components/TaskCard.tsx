@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '../types';
 import { palette } from '../palette';
+import { useLayout } from '../context/LayoutContext';
 
 interface Props {
   task: Task;
@@ -19,6 +20,7 @@ export default function TaskCard({ task, onClick }: Props) {
     id: task.id,
     data: { category: task.category }
   });
+  const { isMobile, isLarge } = useLayout();
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -26,9 +28,8 @@ export default function TaskCard({ task, onClick }: Props) {
     borderColor: palette[task.category]
   };
 
-  const maxLines =
-    typeof window !== 'undefined' && window.innerWidth >= 1024 ? 6 : 4;
-  const clampClass = maxLines === 6 ? 'line-clamp-6' : 'line-clamp-4';
+  const maxLines = isMobile ? 1 : isLarge ? 6 : 4;
+  const clampClass = `line-clamp-${maxLines}`;
 
   return (
     <div
@@ -37,11 +38,13 @@ export default function TaskCard({ task, onClick }: Props) {
       {...listeners}
       {...attributes}
       onClick={onClick}
-      className="relative min-w-[160px] select-none rounded-lg border-l-4 bg-white px-4 py-3 text-sm text-gray-800 shadow transition-shadow touch-none hover:shadow-md cursor-pointer"
+      className={`relative select-none rounded-lg border-l-4 bg-white text-gray-800 shadow transition-shadow touch-none hover:shadow-md cursor-pointer ${isMobile ? 'min-w-[60px] px-1 py-1 text-xs' : 'min-w-[160px] px-4 py-3 text-sm'}`}
     >
       <div className="font-medium">{task.title}</div>
       {task.notes && (
-        <div className={`mt-1 text-xs text-gray-500 ${clampClass}`}>{task.notes}</div>
+        <div className={`mt-1 text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'} ${clampClass}`} style={{ WebkitLineClamp: maxLines, lineClamp: maxLines as any }}>
+          {task.notes}
+        </div>
       )}
     </div>
   );

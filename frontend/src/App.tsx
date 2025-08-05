@@ -6,6 +6,7 @@ import Board from './components/Board';
 import TaskModal from './components/TaskModal';
 import { useTasks } from './hooks/useTasks';
 import { useRegisterUser } from './hooks/useRegisterUser';
+import { useLayout } from './context/LayoutContext';
 
 export default function App() {
   const { tasks, addTask, updateTask, completeTask } = useTasks();
@@ -13,6 +14,7 @@ export default function App() {
   const [search, setSearch] = useState('');
   const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
   useRegisterUser();
+  const { isMobile } = useLayout();
 
   const filteredTasks = tasks.filter((task) => {
     const q = search.toLowerCase();
@@ -23,8 +25,10 @@ export default function App() {
   });
 
   return (
-    <div className="flex min-h-screen flex-col p-4 space-y-6 sm:space-y-8">
-      <header className="flex items-center justify-between gap-4">
+    <div
+      className={`flex min-h-screen flex-col ${isMobile ? 'p-2 space-y-2' : 'p-4 space-y-6 sm:space-y-8'}`}
+    >
+      <header className={`flex items-center justify-between ${isMobile ? 'gap-2' : 'gap-4'}`}>
         {/* User avatar / login */}
         <div className="flex items-center">
           {isAuthenticated ? (
@@ -64,21 +68,21 @@ export default function App() {
             </Transition>
           </Menu>
           ) : (
-            <UserCircleIcon
-              onClick={() => loginWithRedirect()}
-              className="h-10 w-10 text-gray-400 cursor-pointer"
-            />
+              <UserCircleIcon
+                onClick={() => loginWithRedirect()}
+                className={`${isMobile ? 'h-8 w-8' : 'h-10 w-10'} text-gray-400 cursor-pointer`}
+              />
           )}
         </div>
 
         {/* Search bar */}
-        <div className="flex-1 px-2 sm:px-4">
+        <div className={`flex-1 ${isMobile ? 'px-1' : 'px-2 sm:px-4'}`}>
           <input
             type="text"
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className={`w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 ${isMobile ? 'px-1 py-1 text-xs' : 'px-2 py-1 text-sm'}`}
           />
         </div>
 
@@ -86,7 +90,7 @@ export default function App() {
         <div className="flex items-center">
           <button
             onClick={() => setIsModalOpen(true)}
-            className="h-10 w-10 rounded-full bg-indigo-600 p-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className={`rounded-full bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${isMobile ? 'h-8 w-8 p-1' : 'h-10 w-10 p-2'}`}
           >
             <PlusIcon className="h-full w-full" />
           </button>
@@ -97,7 +101,7 @@ export default function App() {
         <Board tasks={filteredTasks} updateTask={updateTask} completeTask={completeTask} />
       </main>
 
-      <footer className="pt-4 text-center text-xs text-gray-500">
+      <footer className={`${isMobile ? 'pt-2 text-[10px]' : 'pt-4 text-xs'} text-center text-gray-500`}>
         Copyright © 2025 Vladimir Pavlov. All rights reserved.
       </footer>
 
