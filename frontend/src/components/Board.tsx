@@ -11,6 +11,7 @@ import Lane from './Lane';
 import TaskDetails from './TaskDetails';
 import type { Category, Task } from '../types';
 import { useState } from 'react';
+import { useLayout } from '../context/LayoutContext';
 
 interface Props {
   tasks: Task[];
@@ -27,6 +28,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
   );
   const [expanded, setExpanded] = useState<Category | 'done' | null>(null);
   const [selected, setSelected] = useState<Task | null>(null);
+  const { isMobile } = useLayout();
 
   function handleDragEnd(ev: DragEndEvent) {
     const { active, over } = ev;
@@ -94,7 +96,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
 
   return (
     <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className={isMobile ? 'grid gap-1' : 'grid gap-4 sm:grid-cols-2 lg:grid-cols-5'}>
         {categories.map((cat) => {
           const laneTasks = tasks
             .filter((t) => t.category === cat && !t.done)
