@@ -32,7 +32,7 @@ export default function TaskCard({ task }: { task: Task }) {
       style={style}
       {...listeners}
       {...attributes}
-      className={`relative min-w-[120px] px-3 py-2 text-sm text-white bg-${task.category} ${shapeClasses[task.category]} select-none shadow flex items-center justify-center text-center`}
+      className={`relative min-w-[120px] px-3 py-2 text-sm text-white bg-${task.category} ${shapeClasses[task.category]} select-none touch-none shadow flex items-center justify-center text-center`}
     >
       {task.title}
     </div>

@@ -54,6 +54,53 @@ export function useTasks() {
   ]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+    let source: EventSource | null = null;
+    async function connect() {
+      try {
+        const token = await getAccessTokenSilently({
+          authorizationParams: {
+            audience,
+            scope: "openid profile email offline_access",
+          },
+        });
+        source = new EventSource(`${baseUrl}/stream?token=${token}`);
+        source.onmessage = (ev) => {
+          const evt: TaskEvent = JSON.parse(ev.data);
+          if (evt.entityType !== "task") return;
+          switch (evt.type) {
+            case "task-created": {
+              const newTask: Task = { id: evt.entityId, done: false, ...(evt.data || {}) };
+              setTasks((t) => (t.some((task) => task.id === newTask.id) ? t : [...t, newTask]));
+              break;
+            }
+            case "task-updated": {
+              setTasks((t) =>
+                t.map((task) =>
+                  task.id === evt.entityId ? { ...task, ...(evt.data || {}) } : task
+                )
+              );
+              break;
+            }
+            case "task-completed": {
+              setTasks((t) =>
+                t.map((task) => (task.id === evt.entityId ? { ...task, done: true } : task))
+              );
+              break;
+            }
+          }
+        };
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    connect();
+    return () => {
+      if (source) source.close();
+    };
+  }, [isAuthenticated, baseUrl, getAccessTokenSilently, audience]);
+
+  useEffect(() => {
     if (!isAuthenticated || events.length === 0) return;
     let cancelled = false;
     async function flushEvents() {
