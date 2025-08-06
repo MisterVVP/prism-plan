@@ -1,15 +1,12 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
 	"github.com/MicahParks/keyfunc"
@@ -25,17 +22,6 @@ var (
 	jwtIssuer    string
 )
 
-func ensureTable(ctx context.Context, svc *aztables.ServiceClient, name string) (*aztables.Client, error) {
-	c := svc.NewClient(name)
-	if _, err := c.CreateTable(ctx, nil); err != nil {
-		var respErr *azcore.ResponseError
-		if !(errors.As(err, &respErr) && respErr.ErrorCode == string(aztables.TableAlreadyExists)) {
-			return nil, err
-		}
-	}
-	return c, nil
-}
-
 func main() {
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
 	tasksTableName := os.Getenv("TASKS_TABLE")
@@ -44,22 +30,16 @@ func main() {
 		log.Fatal("missing storage config")
 	}
 
-	var err error
 	svc, err := aztables.NewServiceClientFromConnectionString(connStr, nil)
 	if err != nil {
 		log.Fatalf("table service: %v", err)
 	}
-	ctx := context.Background()
-	taskTable, err = ensureTable(ctx, svc, tasksTableName)
-	if err != nil {
-		log.Fatalf("ensure table: %v", err)
-	}
+	taskTable = svc.NewClient(tasksTableName)
 
 	commandQueue, err = azqueue.NewQueueClientFromConnectionString(connStr, commandQueueName, nil)
 	if err != nil {
 		log.Fatalf("queue service: %v", err)
 	}
-	commandQueue.Create(ctx, nil)
 
 	jwtAudience = os.Getenv("AUTH0_AUDIENCE")
 	domain := os.Getenv("AUTH0_DOMAIN")

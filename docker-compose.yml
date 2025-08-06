@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   web:
     build:
@@ -27,7 +29,10 @@ services:
     ports:
       - "7071:7071"
     depends_on:
-      - azurite
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
   domain-service:
     build: ./domain-service
     environment:
@@ -36,7 +41,10 @@ services:
       - COMMAND_QUEUE=${COMMAND_QUEUE}
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
     depends_on:
-      - azurite
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
   read-model-updater:
     build: ./read-model-updater
     environment:
@@ -44,7 +52,10 @@ services:
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
       - TASKS_TABLE=${TASKS_TABLE}
     depends_on:
-      - azurite
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     healthcheck:
@@ -58,6 +69,20 @@ services:
       - "10002:10002"
     volumes:
       - azurite_data:/data
+
+  storage-init:
+    build: ./storage-init
+    environment:
+      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
+      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
+      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
+      - TASKS_TABLE=${TASKS_TABLE}
+      - COMMAND_QUEUE=${COMMAND_QUEUE}
+      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
+    depends_on:
+      azurite:
+        condition: service_healthy
+    restart: "no"
 
 volumes:
   azurite_data:

@@ -36,14 +36,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("queue client: %v", err)
 	}
-	queue.Create(context.Background(), nil)
 
 	tSvc, err := aztables.NewServiceClientFromConnectionString(connStr, nil)
 	if err != nil {
 		log.Fatalf("table service: %v", err)
 	}
 	table := tSvc.NewClient(tasksTable)
-	table.CreateTable(context.Background(), nil)
 
 	ctx := context.Background()
 	for {

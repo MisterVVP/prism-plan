@@ -21,7 +21,7 @@ Make sure to set up env variables in .env file (see .env.example)
       docker-compose up --build
    ```
 
-The Prism API will automatically create the table if it does not already exist. A self-signed certificate will be generated to serve the frontend over HTTPS.
+   A self-signed certificate will be generated to serve the frontend over HTTPS. Storage tables and queues are provisioned by a `storage-init` service before the other containers start.
 
 ## 📦 Environment variables
 The frontend uses the current origin for API requests, so no extra configuration is needed when the API is served from the same host. Override the API location by setting `VITE_API_BASE_URL` along with the Auth0 variables in `frontend/.env`. With Docker Compose Nginx terminates TLS and proxies `/api` calls to the Go backend so the API is available over HTTPS at `https://localhost:8080/api`.
