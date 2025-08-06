@@ -1,28 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/golang-jwt/jwt/v4"
 )
-
-type Event struct {
-	ID         string          `json:"id"`
-	EntityID   string          `json:"entityId"`
-	EntityType string          `json:"entityType"`
-	Type       string          `json:"type"`
-	Data       json.RawMessage `json:"data,omitempty"`
-	Time       int64           `json:"time"`
-}
-
-type eventEntity struct {
-	aztables.Entity
-	Data string `json:"Data"`
-}
 
 func userIDFromAuthHeader(h string) (string, error) {
 	if h == "" {
