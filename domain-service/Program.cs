@@ -57,9 +57,6 @@ class Worker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Domain Service running");
-        await _commandQueue.CreateIfNotExistsAsync();
-        await _domainEventsQueue.CreateIfNotExistsAsync();
-        await _eventTable.CreateIfNotExistsAsync();
 
         while (!stoppingToken.IsCancellationRequested)
         {
