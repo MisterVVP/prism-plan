@@ -13,9 +13,9 @@ services:
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on:
-      - api
-  api:
-    build: ./api
+      - prism-api
+  prism-api:
+    build: ./prism-api
     environment:
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
@@ -24,6 +24,22 @@ services:
       - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
     ports:
       - "7071:7071"
+    depends_on:
+      - azurite
+  domain-service:
+    build: ./domain-service
+    environment:
+      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
+      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
+      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
+    depends_on:
+      - azurite
+  read-model-updater:
+    build: ./read-model-updater
+    environment:
+      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
+      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
+      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
     depends_on:
       - azurite
   azurite:

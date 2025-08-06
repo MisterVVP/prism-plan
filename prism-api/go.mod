@@ -1,4 +1,4 @@
-module prism-plan-api
+module prism-api
 
 go 1.24
 
