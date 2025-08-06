@@ -138,7 +138,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 # Azure Functions
-api/local.settings.json
-api/.func
-api/handler
-api/main
+prism-api/local.settings.json
+prism-api/.func
+prism-api/handler
+prism-api/main
