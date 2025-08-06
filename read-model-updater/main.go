@@ -53,7 +53,7 @@ func main() {
 			time.Sleep(time.Second)
 			continue
 		}
-		if resp.Messages == nil || len(resp.Messages) == 0 {
+		if len(resp.Messages) == 0 {
 			time.Sleep(time.Second)
 			continue
 		}
@@ -71,11 +71,11 @@ func apply(ctx context.Context, table *aztables.Client, ev Event) {
 	rk := ev.EntityID
 	switch ev.Type {
 	case "task-created":
-		var t map[string]interface{}
+		var t map[string]any
 		if err := json.Unmarshal(ev.Data, &t); err != nil {
 			return
 		}
-		ent := map[string]interface{}{
+		ent := map[string]any{
 			"PartitionKey": pk,
 			"RowKey":       rk,
 			"title":        t["title"],
@@ -97,7 +97,7 @@ func apply(ctx context.Context, table *aztables.Client, ev Event) {
 		et := azcore.ETagAny
 		table.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
 	case "task-completed":
-		ent := map[string]interface{}{
+		ent := map[string]any{
 			"PartitionKey": pk,
 			"RowKey":       rk,
 			"done":         true,

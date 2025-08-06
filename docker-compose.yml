@@ -31,15 +31,16 @@ services:
     environment:
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
+      - COMMAND_QUEUE=${COMMAND_QUEUE}
+      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
     depends_on:
       - azurite
   read-model-updater:
     build: ./read-model-updater
     environment:
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
+      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
+      - TASKS_TABLE=${TASKS_TABLE}
     depends_on:
       - azurite
   azurite:
