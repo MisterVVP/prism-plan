@@ -3,10 +3,6 @@ using DomainService.Interfaces;
 
 namespace DomainService;
 
-internal sealed record Command(string Id, string EntityId, string EntityType, string Type, JsonElement? Data);
-internal sealed record CommandEnvelope(string UserId, Command Command);
-internal sealed record Event(string Id, string EntityId, string EntityType, string Type, JsonElement? Data, long Time, string UserId) : IEvent;
-
 internal sealed class TaskState
 {
     public string? Title { get; set; }
