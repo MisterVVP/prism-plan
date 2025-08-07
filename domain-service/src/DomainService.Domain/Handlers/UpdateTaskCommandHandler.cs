@@ -22,7 +22,7 @@ internal sealed class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskComma
         var state = TaskStateBuilder.From(events);
         if (state.Title == null) return Unit.Value;
 
-        var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, "task", "task-updated", request.Data, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), request.UserId);
+        var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Updated, request.Data, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), request.UserId);
         await _taskRepo.Add(ev, ct);
         await _eventQueue.Add(ev, ct);
         return Unit.Value;

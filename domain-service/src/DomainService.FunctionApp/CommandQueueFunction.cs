@@ -22,12 +22,12 @@ internal sealed class CommandQueueFunction
     {
         try
         {
-            var env = JsonSerializer.Deserialize<CommandEnvelope>(msg);
+            var env = JsonSerializer.Deserialize<CommandEnvelope>(msg, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (env == null) return;
 
             IRequest<Unit>? cmd = env.Command.EntityType switch
             {
-                "task" => env.Command.Type switch
+                EntityTypes.Task => env.Command.Type switch
                 {
                     "create-task" => new CreateTaskCommand(env.Command.EntityId, env.Command.Data, env.UserId),
                     "update-task" => new UpdateTaskCommand(env.Command.EntityId, env.Command.Data, env.UserId),

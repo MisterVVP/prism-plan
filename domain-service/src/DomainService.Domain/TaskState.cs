@@ -28,7 +28,7 @@ internal static class TaskStateBuilder
     {
         switch (ev.Type)
         {
-            case "task-created":
+            case TaskEventTypes.Created:
                 if (ev.Data.HasValue)
                 {
                     var data = ev.Data.Value;
@@ -41,7 +41,7 @@ internal static class TaskStateBuilder
                     }
                 }
                 break;
-            case "task-updated":
+            case TaskEventTypes.Updated:
                 if (ev.Data.HasValue)
                 {
                     var data = ev.Data.Value;
@@ -51,7 +51,7 @@ internal static class TaskStateBuilder
                     if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi)) state.Order = oi;
                 }
                 break;
-            case "task-completed":
+            case TaskEventTypes.Completed:
                 state.Done = true;
                 break;
         }
