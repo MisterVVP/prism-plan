@@ -1,5 +1,6 @@
 using Azure.Data.Tables;
 using Azure.Storage.Queues;
+using DomainService.Commands;
 using DomainService.Interfaces;
 using DomainService.Repositories;
 using MediatR;
@@ -22,7 +23,7 @@ var host = new HostBuilder()
         services.AddSingleton<IEventQueue>(_ => new StorageQueueEventQueue(new QueueClient(connStr, domainEventsQueueName)));
         services.AddSingleton<ITaskEventRepository>(_ => new TableTaskEventRepository(new TableClient(connStr, taskEventTableName)));
         services.AddSingleton<IUserEventRepository>(_ => new TableUserEventRepository(new TableClient(connStr, userEventTableName)));
-        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<CreateTaskCommand>());
     })
     .Build();
 

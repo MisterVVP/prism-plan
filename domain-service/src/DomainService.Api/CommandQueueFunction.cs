@@ -51,7 +51,6 @@ internal sealed class CommandQueueFunction
         catch (Exception ex)
         {
             _logger.LogError(ex, "processing command");
-            throw;
         }
     }
 }

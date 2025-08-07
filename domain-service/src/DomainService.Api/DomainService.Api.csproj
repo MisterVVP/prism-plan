@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <OutputType>Exe</OutputType>
+    <RootNamespace>DomainService</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.0.0" />
@@ -16,6 +17,6 @@
     <PackageReference Include="MediatR" Version="12.3.0" />
   </ItemGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="DomainService.Tests" />
+    <ProjectReference Include="..\DomainService.Domain\DomainService.Domain.csproj" />
   </ItemGroup>
 </Project>
