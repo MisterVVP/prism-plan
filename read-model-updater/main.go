@@ -28,7 +28,8 @@ func main() {
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
 	eventsQueue := os.Getenv("DOMAIN_EVENTS_QUEUE")
 	tasksTable := os.Getenv("TASKS_TABLE")
-	if connStr == "" || eventsQueue == "" || tasksTable == "" {
+	usersTable := os.Getenv("USERS_TABLE")
+	if connStr == "" || eventsQueue == "" || tasksTable == "" || usersTable == "" {
 		log.Fatal("missing storage config")
 	}
 
@@ -41,7 +42,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("table service: %v", err)
 	}
-	table := tSvc.NewClient(tasksTable)
+	taskClient := tSvc.NewClient(tasksTable)
+	userClient := tSvc.NewClient(usersTable)
 
 	ctx := context.Background()
 	for {
@@ -58,13 +60,13 @@ func main() {
 		msg := resp.Messages[0]
 		var ev Event
 		if err := json.Unmarshal([]byte(*msg.MessageText), &ev); err == nil {
-			apply(ctx, table, ev)
+			apply(ctx, taskClient, userClient, ev)
 		}
 		queue.DeleteMessage(ctx, *msg.MessageID, *msg.PopReceipt, nil)
 	}
 }
 
-func apply(ctx context.Context, table *aztables.Client, ev Event) {
+func apply(ctx context.Context, taskTable, userTable *aztables.Client, ev Event) {
 	pk := ev.UserID
 	rk := ev.EntityID
 	switch ev.Type {
@@ -83,7 +85,7 @@ func apply(ctx context.Context, table *aztables.Client, ev Event) {
 			"done":         false,
 		}
 		payload, _ := json.Marshal(ent)
-		table.UpsertEntity(ctx, payload, nil)
+		taskTable.UpsertEntity(ctx, payload, nil)
 	case "task-updated":
 		var changes map[string]interface{}
 		if err := json.Unmarshal(ev.Data, &changes); err != nil {
@@ -93,7 +95,7 @@ func apply(ctx context.Context, table *aztables.Client, ev Event) {
 		changes["RowKey"] = rk
 		payload, _ := json.Marshal(changes)
 		et := azcore.ETagAny
-		table.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
+		taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
 	case "task-completed":
 		ent := map[string]any{
 			"PartitionKey": pk,
@@ -102,6 +104,23 @@ func apply(ctx context.Context, table *aztables.Client, ev Event) {
 		}
 		payload, _ := json.Marshal(ent)
 		et2 := azcore.ETagAny
-		table.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et2, UpdateMode: aztables.UpdateModeMerge})
+		taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et2, UpdateMode: aztables.UpdateModeMerge})
+	case "user-created":
+		var u map[string]any
+		if err := json.Unmarshal(ev.Data, &u); err != nil {
+			return
+		}
+		ent := map[string]any{
+			"PartitionKey": rk,
+			"RowKey":       rk,
+			"name":         u["name"],
+			"email":        u["email"],
+		}
+		payload, _ := json.Marshal(ent)
+		userTable.UpsertEntity(ctx, payload, nil)
+	case "user-logged-in":
+		log.Printf("user logged in: %s", rk)
+	case "user-logged-out":
+		log.Printf("user logged out: %s", rk)
 	}
 }

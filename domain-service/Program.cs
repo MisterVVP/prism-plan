@@ -11,15 +11,18 @@ var commandQueueName = Environment.GetEnvironmentVariable("COMMAND_QUEUE")
     ?? throw new InvalidOperationException("missing COMMAND_QUEUE");
 var domainEventsQueueName = Environment.GetEnvironmentVariable("DOMAIN_EVENTS_QUEUE")
     ?? throw new InvalidOperationException("missing DOMAIN_EVENTS_QUEUE");
-var eventTableName = Environment.GetEnvironmentVariable("TASK_EVENTS_TABLE")
+var taskEventTableName = Environment.GetEnvironmentVariable("TASK_EVENTS_TABLE")
     ?? throw new InvalidOperationException("missing TASK_EVENTS_TABLE");
+var userEventTableName = Environment.GetEnvironmentVariable("USER_EVENTS_TABLE")
+    ?? throw new InvalidOperationException("missing USER_EVENTS_TABLE");
 
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureServices(services =>
     {
         services.AddSingleton(new QueueClient(connStr, commandQueueName));
         services.AddSingleton(new QueueClient(connStr, domainEventsQueueName));
-        services.AddSingleton(new TableClient(connStr, eventTableName));
+        services.AddSingleton(new TableClient(connStr, taskEventTableName));
+        services.AddSingleton(new TableClient(connStr, userEventTableName));
         services.AddHostedService<Worker>();
     })
     .Build();
@@ -43,14 +46,16 @@ class Worker : BackgroundService
 {
     private readonly QueueClient _commandQueue;
     private readonly QueueClient _domainEventsQueue;
-    private readonly TableClient _eventTable;
+    private readonly TableClient _taskEventTable;
+    private readonly TableClient _userEventTable;
     private readonly ILogger<Worker> _logger;
 
-    public Worker(QueueClient commandQueue, QueueClient domainEventsQueue, TableClient eventTable, ILogger<Worker> logger)
+    public Worker(QueueClient commandQueue, QueueClient domainEventsQueue, TableClient taskEventTable, TableClient userEventTable, ILogger<Worker> logger)
     {
         _commandQueue = commandQueue;
         _domainEventsQueue = domainEventsQueue;
-        _eventTable = eventTable;
+        _taskEventTable = taskEventTable;
+        _userEventTable = userEventTable;
         _logger = logger;
     }
 
@@ -86,11 +91,24 @@ class Worker : BackgroundService
 
     private async Task ProcessCommand(CommandEnvelope env, CancellationToken ct)
     {
-        if (env.Command.EntityType != "task") return;
+        switch (env.Command.EntityType)
+        {
+            case "task":
+                await ProcessTaskCommand(env, ct);
+                break;
+            case "user":
+                await ProcessUserCommand(env, ct);
+                break;
+            default:
+                return;
+        }
+    }
 
+    private async Task ProcessTaskCommand(CommandEnvelope env, CancellationToken ct)
+    {
         var state = new TaskState();
         var filter = $"PartitionKey eq '{env.Command.EntityId}'";
-        await foreach (var e in _eventTable.QueryAsync<TableEntity>(filter: filter, cancellationToken: ct))
+        await foreach (var e in _taskEventTable.QueryAsync<TableEntity>(filter: filter, cancellationToken: ct))
         {
             if (e.TryGetValue("Data", out object? dataObj) && dataObj is string data)
             {
@@ -117,8 +135,43 @@ class Worker : BackgroundService
             { "UserId", env.UserId },
             { "Data", JsonSerializer.Serialize(newEvent) }
         };
-        await _eventTable.AddEntityAsync(entity, ct);
+        await _taskEventTable.AddEntityAsync(entity, ct);
         await _domainEventsQueue.SendMessageAsync(JsonSerializer.Serialize(newEvent), cancellationToken: ct);
+    }
+
+    private async Task ProcessUserCommand(CommandEnvelope env, CancellationToken ct)
+    {
+        switch (env.Command.Type)
+        {
+            case "login-user":
+                var filter = $"PartitionKey eq '{env.Command.EntityId}'";
+                bool exists = false;
+                await foreach (var _ in _userEventTable.QueryAsync<TableEntity>(filter: filter, cancellationToken: ct))
+                {
+                    exists = true;
+                    break;
+                }
+                var type = exists ? "user-logged-in" : "user-created";
+                var ev = new Event(Guid.NewGuid().ToString(), env.Command.EntityId, "user", type, env.Command.Data, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), env.UserId);
+                var entity = new TableEntity(env.Command.EntityId, ev.Id)
+                {
+                    { "UserId", env.UserId },
+                    { "Data", JsonSerializer.Serialize(ev) }
+                };
+                await _userEventTable.AddEntityAsync(entity, ct);
+                await _domainEventsQueue.SendMessageAsync(JsonSerializer.Serialize(ev), cancellationToken: ct);
+                break;
+            case "logout-user":
+                var ev2 = new Event(Guid.NewGuid().ToString(), env.Command.EntityId, "user", "user-logged-out", env.Command.Data, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), env.UserId);
+                var entity2 = new TableEntity(env.Command.EntityId, ev2.Id)
+                {
+                    { "UserId", env.UserId },
+                    { "Data", JsonSerializer.Serialize(ev2) }
+                };
+                await _userEventTable.AddEntityAsync(entity2, ct);
+                await _domainEventsQueue.SendMessageAsync(JsonSerializer.Serialize(ev2), cancellationToken: ct);
+                break;
+        }
     }
 
     private static void Apply(TaskState state, Event ev)
