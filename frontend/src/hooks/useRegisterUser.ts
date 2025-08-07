@@ -19,21 +19,20 @@ export function useRegisterUser() {
             scope: "openid profile email offline_access",
           },
         });
-        const event = {
+        const command = {
           id: uuid(),
           entityId: user?.sub,
-          entityType: "users",
-          type: "user-registered",
+          entityType: "user",
+          type: "register-user",
           data: { name: user?.name, email: user?.email },
-          time: Date.now(),
         };
-        await fetch(`${baseUrl}/events`, {
+        await fetch(`${baseUrl}/commands`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify([event]),
+          body: JSON.stringify([command]),
         });
       } catch (err) {
         console.error(err);

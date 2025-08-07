@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -60,6 +61,7 @@ func main() {
 	}))
 	e.GET("/api/tasks", getTasks)
 	e.POST("/api/commands", postCommands)
+	e.GET("/api/stream", streamTasks)
 
 	port := os.Getenv("FUNCTIONS_CUSTOMHANDLER_PORT")
 	if port == "" {
@@ -108,19 +110,14 @@ type taskEntity struct {
 	Done     bool   `json:"done"`
 }
 
-func getTasks(c echo.Context) error {
-	ctx := c.Request().Context()
-	userID, err := userIDFromAuthHeader(c.Request().Header.Get("Authorization"))
-	if err != nil {
-		return c.String(http.StatusUnauthorized, err.Error())
-	}
+func fetchTasks(ctx context.Context, userID string) ([]Task, error) {
 	filter := "PartitionKey eq '" + userID + "'"
 	pager := taskTable.NewListEntitiesPager(&aztables.ListEntitiesOptions{Filter: &filter})
 	tasks := []Task{}
 	for pager.More() {
 		resp, err := pager.NextPage(ctx)
 		if err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
+			return nil, err
 		}
 		for _, e := range resp.Entities {
 			var ent taskEntity
@@ -135,6 +132,19 @@ func getTasks(c echo.Context) error {
 				})
 			}
 		}
+	}
+	return tasks, nil
+}
+
+func getTasks(c echo.Context) error {
+	ctx := c.Request().Context()
+	userID, err := userIDFromAuthHeader(c.Request().Header.Get("Authorization"))
+	if err != nil {
+		return c.String(http.StatusUnauthorized, err.Error())
+	}
+	tasks, err := fetchTasks(ctx, userID)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, tasks)
 }
