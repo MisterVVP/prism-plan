@@ -1,5 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -9,11 +8,4 @@
   <ItemGroup>
     <PackageReference Include="MediatR" Version="12.3.0" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\DomainService.Interfaces\DomainService.Interfaces.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <InternalsVisibleTo Include="DomainService.Tests" />
-  </ItemGroup>
-
 </Project>

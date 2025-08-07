@@ -1,9 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY DomainService.csproj ./
-RUN dotnet restore
 COPY . .
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish src/DomainService.FunctionApp/DomainService.FunctionApp.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated9.0
 WORKDIR /home/site/wwwroot
