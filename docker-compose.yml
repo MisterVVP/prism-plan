@@ -58,7 +58,10 @@ services:
     image: mcr.microsoft.com/azure-storage/azurite
     healthcheck:
       test: nc 127.0.0.1 10000 -z
-      retries: 30
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    command: ["azurite", "-s", "-l", "/data", "--blobHost", "0.0.0.0","--queueHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
     ports:
       - "10000:10000"
       - "10001:10001"
