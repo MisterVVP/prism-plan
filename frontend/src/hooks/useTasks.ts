@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { v4 as uuid } from "uuid";
-import type { Task, TaskEvent } from "../types";
+import type { Task, Command } from "../types";
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [events, setEvents] = useState<TaskEvent[]>([]);
+  const [commands, setCommands] = useState<Command[]>([]);
   const { isAuthenticated, getAccessTokenSilently, loginWithRedirect, user } =
     useAuth0();
   const baseUrl =
     (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
     `${window.location.origin}/api`;
   const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
-  const userId = user?.sub ?? null;
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -66,29 +65,8 @@ export function useTasks() {
         });
         source = new EventSource(`${baseUrl}/stream?token=${token}`);
         source.onmessage = (ev) => {
-          const evt: TaskEvent = JSON.parse(ev.data);
-          if (evt.entityType !== "task") return;
-          switch (evt.type) {
-            case "task-created": {
-              const newTask: Task = { id: evt.entityId, done: false, ...(evt.data || {}) };
-              setTasks((t) => (t.some((task) => task.id === newTask.id) ? t : [...t, newTask]));
-              break;
-            }
-            case "task-updated": {
-              setTasks((t) =>
-                t.map((task) =>
-                  task.id === evt.entityId ? { ...task, ...(evt.data || {}) } : task
-                )
-              );
-              break;
-            }
-            case "task-completed": {
-              setTasks((t) =>
-                t.map((task) => (task.id === evt.entityId ? { ...task, done: true } : task))
-              );
-              break;
-            }
-          }
+          const data: Task[] = JSON.parse(ev.data);
+          setTasks(data);
         };
       } catch (err) {
         console.error(err);
@@ -101,9 +79,9 @@ export function useTasks() {
   }, [isAuthenticated, baseUrl, getAccessTokenSilently, audience]);
 
   useEffect(() => {
-    if (!isAuthenticated || events.length === 0) return;
+    if (!isAuthenticated || commands.length === 0) return;
     let cancelled = false;
-    async function flushEvents() {
+    async function flushCommands() {
       try {
         const token = await getAccessTokenSilently({
           authorizationParams: {
@@ -111,16 +89,16 @@ export function useTasks() {
             scope: "openid profile email offline_access",
           },
         });
-        await fetch(`${baseUrl}/events`, {
+        await fetch(`${baseUrl}/commands`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(events),
+          body: JSON.stringify(commands),
         });
         if (!cancelled) {
-          setEvents([]);
+          setCommands([]);
         }
       } catch (err) {
         if (
@@ -133,14 +111,14 @@ export function useTasks() {
         }
       }
     }
-    flushEvents();
-    const interval = setInterval(flushEvents, 5000);
+    flushCommands();
+    const interval = setInterval(flushCommands, 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
   }, [
-    events,
+    commands,
     isAuthenticated,
     baseUrl,
     getAccessTokenSilently,
@@ -152,44 +130,41 @@ export function useTasks() {
     const id = uuid();
     const newTask: Task = { id, ...partial, done: false };
     setTasks((t) => [...t, newTask]);
-    const ev: TaskEvent = {
+    const cmd: Command = {
       id: uuid(),
       entityId: id,
       entityType: "task",
-      type: "task-created",
+      type: "create-task",
       data: partial,
-      time: Date.now(),
     };
-    setEvents((e) => [...e, ev]);
+    setCommands((e) => [...e, cmd]);
   }
 
   function updateTask(id: string, changes: Partial<Task>) {
     setTasks((t) =>
       t.map((task) => (task.id === id ? { ...task, ...changes } : task)),
     );
-    const ev: TaskEvent = {
+    const cmd: Command = {
       id: uuid(),
       entityId: id,
       entityType: "task",
-      type: "task-updated",
+      type: "update-task",
       data: changes,
-      time: Date.now(),
     };
-    setEvents((e) => [...e, ev]);
+    setCommands((e) => [...e, cmd]);
   }
 
   function completeTask(id: string) {
     setTasks((t) =>
       t.map((task) => (task.id === id ? { ...task, done: true } : task)),
     );
-    const ev: TaskEvent = {
+    const cmd: Command = {
       id: uuid(),
       entityId: id,
       entityType: "task",
-      type: "task-completed",
-      time: Date.now(),
+      type: "complete-task",
     };
-    setEvents((e) => [...e, ev]);
+    setCommands((e) => [...e, cmd]);
   }
 
   return { tasks, addTask, updateTask, completeTask };
