@@ -71,3 +71,11 @@ Fetch tasks from `/api/tasks` and post commands to `/api/commands`.
 
 The commands above rely on the Azure CLI and the Azure Functions Core Tools. All resources fit within the free tiers.
 You can also run `scripts/deploy-azure.sh` to execute the same steps automatically.
+
+## TODO
+1. Handle edge-case and error scenarios related to event sourcing
+2. Draw overall system design for this project and ensure it can scale to handle millions of simultaneous users
+   - Ideally, PoC should be made locally. However system design is enough with relevant enterprise techs.
+   - If PoC is implemented, create load test script to emulate real-world scenario
+3. Start system design for mobile app
+4. Design application update system that can manage updates for billions of mobile devices globally
