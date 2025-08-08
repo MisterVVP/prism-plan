@@ -55,7 +55,7 @@ public class HandlersTests
         var seed = new Event("e1", "u1", "user", "user-created", null, 0, "u1");
         await repo.Add(seed, CancellationToken.None);
         ICommandHandler<LoginUserCommand> handler = new LoginUser(repo, queue);
-        var cmd = new LoginUserCommand("u1");
+        var cmd = new LoginUserCommand("u1", "n", "e");
         await handler.Handle(cmd, CancellationToken.None);
         Assert.Equal(2, repo.Events.Count);
         Assert.Equal("user-logged-in", repo.Events[1].Type);
