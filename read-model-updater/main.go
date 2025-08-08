@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -78,11 +79,11 @@ func apply(ctx context.Context, taskTable, userTable *aztables.Client, ev Event)
 		ent := map[string]any{
 			"PartitionKey": pk,
 			"RowKey":       rk,
-			"title":        t["title"],
-			"notes":        t["notes"],
-			"category":     t["category"],
-			"order":        t["order"],
-			"done":         false,
+			"Title":        t["title"],
+			"Notes":        t["notes"],
+			"Category":     t["category"],
+			"Order":        t["order"],
+			"Done":         false,
 		}
 		payload, _ := json.Marshal(ent)
 		taskTable.UpsertEntity(ctx, payload, nil)
@@ -91,16 +92,25 @@ func apply(ctx context.Context, taskTable, userTable *aztables.Client, ev Event)
 		if err := json.Unmarshal(ev.Data, &changes); err != nil {
 			return
 		}
-		changes["PartitionKey"] = pk
-		changes["RowKey"] = rk
-		payload, _ := json.Marshal(changes)
+		updates := map[string]any{
+			"PartitionKey": pk,
+			"RowKey":       rk,
+		}
+		for k, v := range changes {
+			if k == "" {
+				continue
+			}
+			capKey := strings.ToUpper(k[:1]) + k[1:]
+			updates[capKey] = v
+		}
+		payload, _ := json.Marshal(updates)
 		et := azcore.ETagAny
 		taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
 	case "task-completed":
 		ent := map[string]any{
 			"PartitionKey": pk,
 			"RowKey":       rk,
-			"done":         true,
+			"Done":         true,
 		}
 		payload, _ := json.Marshal(ent)
 		et2 := azcore.ETagAny
@@ -113,8 +123,8 @@ func apply(ctx context.Context, taskTable, userTable *aztables.Client, ev Event)
 		ent := map[string]any{
 			"PartitionKey": rk,
 			"RowKey":       rk,
-			"name":         u["name"],
-			"email":        u["email"],
+			"Name":         u["name"],
+			"Email":        u["email"],
 		}
 		payload, _ := json.Marshal(ent)
 		userTable.UpsertEntity(ctx, payload, nil)

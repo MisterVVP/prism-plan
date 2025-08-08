@@ -103,11 +103,11 @@ func postCommands(c echo.Context) error {
 
 type taskEntity struct {
 	aztables.Entity
-	Title    string `json:"title"`
-	Notes    string `json:"notes"`
-	Category string `json:"category"`
-	Order    int    `json:"order"`
-	Done     bool   `json:"done"`
+	Title    string `json:"Title"`
+	Notes    string `json:"Notes"`
+	Category string `json:"Category"`
+	Order    int    `json:"Order"`
+	Done     bool   `json:"Done"`
 }
 
 func fetchTasks(ctx context.Context, userID string) ([]Task, error) {

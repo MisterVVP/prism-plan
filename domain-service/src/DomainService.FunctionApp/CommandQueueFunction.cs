@@ -32,7 +32,10 @@ internal sealed class CommandQueueFunction(ISender sender, ILoggerFactory logger
                 },
                 "user" => env.Command.Type switch
                 {
-                    "login-user" => new LoginUserCommand(env.Command.EntityId),
+                    "login-user" => new LoginUserCommand(
+                        env.Command.EntityId,
+                        env.Command.Data?.GetProperty("name").GetString() ?? string.Empty,
+                        env.Command.Data?.GetProperty("email").GetString() ?? string.Empty),
                     "logout-user" => new LogoutUserCommand(env.Command.EntityId),
                     _ => null
                 },
