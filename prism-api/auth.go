@@ -17,8 +17,13 @@ func userIDFromAuthHeader(h string) (string, error) {
 		return "", errors.New("bad auth header")
 	}
 
+	tokenStr := parts[1]
+	if strings.Count(tokenStr, ".") != 2 {
+		return "", errors.New("bad auth header")
+	}
+
 	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}), jwt.WithoutClaimsValidation())
-	token, err := parser.Parse(parts[1], jwtJWKS.Keyfunc)
+	token, err := parser.Parse(tokenStr, jwtJWKS.Keyfunc)
 	if err != nil {
 		return "", err
 	}
