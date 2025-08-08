@@ -1,20 +1,13 @@
-using DomainService;
-using DomainService.Commands;
+using DomainService.Domain.Commands;
 using DomainService.Interfaces;
 using MediatR;
 
-namespace DomainService.Handlers;
+namespace DomainService.Domain.CommandHandlers;
 
-internal sealed class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand>
+internal sealed class UpdateTask(ITaskEventRepository taskRepo, IEventQueue eventQueue) : ICommandHandler<UpdateTaskCommand>
 {
-    private readonly ITaskEventRepository _taskRepo;
-    private readonly IEventQueue _eventQueue;
-
-    public UpdateTaskCommandHandler(ITaskEventRepository taskRepo, IEventQueue eventQueue)
-    {
-        _taskRepo = taskRepo;
-        _eventQueue = eventQueue;
-    }
+    private readonly ITaskEventRepository _taskRepo = taskRepo;
+    private readonly IEventQueue _eventQueue = eventQueue;
 
     public async Task<Unit> Handle(UpdateTaskCommand request, CancellationToken ct)
     {

@@ -1,14 +1,12 @@
-using System.Text.Json;
 using Azure.Data.Tables;
-using DomainService;
 using DomainService.Interfaces;
+using System.Text.Json;
 
 namespace DomainService.Repositories;
 
-internal sealed class TableTaskEventRepository : ITaskEventRepository
+internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRepository
 {
-    private readonly TableClient _table;
-    public TableTaskEventRepository(TableClient table) => _table = table;
+    private readonly TableClient _table = table;
 
     public async Task<IReadOnlyList<IEvent>> Get(string taskId, CancellationToken ct)
     {

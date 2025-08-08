@@ -1,7 +1,6 @@
 using System.Text.Json;
-using DomainService.Interfaces;
 
-namespace DomainService;
+namespace DomainService.Interfaces;
 
 public sealed record Command(string Id, string EntityId, string EntityType, string Type, JsonElement? Data);
 public sealed record CommandEnvelope(string UserId, Command Command);

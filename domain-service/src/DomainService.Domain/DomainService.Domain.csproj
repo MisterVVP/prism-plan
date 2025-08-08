@@ -4,10 +4,11 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>DomainService</RootNamespace>
+    <RootNamespace>DomainService.Domain</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MediatR" Version="12.3.0" />
+    <PackageReference Include="Azure.Data.Tables" Version="12.11.0" />
+    <PackageReference Include="MediatR" Version="12.4.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DomainService.Interfaces\DomainService.Interfaces.csproj" />

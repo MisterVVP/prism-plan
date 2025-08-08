@@ -1,20 +1,13 @@
-using DomainService;
-using DomainService.Commands;
+using DomainService.Domain.Commands;
 using DomainService.Interfaces;
 using MediatR;
 
-namespace DomainService.Handlers;
+namespace DomainService.Domain.CommandHandlers;
 
-internal sealed class LoginUserCommandHandler : ICommandHandler<LoginUserCommand>
+internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue eventQueue) : ICommandHandler<LoginUserCommand>
 {
-    private readonly IUserEventRepository _userRepo;
-    private readonly IEventQueue _eventQueue;
-
-    public LoginUserCommandHandler(IUserEventRepository userRepo, IEventQueue eventQueue)
-    {
-        _userRepo = userRepo;
-        _eventQueue = eventQueue;
-    }
+    private readonly IUserEventRepository _userRepo = userRepo;
+    private readonly IEventQueue _eventQueue = eventQueue;
 
     public async Task<Unit> Handle(LoginUserCommand request, CancellationToken ct)
     {

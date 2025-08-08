@@ -1,20 +1,13 @@
-using DomainService;
-using DomainService.Commands;
+using DomainService.Domain.Commands;
 using DomainService.Interfaces;
 using MediatR;
 
-namespace DomainService.Handlers;
+namespace DomainService.Domain.CommandHandlers;
 
-internal sealed class CompleteTaskCommandHandler : ICommandHandler<CompleteTaskCommand>
+internal sealed class CompleteTask(ITaskEventRepository taskRepo, IEventQueue eventQueue) : ICommandHandler<CompleteTaskCommand>
 {
-    private readonly ITaskEventRepository _taskRepo;
-    private readonly IEventQueue _eventQueue;
-
-    public CompleteTaskCommandHandler(ITaskEventRepository taskRepo, IEventQueue eventQueue)
-    {
-        _taskRepo = taskRepo;
-        _eventQueue = eventQueue;
-    }
+    private readonly ITaskEventRepository _taskRepo = taskRepo;
+    private readonly IEventQueue _eventQueue = eventQueue;
 
     public async Task<Unit> Handle(CompleteTaskCommand request, CancellationToken ct)
     {

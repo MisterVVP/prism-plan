@@ -1,4 +1,4 @@
-namespace DomainService;
+namespace DomainService.Interfaces;
 
 public static class EntityTypes
 {

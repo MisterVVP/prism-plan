@@ -1,7 +1,6 @@
-using System.Text.Json;
 using DomainService.Interfaces;
 
-namespace DomainService;
+namespace DomainService.Domain;
 
 internal sealed class TaskState
 {

@@ -1,10 +1,7 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
-using DomainService;
-using DomainService.Commands;
-using DomainService.Handlers;
+using DomainService.Domain.CommandHandlers;
+using DomainService.Domain.Commands;
 using DomainService.Interfaces;
+using System.Text.Json;
 using Xunit;
 
 public class HandlersTests
@@ -14,7 +11,7 @@ public class HandlersTests
     {
         var repo = new InMemoryTaskRepo();
         var queue = new InMemoryQueue();
-        ICommandHandler<CreateTaskCommand> handler = new CreateTaskCommandHandler(repo, queue);
+        ICommandHandler<CreateTaskCommand> handler = new CreateTask(repo, queue);
         var cmd = new CreateTaskCommand("t1", JsonDocument.Parse("{\"title\":\"t\",\"notes\":\"n\",\"category\":\"c\"}").RootElement, "u1");
         await handler.Handle(cmd, CancellationToken.None);
         Assert.Single(repo.Events);
@@ -29,7 +26,7 @@ public class HandlersTests
         var queue = new InMemoryQueue();
         var seed = new Event("e1", "t1", "task", "task-created", JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1");
         await repo.Add(seed, CancellationToken.None);
-        ICommandHandler<UpdateTaskCommand> handler = new UpdateTaskCommandHandler(repo, queue);
+        ICommandHandler<UpdateTaskCommand> handler = new UpdateTask(repo, queue);
         var cmd = new UpdateTaskCommand("t1", JsonDocument.Parse("{\"notes\":\"n\"}").RootElement, "u1");
         await handler.Handle(cmd, CancellationToken.None);
         Assert.Equal(2, repo.Events.Count);
@@ -43,7 +40,7 @@ public class HandlersTests
         var queue = new InMemoryQueue();
         var seed = new Event("e1", "t1", "task", "task-created", JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1");
         await repo.Add(seed, CancellationToken.None);
-        ICommandHandler<CompleteTaskCommand> handler = new CompleteTaskCommandHandler(repo, queue);
+        ICommandHandler<CompleteTaskCommand> handler = new CompleteTask(repo, queue);
         var cmd = new CompleteTaskCommand("t1", "u1");
         await handler.Handle(cmd, CancellationToken.None);
         Assert.Equal(2, repo.Events.Count);
@@ -57,7 +54,7 @@ public class HandlersTests
         var queue = new InMemoryQueue();
         var seed = new Event("e1", "u1", "user", "user-created", null, 0, "u1");
         await repo.Add(seed, CancellationToken.None);
-        ICommandHandler<LoginUserCommand> handler = new LoginUserCommandHandler(repo, queue);
+        ICommandHandler<LoginUserCommand> handler = new LoginUser(repo, queue);
         var cmd = new LoginUserCommand("u1");
         await handler.Handle(cmd, CancellationToken.None);
         Assert.Equal(2, repo.Events.Count);
@@ -69,7 +66,7 @@ public class HandlersTests
     {
         var repo = new InMemoryUserRepo();
         var queue = new InMemoryQueue();
-        ICommandHandler<LogoutUserCommand> handler = new LogoutUserCommandHandler(repo, queue);
+        ICommandHandler<LogoutUserCommand> handler = new LogoutUser(repo, queue);
         var cmd = new LogoutUserCommand("u1");
         await handler.Handle(cmd, CancellationToken.None);
         Assert.Single(repo.Events);
@@ -79,7 +76,7 @@ public class HandlersTests
 
 class InMemoryQueue : IEventQueue
 {
-    public List<IEvent> Events { get; } = new();
+    public List<IEvent> Events { get; } = [];
     public Task Add(IEvent ev, CancellationToken ct)
     {
         Events.Add(ev);
@@ -89,7 +86,7 @@ class InMemoryQueue : IEventQueue
 
 class InMemoryTaskRepo : ITaskEventRepository
 {
-    public List<IEvent> Events { get; } = new();
+    public List<IEvent> Events { get; } = [];
     public Task Add(IEvent ev, CancellationToken ct)
     {
         Events.Add(ev);
@@ -97,13 +94,13 @@ class InMemoryTaskRepo : ITaskEventRepository
     }
     public Task<IReadOnlyList<IEvent>> Get(string taskId, CancellationToken ct)
     {
-        return Task.FromResult<IReadOnlyList<IEvent>>(Events.Where(e => e.EntityId == taskId).ToList());
+        return Task.FromResult<IReadOnlyList<IEvent>>([.. Events.Where(e => e.EntityId == taskId)]);
     }
 }
 
 class InMemoryUserRepo : IUserEventRepository
 {
-    public List<IEvent> Events { get; } = new();
+    public List<IEvent> Events { get; } = [];
     public Task Add(IEvent ev, CancellationToken ct)
     {
         Events.Add(ev);

@@ -1,28 +1,24 @@
-using System.Text.Json;
-using DomainService.Commands;
+using DomainService.Domain.Commands;
+using DomainService.Interfaces;
 using MediatR;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace DomainService;
 
-internal sealed class CommandQueueFunction
+internal sealed class CommandQueueFunction(ISender sender, ILoggerFactory loggerFactory)
 {
-    private readonly ISender _sender;
-    private readonly ILogger _logger;
-
-    public CommandQueueFunction(ISender sender, ILoggerFactory loggerFactory)
-    {
-        _sender = sender;
-        _logger = loggerFactory.CreateLogger<CommandQueueFunction>();
-    }
+    private readonly ISender _sender = sender;
+    private readonly ILogger _logger = loggerFactory.CreateLogger<CommandQueueFunction>();
+    private readonly JsonSerializerOptions _jsonSerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
     [Function("CommandQueueFunction")]
     public async Task Run([QueueTrigger("%COMMAND_QUEUE%", Connection = "STORAGE_CONNECTION_STRING")] string msg, FunctionContext context)
     {
         try
         {
-            var env = JsonSerializer.Deserialize<CommandEnvelope>(msg, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var env = JsonSerializer.Deserialize<CommandEnvelope>(msg, _jsonSerializerOptions);
             if (env == null) return;
 
             IRequest<Unit>? cmd = env.Command.EntityType switch
