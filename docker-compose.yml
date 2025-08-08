@@ -22,39 +22,71 @@ services:
       - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
       - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
       - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
+      - TASKS_TABLE=${TASKS_TABLE}
+      - USERS_TABLE=${USERS_TABLE}
+      - COMMAND_QUEUE=${COMMAND_QUEUE}
     ports:
       - "7071:7071"
     depends_on:
-      - azurite
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
   domain-service:
     build: ./domain-service
     environment:
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
       - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
+      - COMMAND_QUEUE=${COMMAND_QUEUE}
+      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
+      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
     depends_on:
-      - azurite
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
   read-model-updater:
     build: ./read-model-updater
     environment:
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
+      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
+      - TASKS_TABLE=${TASKS_TABLE}
+      - USERS_TABLE=${USERS_TABLE}
     depends_on:
-      - azurite
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:10002/devstoreaccount1"]
+      test: nc 127.0.0.1 10000 -z
       interval: 5s
       timeout: 3s
       retries: 5
+    command: ["azurite", "-s", "-l", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0","--queueHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
     ports:
       - "10000:10000"
       - "10001:10001"
       - "10002:10002"
     volumes:
       - azurite_data:/data
+
+  storage-init:
+    build: ./storage-init
+    environment:
+      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
+      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
+      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
+      - TASKS_TABLE=${TASKS_TABLE}
+      - USERS_TABLE=${USERS_TABLE}
+      - COMMAND_QUEUE=${COMMAND_QUEUE}
+      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
+    depends_on:
+      azurite:
+        condition: service_healthy
+    restart: "no"
 
 volumes:
   azurite_data:

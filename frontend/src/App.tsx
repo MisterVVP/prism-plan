@@ -2,19 +2,54 @@ import { useState, Fragment } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Menu, Transition } from '@headlessui/react';
 import { UserCircleIcon, PlusIcon } from '@heroicons/react/24/solid';
+import { v4 as uuid } from 'uuid';
 import Board from './components/Board';
 import TaskModal from './components/TaskModal';
 import { useTasks } from './hooks/useTasks';
-import { useRegisterUser } from './hooks/useRegisterUser';
+import { useLoginUser } from './hooks/useLoginUser';
 import { useLayout } from './context/LayoutContext';
 
 export default function App() {
   const { tasks, addTask, updateTask, completeTask } = useTasks();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
-  useRegisterUser();
+  const { loginWithRedirect, logout, isAuthenticated, user, getAccessTokenSilently } = useAuth0();
+  const baseUrl =
+    (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
+    `${window.location.origin}/api`;
+  const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
+  useLoginUser();
   const { isMobile } = useLayout();
+
+  async function handleLogout() {
+    if (user?.sub) {
+      try {
+        const token = await getAccessTokenSilently({
+          authorizationParams: {
+            audience,
+            scope: 'openid profile email offline_access',
+          },
+        });
+        const command = {
+          id: uuid(),
+          entityId: user.sub,
+          entityType: 'user',
+          type: 'logout-user',
+        };
+        await fetch(`${baseUrl}/commands`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify([command]),
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    logout({ logoutParams: { returnTo: window.location.origin } });
+  }
 
   const filteredTasks = tasks.filter((task) => {
     const q = search.toLowerCase();
@@ -54,7 +89,7 @@ export default function App() {
                   {({ active }) => (
                     <button
                       onClick={() =>
-                        logout({ logoutParams: { returnTo: window.location.origin } })
+                        handleLogout()
                       }
                       className={`${
                         active ? 'bg-gray-100' : ''

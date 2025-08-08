@@ -1,9 +1,9 @@
 # Prism plan
 
-This repository follows an event‑sourced micro‑services architecture.
-It includes a thin Prism API, a C# Domain Service (built on .NET 9 preview) for
-command processing, and a Go Read‑Model Updater for projections. A mobile client
-folder is also provided as a placeholder.
+This repository implements an event‑sourced micro‑services architecture.
+It includes a thin Prism API, a C# Domain Service (on .NET 9) for command
+processing, and a Go Read‑Model Updater for projections. A mobile client folder
+is also provided as a placeholder.
 
 ## Prerequisites
 - Docker
@@ -21,7 +21,7 @@ Make sure to set up env variables in .env file (see .env.example)
       docker-compose up --build
    ```
 
-The Prism API will automatically create the table if it does not already exist. A self-signed certificate will be generated to serve the frontend over HTTPS.
+   A self-signed certificate will be generated to serve the frontend over HTTPS. Storage tables and queues are provisioned by a `storage-init` service before the other containers start.
 
 ## 📦 Environment variables
 The frontend uses the current origin for API requests, so no extra configuration is needed when the API is served from the same host. Override the API location by setting `VITE_API_BASE_URL` along with the Auth0 variables in `frontend/.env`. With Docker Compose Nginx terminates TLS and proxies `/api` calls to the Go backend so the API is available over HTTPS at `https://localhost:8080/api`.
@@ -32,11 +32,16 @@ The same `.env` file supplies `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` for the backen
 The Auth0 integration stores tokens in `localStorage` and uses refresh tokens so
 the login persists for about an hour even after refreshing the page.
 
-The Prism API is an Azure Function written in Go using the Echo framework and Azure Table Storage. Place the storage connection string and table names for task and user events in `prism-api/.env` based on `prism-api/.env.example`. The example uses the default Azurite credentials so the stack works fully offline. Set `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` so the API can fetch the JWKS from Auth0 and validate incoming tokens. Nginx serving the frontend injects CORS headers, proxies `/api` to the backend and allows all origins by default. Restrict the allowed origins with the `CORS_ALLOWED_ORIGINS` environment variable, which accepts a pipe-separated regular expression.
+The Prism API is an Azure Function written in Go using the Echo framework and Azure Storage. It publishes incoming commands to an Azure Queue and serves queries by reading from a denormalised tasks table. Provide the storage connection string, the command queue name and the table used for the read model via environment variables. Set `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` so the API can fetch the JWKS from Auth0 and validate incoming tokens. Nginx serving the frontend injects CORS headers, proxies `/api` to the backend and allows all origins by default. Restrict the allowed origins with the `CORS_ALLOWED_ORIGINS` environment variable, which accepts a pipe-separated regular expression.
 
-Use the `TASK_EVENTS_TABLE` and `USER_EVENTS_TABLE` variables to configure where task and user events are stored. Additional tables for other entities can be configured in the same way; the API reuses the same table client for all tables.
+Use the following variables to configure storage resources:
 
-The service stores task and user events separately and reconstructs entities on request. Fetch assembled tasks from `/api/tasks` and post events (including user registration) to `/api/events`.
+- `COMMAND_QUEUE`: queue receiving commands from the API
+- `DOMAIN_EVENTS_QUEUE`: queue receiving domain events from the Domain Service
+- `TASK_EVENTS_TABLE`: table acting as the event store for tasks
+- `TASKS_TABLE`: table containing the read model queried by the API
+
+Fetch tasks from `/api/tasks` and post commands to `/api/commands`.
 
 ## ☁️ Deploying to Azure (free tiers)
 1. Build the static site:
@@ -66,3 +71,12 @@ The service stores task and user events separately and reconstructs entities on 
 
 The commands above rely on the Azure CLI and the Azure Functions Core Tools. All resources fit within the free tiers.
 You can also run `scripts/deploy-azure.sh` to execute the same steps automatically.
+
+## TODO
+1. Handle edge-case and error scenarios related to event sourcing
+2. Deploy this project to Azure/GCP or AWS on free tier. Budget infra costs to 10 EUR per month.
+3. Draw overall system design for this project and ensure it can scale to handle millions of simultaneous users
+   - Ideally, PoC should be made locally. However system design is enough with relevant enterprise techs.
+   - If PoC is implemented, create load test script to emulate real-world scenario
+4. Start system design for mobile app
+5. Design application update system that can manage updates for billions of mobile devices globally

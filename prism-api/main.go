@@ -3,67 +3,43 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
 	"github.com/MicahParks/keyfunc"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 var (
-	svc          *aztables.ServiceClient
-	tableClients map[string]*aztables.Client
+	taskTable    *aztables.Client
+	commandQueue *azqueue.QueueClient
 	jwtJWKS      *keyfunc.JWKS
 	jwtAudience  string
 	jwtIssuer    string
-	taskTable    string
-	userTable    string
 )
-
-func clientFor(name string) *aztables.Client {
-	if c, ok := tableClients[name]; ok {
-		return c
-	}
-	c := svc.NewClient(name)
-	tableClients[name] = c
-	return c
-}
-
-func ensureTable(ctx context.Context, name string) error {
-	if _, err := clientFor(name).CreateTable(ctx, nil); err != nil {
-		var respErr *azcore.ResponseError
-		if !(errors.As(err, &respErr) && respErr.ErrorCode == string(aztables.TableAlreadyExists)) {
-			return err
-		}
-	}
-	return nil
-}
 
 func main() {
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
-	taskTable = os.Getenv("TASK_EVENTS_TABLE")
-	userTable = os.Getenv("USER_EVENTS_TABLE")
-	if connStr == "" || taskTable == "" || userTable == "" {
-		log.Fatal("missing table storage config")
+	tasksTableName := os.Getenv("TASKS_TABLE")
+	commandQueueName := os.Getenv("COMMAND_QUEUE")
+	if connStr == "" || tasksTableName == "" || commandQueueName == "" {
+		log.Fatal("missing storage config")
 	}
-	var err error
-	svc, err = aztables.NewServiceClientFromConnectionString(connStr, nil)
+
+	svc, err := aztables.NewServiceClientFromConnectionString(connStr, nil)
 	if err != nil {
-		log.Fatalf("service client: %v", err)
+		log.Fatalf("table service: %v", err)
 	}
-	tableClients = make(map[string]*aztables.Client)
-	ctx := context.Background()
-	if err := ensureTable(ctx, taskTable); err != nil {
-		log.Fatalf("ensure table: %v", err)
-	}
-	if err := ensureTable(ctx, userTable); err != nil {
-		log.Fatalf("ensure table: %v", err)
+	taskTable = svc.NewClient(tasksTableName)
+
+	commandQueue, err = azqueue.NewQueueClientFromConnectionString(connStr, commandQueueName, nil)
+	if err != nil {
+		log.Fatalf("queue service: %v", err)
 	}
 
 	jwtAudience = os.Getenv("AUTH0_AUDIENCE")
@@ -84,8 +60,8 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 	e.GET("/api/tasks", getTasks)
-	e.POST("/api/events", postEvents)
-	e.GET("/api/stream", streamEvents)
+	e.POST("/api/commands", postCommands)
+	e.GET("/api/stream", streamTasks)
 
 	port := os.Getenv("FUNCTIONS_CUSTOMHANDLER_PORT")
 	if port == "" {
@@ -94,76 +70,70 @@ func main() {
 	e.Logger.Fatal(e.Start(":" + port))
 }
 
-func postEvents(c echo.Context) error {
+type Command struct {
+	ID         string          `json:"id"`
+	EntityID   string          `json:"entityId"`
+	EntityType string          `json:"entityType"`
+	Type       string          `json:"type"`
+	Data       json.RawMessage `json:"data,omitempty"`
+}
+
+type commandEnvelope struct {
+	UserID  string  `json:"userId"`
+	Command Command `json:"command"`
+}
+
+func postCommands(c echo.Context) error {
 	ctx := c.Request().Context()
 	userID, err := userIDFromAuthHeader(c.Request().Header.Get("Authorization"))
 	if err != nil {
 		return c.String(http.StatusUnauthorized, err.Error())
 	}
-	var events []Event
-	if err := c.Bind(&events); err != nil {
+	var cmds []Command
+	if err := c.Bind(&cmds); err != nil {
 		return c.String(http.StatusBadRequest, "invalid body")
 	}
-	for _, ev := range events {
-		table := taskTable
-		if ev.EntityType == "users" {
-			table = userTable
-		}
-		data, _ := json.Marshal(ev)
-
-		if table == userTable && ev.Type == "user-registered" {
-			ent := map[string]interface{}{
-				"PartitionKey": userID,
-				"RowKey":       ev.EntityID,
-				"Data":         string(data),
-			}
-			payload, _ := json.Marshal(ent)
-			if _, err := clientFor(table).AddEntity(ctx, payload, nil); err != nil {
-				var respErr *azcore.ResponseError
-				if errors.As(err, &respErr) && respErr.ErrorCode == string(aztables.EntityAlreadyExists) {
-					continue
-				}
-				log.Printf("add entity: %v", err)
-			}
-			broadcast(userID, ev)
-			continue
-		}
-
-		ent := map[string]interface{}{
-			"PartitionKey": userID,
-			"RowKey":       ev.ID,
-			"Data":         string(data),
-		}
-		payload, _ := json.Marshal(ent)
-		clientFor(table).UpsertEntity(ctx, payload, nil)
-		broadcast(userID, ev)
+	for _, cmd := range cmds {
+		env := commandEnvelope{UserID: userID, Command: cmd}
+		data, _ := json.Marshal(env)
+		commandQueue.EnqueueMessage(ctx, string(data), nil)
 	}
 	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 }
 
-func fetchEvents(ctx context.Context, userID, table string) ([]Event, error) {
+type taskEntity struct {
+	aztables.Entity
+	Title    string `json:"Title"`
+	Notes    string `json:"Notes"`
+	Category string `json:"Category"`
+	Order    int    `json:"Order"`
+	Done     bool   `json:"Done"`
+}
+
+func fetchTasks(ctx context.Context, userID string) ([]Task, error) {
 	filter := "PartitionKey eq '" + userID + "'"
-	pager := clientFor(table).NewListEntitiesPager(&aztables.ListEntitiesOptions{
-		Filter: &filter,
-	})
-	events := make([]Event, 0)
+	pager := taskTable.NewListEntitiesPager(&aztables.ListEntitiesOptions{Filter: &filter})
+	tasks := []Task{}
 	for pager.More() {
 		resp, err := pager.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
 		for _, e := range resp.Entities {
-			var ent eventEntity
-			if err := json.Unmarshal(e, &ent); err != nil {
-				continue
-			}
-			var ev Event
-			if err := json.Unmarshal([]byte(ent.Data), &ev); err == nil {
-				events = append(events, ev)
+			var ent taskEntity
+			if err := json.Unmarshal(e, &ent); err == nil {
+				tasks = append(tasks, Task{
+					ID:       ent.RowKey,
+					Title:    ent.Title,
+					Notes:    ent.Notes,
+					Category: ent.Category,
+					Order:    ent.Order,
+					Done:     ent.Done,
+				})
 			}
 		}
 	}
-	return events, nil
+	return tasks, nil
 }
 
 func getTasks(c echo.Context) error {
@@ -172,10 +142,9 @@ func getTasks(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusUnauthorized, err.Error())
 	}
-	events, err := fetchEvents(ctx, userID, taskTable)
+	tasks, err := fetchTasks(ctx, userID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	tasks := applyEvents(events)
 	return c.JSON(http.StatusOK, tasks)
 }
