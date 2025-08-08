@@ -9,18 +9,39 @@ export function useLoginUser() {
     `${window.location.origin}/api`;
   const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
   const lastUserId = useRef<string | null>(null);
+  const storageKey = "login-user";
 
   useEffect(() => {
     if (!isAuthenticated || !user?.sub) return;
     if (lastUserId.current === user.sub) return;
+
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const { userId, expiresAt } = JSON.parse(saved) as {
+          userId: string;
+          expiresAt: number;
+        };
+        if (userId === user.sub && expiresAt > Date.now()) {
+          lastUserId.current = user.sub;
+          return;
+        }
+      } catch {
+        // ignore parse errors and treat as no saved login
+      }
+    }
+
     async function login() {
       try {
-        const token = await getAccessTokenSilently({
+        const tokenResponse = (await getAccessTokenSilently({
           authorizationParams: {
             audience,
             scope: "openid profile email offline_access",
           },
-        });
+          detailedResponse: true,
+        })) as any;
+        const token: string = tokenResponse.access_token || tokenResponse;
+        const expiresIn: number = tokenResponse.expires_in || 0;
         const command = {
           id: uuid(),
           entityId: user.sub,
@@ -36,6 +57,11 @@ export function useLoginUser() {
           },
           body: JSON.stringify([command]),
         });
+        const expiresAt = Date.now() + expiresIn * 1000;
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({ userId: user.sub, expiresAt })
+        );
       } catch (err) {
         console.error(err);
       }
