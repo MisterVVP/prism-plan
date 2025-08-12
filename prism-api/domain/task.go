@@ -1,4 +1,4 @@
-package main
+package domain
 
 // Task represents a single board item in the read model.
 type Task struct {
