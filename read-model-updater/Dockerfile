@@ -1,12 +1,16 @@
 FROM golang:1.24-alpine AS build
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o read-model-updater .
+RUN go build -o handler .
 
-FROM alpine:latest
-WORKDIR /app
-COPY --from=build /src/read-model-updater ./
-CMD ["./read-model-updater"]
-
+FROM mcr.microsoft.com/azure-functions/base:4
+WORKDIR /home/site/wwwroot
+COPY --from=build /src/handler ./handler
+COPY host.json ./
+COPY function.json ./
+ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
+    AzureFunctionsJobHost__Logging__Console__IsEnabled=true \
+    FUNCTIONS_CUSTOMHANDLER_PORT=7072
+EXPOSE 7072

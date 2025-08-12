@@ -25,6 +25,7 @@ services:
       - TASKS_TABLE=${TASKS_TABLE}
       - USERS_TABLE=${USERS_TABLE}
       - COMMAND_QUEUE=${COMMAND_QUEUE}
+      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
     ports:
       - "7071:7071"
     depends_on:
@@ -53,6 +54,7 @@ services:
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
       - TASKS_TABLE=${TASKS_TABLE}
       - USERS_TABLE=${USERS_TABLE}
+      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
     depends_on:
       azurite:
         condition: service_healthy

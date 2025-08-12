@@ -5,12 +5,12 @@ RUN go mod download
 COPY . .
 RUN go build -o handler .
 
-FROM alpine:latest
-WORKDIR /app
-COPY --from=build /src/handler ./
-# Copy function metadata so container mirrors Azure setup (not strictly required)
+FROM mcr.microsoft.com/azure-functions/base:4
+WORKDIR /home/site/wwwroot
+COPY --from=build /src/handler ./handler
 COPY host.json ./
 COPY function.json ./
-ENV FUNCTIONS_CUSTOMHANDLER_PORT=7071
+ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
+    AzureFunctionsJobHost__Logging__Console__IsEnabled=true \
+    FUNCTIONS_CUSTOMHANDLER_PORT=7071
 EXPOSE 7071
-CMD ["./handler"]

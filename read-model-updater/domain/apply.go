@@ -4,12 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
-
-	"read-model-updater/storage"
 )
 
+// Storage defines methods required for updating the read model.
+type Storage interface {
+	UpsertTask(ctx context.Context, ent map[string]any) error
+	UpdateTask(ctx context.Context, ent map[string]any) error
+	SetTaskDone(ctx context.Context, pk, rk string) error
+	UpsertUser(ctx context.Context, ent map[string]any) error
+}
+
 // Apply updates the read model based on an incoming event.
-func Apply(ctx context.Context, st *storage.Storage, ev Event) {
+func Apply(ctx context.Context, st Storage, ev Event) {
 	pk := ev.UserID
 	rk := ev.EntityID
 	switch ev.Type {
