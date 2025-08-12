@@ -10,7 +10,7 @@ WORKDIR /app
 COPY --from=build /src/handler ./
 # Copy function metadata so container mirrors Azure setup (not strictly required)
 COPY host.json ./
-COPY tasks ./tasks
+COPY function.json ./
 ENV FUNCTIONS_CUSTOMHANDLER_PORT=7071
 EXPOSE 7071
 CMD ["./handler"]
