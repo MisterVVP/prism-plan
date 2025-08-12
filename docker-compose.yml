@@ -27,7 +27,7 @@ services:
       - COMMAND_QUEUE=${COMMAND_QUEUE}
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
     ports:
-      - "7071:7071"
+      - "7071:80"
     depends_on:
       azurite:
         condition: service_healthy

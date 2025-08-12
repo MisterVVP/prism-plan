@@ -12,5 +12,5 @@ COPY host.json ./
 COPY function.json ./
 ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
     AzureFunctionsJobHost__Logging__Console__IsEnabled=true \
-    FUNCTIONS_CUSTOMHANDLER_PORT=7071
-EXPOSE 7071
+    FUNCTIONS_WORKER_RUNTIME=custom
+EXPOSE 80
