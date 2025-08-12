@@ -9,7 +9,10 @@ FROM mcr.microsoft.com/azure-functions/base:4
 WORKDIR /home/site/wwwroot
 COPY --from=build /src/handler ./handler
 COPY host.json ./
-COPY function.json ./
+COPY az-funcs/tasks ./tasks
+COPY az-funcs/commands ./commands
+COPY az-funcs/stream ./stream
+
 ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
     AzureFunctionsJobHost__Logging__Console__IsEnabled=true \
     FUNCTIONS_WORKER_RUNTIME=custom
