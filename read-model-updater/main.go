@@ -43,9 +43,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	port := os.Getenv("FUNCTIONS_CUSTOMHANDLER_PORT")
-	if port == "" {
-		port = "8080"
+	listenAddr := ":8080"
+	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
+		listenAddr = ":" + val
 	}
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe(listenAddr, nil))
 }

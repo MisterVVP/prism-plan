@@ -4,9 +4,9 @@
       "authLevel": "anonymous",
       "type": "httpTrigger",
       "direction": "in",
-      "name": "commands",
+      "name": "req",
       "methods": ["post", "options"],
-      "route": "commands"
+      "route": "api/commands"
     },
     {
       "type": "http",

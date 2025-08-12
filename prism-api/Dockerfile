@@ -12,8 +12,3 @@ COPY host.json ./
 COPY az-funcs/tasks ./tasks
 COPY az-funcs/commands ./commands
 COPY az-funcs/stream ./stream
-
-ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
-    AzureFunctionsJobHost__Logging__Console__IsEnabled=true \
-    FUNCTIONS_WORKER_RUNTIME=custom
-EXPOSE 80

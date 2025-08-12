@@ -26,6 +26,10 @@ services:
       - USERS_TABLE=${USERS_TABLE}
       - COMMAND_QUEUE=${COMMAND_QUEUE}
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
+      - AzureWebJobsScriptRoot=/home/site/wwwroot
+      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+      - FUNCTIONS_WORKER_RUNTIME=custom
+      - FUNCTIONS_CUSTOMHANDLER_PORT=7071
     ports:
       - "7071:80"
     depends_on:

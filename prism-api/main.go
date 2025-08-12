@@ -45,9 +45,10 @@ func main() {
 
 	api.Register(e, store, auth)
 
-	port := os.Getenv("FUNCTIONS_CUSTOMHANDLER_PORT")
-	if port == "" {
-		port = "8080"
+	listenAddr := ":8080"
+	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
+		listenAddr = ":" + val
 	}
-	e.Logger.Fatal(e.Start(":" + port))
+
+	e.Logger.Fatal(e.Start(listenAddr))
 }
