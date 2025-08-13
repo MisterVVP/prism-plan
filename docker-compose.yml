@@ -9,8 +9,10 @@ services:
         VITE_STREAM_URL: ${VITE_STREAM_URL}
     environment:
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-.*}
+      - PRISM_API_PORT=${PRISM_API_PORT}
+      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
     ports:
-      - "8080:443"
+      - "${FRONTEND_PORT}:443"
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on:
@@ -31,9 +33,9 @@ services:
       - AzureWebJobsScriptRoot=/home/site/wwwroot
       - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
       - FUNCTIONS_WORKER_RUNTIME=custom
-      - FUNCTIONS_CUSTOMHANDLER_PORT=7071
+      - ASPNETCORE_URLS=http://+:${PRISM_API_PORT}
     ports:
-      - "7071:80"
+      - "${PRISM_API_PORT}:${PRISM_API_PORT}"
     depends_on:
       azurite:
         condition: service_healthy
@@ -47,6 +49,9 @@ services:
       - COMMAND_QUEUE=${COMMAND_QUEUE}
       - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
       - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
+      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
+    ports:
+      - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
     depends_on:
       azurite:
         condition: service_healthy

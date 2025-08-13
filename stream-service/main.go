@@ -44,7 +44,7 @@ func main() {
 
 	api.Register(e, store, auth)
 
-	listenAddr := ":80"
+	listenAddr := ":9000"
 	if val, ok := os.LookupEnv("STREAM_SERVICE_PORT"); ok {
 		listenAddr = ":" + val
 	}
