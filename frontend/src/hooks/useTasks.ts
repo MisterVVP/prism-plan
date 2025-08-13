@@ -8,9 +8,12 @@ export function useTasks() {
   const [commands, setCommands] = useState<Command[]>([]);
   const { isAuthenticated, getAccessTokenSilently, loginWithRedirect, user } =
     useAuth0();
-  const baseUrl =
+  const apiBaseUrl =
     (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
     `${window.location.origin}/api`;
+  const streamUrl =
+    (import.meta.env.VITE_STREAM_URL as string | undefined) ||
+    `${window.location.origin}/stream`;
   const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
 
   useEffect(() => {
@@ -23,7 +26,7 @@ export function useTasks() {
             scope: "openid profile email offline_access",
           },
         });
-        const res = await fetch(`${baseUrl}/tasks`, {
+        const res = await fetch(`${apiBaseUrl}/tasks`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -46,7 +49,7 @@ export function useTasks() {
     return () => clearInterval(interval);
   }, [
     isAuthenticated,
-    baseUrl,
+    apiBaseUrl,
     getAccessTokenSilently,
     loginWithRedirect,
     audience,
@@ -63,7 +66,7 @@ export function useTasks() {
             scope: "openid profile email offline_access",
           },
         });
-        source = new EventSource(`${baseUrl}/stream?token=${token}`);
+        source = new EventSource(`${streamUrl}?token=${token}`);
         source.onmessage = (ev) => {
           const data: Task[] = JSON.parse(ev.data);
           setTasks(data);
@@ -76,7 +79,7 @@ export function useTasks() {
     return () => {
       if (source) source.close();
     };
-  }, [isAuthenticated, baseUrl, getAccessTokenSilently, audience]);
+  }, [isAuthenticated, streamUrl, getAccessTokenSilently, audience]);
 
   useEffect(() => {
     if (!isAuthenticated || commands.length === 0) return;
@@ -89,7 +92,7 @@ export function useTasks() {
             scope: "openid profile email offline_access",
           },
         });
-        await fetch(`${baseUrl}/commands`, {
+        await fetch(`${apiBaseUrl}/commands`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -120,7 +123,7 @@ export function useTasks() {
   }, [
     commands,
     isAuthenticated,
-    baseUrl,
+    apiBaseUrl,
     getAccessTokenSilently,
     loginWithRedirect,
     audience,
