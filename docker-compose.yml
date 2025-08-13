@@ -6,6 +6,7 @@ services:
         VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
         VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
         VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+        VITE_STREAM_URL: ${VITE_STREAM_URL}
     environment:
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-.*}
     ports:
@@ -14,6 +15,7 @@ services:
       - ./certs:/etc/nginx/certs:ro
     depends_on:
       - prism-api
+      - stream-service
   prism-api:
     build: ./prism-api
     environment:
@@ -32,6 +34,21 @@ services:
       - FUNCTIONS_CUSTOMHANDLER_PORT=7071
     ports:
       - "7071:80"
+    depends_on:
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+  stream-service:
+    build:
+      context: .
+      dockerfile: stream-service/Dockerfile
+    environment:
+      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
+      - TASKS_TABLE=${TASKS_TABLE}
+      - COMMAND_QUEUE=${COMMAND_QUEUE}
+      - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
+      - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
     depends_on:
       azurite:
         condition: service_healthy

@@ -11,4 +11,3 @@ COPY --from=build /src/handler ./handler
 COPY host.json ./
 COPY az-funcs/tasks ./tasks
 COPY az-funcs/commands ./commands
-COPY az-funcs/stream ./stream
