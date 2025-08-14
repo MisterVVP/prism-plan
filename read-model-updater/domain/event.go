@@ -4,11 +4,11 @@ import "encoding/json"
 
 // Event represents a change in the domain model.
 type Event struct {
-	ID         string          `json:"id"`
-	EntityID   string          `json:"entityId"`
-	EntityType string          `json:"entityType"`
-	Type       string          `json:"type"`
-	Data       json.RawMessage `json:"data"`
-	Time       int64           `json:"time"`
-	UserID     string          `json:"userId"`
+	ID         string          `json:"Id"`
+	EntityID   string          `json:"EntityId"`
+	EntityType string          `json:"EntityType"`
+	Type       string          `json:"Type"`
+	Data       json.RawMessage `json:"Data"`
+	Time       int64           `json:"Time"`
+	UserID     string          `json:"UserId"`
 }
