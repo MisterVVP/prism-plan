@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/labstack/echo/v4"
+
 	"read-model-updater/domain"
 	"read-model-updater/storage"
 )
@@ -24,28 +26,27 @@ func main() {
 		log.Fatalf("storage: %v", err)
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	e := echo.New()
+	e.POST("/", func(c echo.Context) error {
 		var payload struct {
 			Data struct {
-				QueueTrigger string `json:"queueTrigger"`
-			} `json:"data"`
+				Msg string `json:"msg"`
+			} `json:"Data"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
+		if err := c.Bind(&payload); err != nil {
+			return c.NoContent(http.StatusBadRequest)
 		}
 		var ev domain.Event
-		if err := json.Unmarshal([]byte(payload.Data.QueueTrigger), &ev); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
+		if err := json.Unmarshal([]byte(payload.Data.Msg), &ev); err != nil {
+			return c.NoContent(http.StatusBadRequest)
 		}
-		domain.Apply(r.Context(), st, ev)
-		w.WriteHeader(http.StatusOK)
+		domain.Apply(c.Request().Context(), st, ev)
+		return c.NoContent(http.StatusOK)
 	})
 
 	listenAddr := ":8080"
 	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
 		listenAddr = ":" + val
 	}
-	log.Fatal(http.ListenAndServe(listenAddr, nil))
+	e.Logger.Fatal(e.Start(listenAddr))
 }
