@@ -27,7 +27,7 @@ func main() {
 	}
 
 	e := echo.New()
-	e.POST("/", func(c echo.Context) error {
+	handler := func(c echo.Context) error {
 		var payload struct {
 			Data struct {
 				Msg string `json:"msg"`
@@ -42,7 +42,10 @@ func main() {
 		}
 		domain.Apply(c.Request().Context(), st, ev)
 		return c.NoContent(http.StatusOK)
-	})
+	}
+
+	e.POST("/", handler)
+	e.POST("/domain-events", handler)
 
 	listenAddr := ":8080"
 	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
