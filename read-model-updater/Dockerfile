@@ -9,7 +9,4 @@ FROM mcr.microsoft.com/azure-functions/base:4
 WORKDIR /home/site/wwwroot
 COPY --from=build /src/handler ./handler
 COPY host.json ./
-COPY function.json ./
-ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
-    AzureFunctionsJobHost__Logging__Console__IsEnabled=true \
-    FUNCTIONS_WORKER_RUNTIME=custom
+COPY az-funcs/domain-events ./domain-events

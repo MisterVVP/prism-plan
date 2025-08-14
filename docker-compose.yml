@@ -79,6 +79,9 @@ services:
       - TASKS_TABLE=${TASKS_TABLE}
       - USERS_TABLE=${USERS_TABLE}
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
+      - AzureWebJobsScriptRoot=/home/site/wwwroot
+      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+      - FUNCTIONS_WORKER_RUNTIME=custom
     depends_on:
       azurite:
         condition: service_healthy
