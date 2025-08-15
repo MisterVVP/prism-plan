@@ -44,6 +44,8 @@ func main() {
 		var unquoted string
 		if err := json.Unmarshal([]byte(eventPayload), &unquoted); err == nil {
 			eventPayload = unquoted
+		} else {
+			log.Printf("unable to unquote event payload: %v", err)
 		}
 		log.Printf("eventPayload: %s", eventPayload)
 		var ev domain.Event

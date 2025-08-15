@@ -51,16 +51,17 @@ func (s *Storage) FetchTasks(ctx context.Context, userID string) ([]domain.Task,
 		}
 		for _, e := range resp.Entities {
 			var ent taskEntity
-			if err := json.Unmarshal(e, &ent); err == nil {
-				tasks = append(tasks, domain.Task{
-					ID:       ent.RowKey,
-					Title:    ent.Title,
-					Notes:    ent.Notes,
-					Category: ent.Category,
-					Order:    ent.Order,
-					Done:     ent.Done,
-				})
+			if err := json.Unmarshal(e, &ent); err != nil {
+				return nil, err
 			}
+			tasks = append(tasks, domain.Task{
+				ID:       ent.RowKey,
+				Title:    ent.Title,
+				Notes:    ent.Notes,
+				Category: ent.Category,
+				Order:    ent.Order,
+				Done:     ent.Done,
+			})
 		}
 	}
 	return tasks, nil
@@ -70,8 +71,13 @@ func (s *Storage) FetchTasks(ctx context.Context, userID string) ([]domain.Task,
 func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error {
 	for _, cmd := range cmds {
 		env := domain.CommandEnvelope{UserID: userID, Command: cmd}
-		data, _ := json.Marshal(env)
-		s.commandQueue.EnqueueMessage(ctx, string(data), nil)
+		data, err := json.Marshal(env)
+		if err != nil {
+			return err
+		}
+		if _, err := s.commandQueue.EnqueueMessage(ctx, string(data), nil); err != nil {
+			return err
+		}
 	}
 	return nil
 }

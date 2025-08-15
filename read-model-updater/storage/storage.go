@@ -73,9 +73,11 @@ func (s *Storage) UpdateTask(ctx context.Context, ent domain.TaskUpdate) error {
 // SetTaskDone marks a task as completed.
 func (s *Storage) SetTaskDone(ctx context.Context, pk, rk string) error {
 	done := true
+	t := domain.EdmBoolean
 	ent := domain.TaskUpdate{
-		Entity: domain.Entity{PartitionKey: pk, RowKey: rk},
-		Done:   &done,
+		Entity:   domain.Entity{PartitionKey: pk, RowKey: rk},
+		Done:     &done,
+		DoneType: &t,
 	}
 	payload, err := json.Marshal(ent)
 	if err == nil {
