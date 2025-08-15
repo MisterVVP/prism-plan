@@ -35,6 +35,7 @@ func getTasks(store Storage, auth Authenticator) echo.HandlerFunc {
 		}
 		tasks, err := store.FetchTasks(ctx, userID)
 		if err != nil {
+			c.Logger().Error(err)
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
 		return c.JSON(http.StatusOK, tasks)
@@ -53,6 +54,7 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
 		if err := store.EnqueueCommands(ctx, userID, cmds); err != nil {
+			c.Logger().Error(err)
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
 		return c.JSON(http.StatusOK, map[string]bool{"ok": true})

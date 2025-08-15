@@ -25,12 +25,14 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			return err
 		}
 		ent := TaskEntity{
-			Entity:   Entity{PartitionKey: pk, RowKey: rk},
-			Title:    eventData.Title,
-			Notes:    eventData.Notes,
-			Category: eventData.Category,
-			Order:    eventData.Order,
-			Done:     false,
+			Entity:    Entity{PartitionKey: pk, RowKey: rk},
+			Title:     eventData.Title,
+			Notes:     eventData.Notes,
+			Category:  eventData.Category,
+			Order:     eventData.Order,
+			OrderType: EdmInt32,
+			Done:      false,
+			DoneType:  EdmBoolean,
 		}
 		return st.UpsertTask(ctx, ent)
 	case TaskUpdated:
@@ -50,6 +52,8 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 		}
 		if eventData.Order != nil {
 			updates.Order = eventData.Order
+			t := EdmInt32
+			updates.OrderType = &t
 		}
 		return st.UpdateTask(ctx, updates)
 	case TaskCompleted:

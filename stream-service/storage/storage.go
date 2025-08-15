@@ -45,16 +45,17 @@ func (s *Storage) FetchTasks(ctx context.Context, userID string) ([]domain.Task,
 		}
 		for _, e := range resp.Entities {
 			var ent taskEntity
-			if err := json.Unmarshal(e, &ent); err == nil {
-				tasks = append(tasks, domain.Task{
-					ID:       ent.RowKey,
-					Title:    ent.Title,
-					Notes:    ent.Notes,
-					Category: ent.Category,
-					Order:    ent.Order,
-					Done:     ent.Done,
-				})
+			if err := json.Unmarshal(e, &ent); err != nil {
+				return nil, err
 			}
+			tasks = append(tasks, domain.Task{
+				ID:       ent.RowKey,
+				Title:    ent.Title,
+				Notes:    ent.Notes,
+				Category: ent.Category,
+				Order:    ent.Order,
+				Done:     ent.Done,
+			})
 		}
 	}
 	return tasks, nil

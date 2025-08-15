@@ -48,19 +48,28 @@ func streamTasks(store Storage, auth Authenticator) echo.HandlerFunc {
 		defer ticker.Stop()
 		for {
 			tasks, err := store.FetchTasks(ctx, userID)
-			if err == nil {
-				data, _ := json.Marshal(tasks)
-				if _, err := c.Response().Write([]byte("data: ")); err != nil {
-					return nil
-				}
-				if _, err := c.Response().Write(data); err != nil {
-					return nil
-				}
-				if _, err := c.Response().Write([]byte("\n\n")); err != nil {
-					return nil
-				}
-				flusher.Flush()
+			if err != nil {
+				c.Logger().Error(err)
+				return err
 			}
+			data, err := json.Marshal(tasks)
+			if err != nil {
+				c.Logger().Error(err)
+				return err
+			}
+			if _, err := c.Response().Write([]byte("data: ")); err != nil {
+				c.Logger().Error(err)
+				return err
+			}
+			if _, err := c.Response().Write(data); err != nil {
+				c.Logger().Error(err)
+				return err
+			}
+			if _, err := c.Response().Write([]byte("\n\n")); err != nil {
+				c.Logger().Error(err)
+				return err
+			}
+			flusher.Flush()
 			select {
 			case <-ctx.Done():
 				return nil
