@@ -12,12 +12,10 @@ import (
 	"read-model-updater/storage"
 )
 
-type QueueMessageData struct {
-	Event string `json:"event"`
-}
-
-type QueueMessage struct {
-	Data QueueMessageData `json:"Data"`
+type queueMessage struct {
+	Data struct {
+		Event string `json:"event"`
+	} `json:"Data"`
 }
 
 func main() {
@@ -36,20 +34,29 @@ func main() {
 
 	e := echo.New()
 	handler := func(c echo.Context) error {
-		var payload QueueMessage
-		if err := c.Bind(&payload); err != nil {
-			return c.NoContent(http.StatusBadRequest)
-		}
-		var ev domain.Event
-		if err := json.Unmarshal([]byte(payload.Data.Event), &ev); err != nil {
+		var msg queueMessage
+		if err := c.Bind(&msg); err != nil {
 			log.Printf("Unable to parse message JSON, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
 		}
 
+		eventPayload := msg.Data.Event
+		var unquoted string
+		if err := json.Unmarshal([]byte(eventPayload), &unquoted); err == nil {
+			eventPayload = unquoted
+		}
+		log.Printf("eventPayload: %s", eventPayload)
+		var ev domain.Event
+		if err := json.Unmarshal([]byte(eventPayload), &ev); err != nil {
+			log.Printf("Unable to parse message JSON, error: %v", err)
+			return c.NoContent(http.StatusBadRequest)
+		}
+		log.Printf("Processing event data...")
 		if err := domain.Apply(c.Request().Context(), st, ev); err != nil {
 			log.Printf("Unable to process message, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
 		}
+		log.Printf("Successfully processed event data!")
 		return c.NoContent(http.StatusOK)
 	}
 

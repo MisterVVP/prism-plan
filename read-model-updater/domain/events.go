@@ -21,3 +21,22 @@ type Event struct {
 	Time       int64           `json:"Time"`
 	UserID     string          `json:"UserId"`
 }
+
+type UserEventData struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type TaskCreatedEventData struct {
+	Title    string `json:"title"`
+	Notes    string `json:"notes"`
+	Category string `json:"category"`
+	Order    int    `json:"order"`
+}
+
+type TaskUpdatedEventData struct {
+	Title    *string `json:"title"`
+	Notes    *string `json:"notes"`
+	Category *string `json:"category"`
+	Order    *int    `json:"order"`
+}

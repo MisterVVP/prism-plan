@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"encoding/json"
+	"log"
 )
 
 // Storage defines methods required for updating the read model.
@@ -19,66 +20,57 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 	rk := ev.EntityID
 	switch ev.Type {
 	case TaskCreated:
-		var t struct {
-			Title    string `json:"title"`
-			Notes    string `json:"notes"`
-			Category string `json:"category"`
-			Order    int    `json:"order"`
-		}
-		if err := json.Unmarshal(ev.Data, &t); err != nil {
+		var eventData TaskCreatedEventData
+		if err := json.Unmarshal(ev.Data, &eventData); err != nil {
 			return err
 		}
 		ent := TaskEntity{
 			Entity:   Entity{PartitionKey: pk, RowKey: rk},
-			Title:    t.Title,
-			Notes:    t.Notes,
-			Category: t.Category,
-			Order:    t.Order,
+			Title:    eventData.Title,
+			Notes:    eventData.Notes,
+			Category: eventData.Category,
+			Order:    eventData.Order,
 			Done:     false,
 		}
-		st.UpsertTask(ctx, ent)
+		return st.UpsertTask(ctx, ent)
 	case TaskUpdated:
-		var changes struct {
-			Title    *string `json:"title"`
-			Notes    *string `json:"notes"`
-			Category *string `json:"category"`
-			Order    *int    `json:"order"`
-		}
-		if err := json.Unmarshal(ev.Data, &changes); err != nil {
+		var eventData TaskUpdatedEventData
+		if err := json.Unmarshal(ev.Data, &eventData); err != nil {
 			return err
 		}
 		updates := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
-		if changes.Title != nil {
-			updates.Title = changes.Title
+		if eventData.Title != nil {
+			updates.Title = eventData.Title
 		}
-		if changes.Notes != nil {
-			updates.Notes = changes.Notes
+		if eventData.Notes != nil {
+			updates.Notes = eventData.Notes
 		}
-		if changes.Category != nil {
-			updates.Category = changes.Category
+		if eventData.Category != nil {
+			updates.Category = eventData.Category
 		}
-		if changes.Order != nil {
-			updates.Order = changes.Order
+		if eventData.Order != nil {
+			updates.Order = eventData.Order
 		}
-		st.UpdateTask(ctx, updates)
+		return st.UpdateTask(ctx, updates)
 	case TaskCompleted:
-		st.SetTaskDone(ctx, pk, rk)
+		return st.SetTaskDone(ctx, pk, rk)
 	case UserCreated:
-		var u struct {
-			Name  string `json:"name"`
-			Email string `json:"email"`
-		}
-		if err := json.Unmarshal(ev.Data, &u); err != nil {
+		var user UserEventData
+		if err := json.Unmarshal(ev.Data, &user); err != nil {
 			return err
 		}
 		ent := UserEntity{
 			Entity: Entity{PartitionKey: rk, RowKey: rk},
-			Name:   u.Name,
-			Email:  u.Email,
+			Name:   user.Name,
+			Email:  user.Email,
 		}
-		st.UpsertUser(ctx, ent)
+		return st.UpsertUser(ctx, ent)
 	case UserLoggedIn, UserLoggedOut:
-		// no-op
+		var user UserEventData
+		if err := json.Unmarshal(ev.Data, &user); err != nil {
+			return err
+		}
+		log.Printf("User logged in, name: %s email: %s", user.Name, user.Email)
 	}
 	return nil
 }

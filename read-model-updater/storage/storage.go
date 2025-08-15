@@ -53,16 +53,20 @@ func (s *Storage) Delete(ctx context.Context, id, receipt string) error {
 
 // UpsertTask creates or replaces a task entity.
 func (s *Storage) UpsertTask(ctx context.Context, ent domain.TaskEntity) error {
-	payload, _ := json.Marshal(ent)
-	_, err := s.taskTable.UpsertEntity(ctx, payload, nil)
+	payload, err := json.Marshal(ent)
+	if err == nil {
+		_, err = s.taskTable.UpsertEntity(ctx, payload, nil)
+	}
 	return err
 }
 
 // UpdateTask merges changes into an existing task entity.
 func (s *Storage) UpdateTask(ctx context.Context, ent domain.TaskUpdate) error {
-	payload, _ := json.Marshal(ent)
-	et := azcore.ETagAny
-	_, err := s.taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
+	payload, err := json.Marshal(ent)
+	if err == nil {
+		et := azcore.ETagAny
+		_, err = s.taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
+	}
 	return err
 }
 
@@ -73,15 +77,19 @@ func (s *Storage) SetTaskDone(ctx context.Context, pk, rk string) error {
 		Entity: domain.Entity{PartitionKey: pk, RowKey: rk},
 		Done:   &done,
 	}
-	payload, _ := json.Marshal(ent)
-	et := azcore.ETagAny
-	_, err := s.taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
+	payload, err := json.Marshal(ent)
+	if err == nil {
+		et := azcore.ETagAny
+		_, err = s.taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
+	}
 	return err
 }
 
 // UpsertUser creates or replaces a user entity.
 func (s *Storage) UpsertUser(ctx context.Context, ent domain.UserEntity) error {
-	payload, _ := json.Marshal(ent)
-	_, err := s.userTable.UpsertEntity(ctx, payload, nil)
+	payload, err := json.Marshal(ent)
+	if err == nil {
+		_, err = s.userTable.UpsertEntity(ctx, payload, nil)
+	}
 	return err
 }
