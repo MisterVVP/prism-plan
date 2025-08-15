@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -36,8 +37,12 @@ func main() {
 		if err := c.Bind(&payload); err != nil {
 			return c.NoContent(http.StatusBadRequest)
 		}
+		decoded, err := base64.StdEncoding.DecodeString(payload.Data.Msg)
+		if err != nil {
+			return c.NoContent(http.StatusBadRequest)
+		}
 		var ev domain.Event
-		if err := json.Unmarshal([]byte(payload.Data.Msg), &ev); err != nil {
+		if err := json.Unmarshal(decoded, &ev); err != nil {
 			return c.NoContent(http.StatusBadRequest)
 		}
 		domain.Apply(c.Request().Context(), st, ev)
