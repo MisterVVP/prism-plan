@@ -7,6 +7,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
+
+	"read-model-updater/domain"
 )
 
 // Storage wraps Azure clients used by the service.
@@ -50,14 +52,14 @@ func (s *Storage) Delete(ctx context.Context, id, receipt string) error {
 }
 
 // UpsertTask creates or replaces a task entity.
-func (s *Storage) UpsertTask(ctx context.Context, ent map[string]any) error {
+func (s *Storage) UpsertTask(ctx context.Context, ent domain.TaskEntity) error {
 	payload, _ := json.Marshal(ent)
 	_, err := s.taskTable.UpsertEntity(ctx, payload, nil)
 	return err
 }
 
 // UpdateTask merges changes into an existing task entity.
-func (s *Storage) UpdateTask(ctx context.Context, ent map[string]any) error {
+func (s *Storage) UpdateTask(ctx context.Context, ent domain.TaskUpdate) error {
 	payload, _ := json.Marshal(ent)
 	et := azcore.ETagAny
 	_, err := s.taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
@@ -66,10 +68,10 @@ func (s *Storage) UpdateTask(ctx context.Context, ent map[string]any) error {
 
 // SetTaskDone marks a task as completed.
 func (s *Storage) SetTaskDone(ctx context.Context, pk, rk string) error {
-	ent := map[string]any{
-		"PartitionKey": pk,
-		"RowKey":       rk,
-		"Done":         true,
+	done := true
+	ent := domain.TaskUpdate{
+		Entity: domain.Entity{PartitionKey: pk, RowKey: rk},
+		Done:   &done,
 	}
 	payload, _ := json.Marshal(ent)
 	et := azcore.ETagAny
@@ -78,7 +80,7 @@ func (s *Storage) SetTaskDone(ctx context.Context, pk, rk string) error {
 }
 
 // UpsertUser creates or replaces a user entity.
-func (s *Storage) UpsertUser(ctx context.Context, ent map[string]any) error {
+func (s *Storage) UpsertUser(ctx context.Context, ent domain.UserEntity) error {
 	payload, _ := json.Marshal(ent)
 	_, err := s.userTable.UpsertEntity(ctx, payload, nil)
 	return err

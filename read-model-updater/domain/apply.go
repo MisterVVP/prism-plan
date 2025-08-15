@@ -3,15 +3,14 @@ package domain
 import (
 	"context"
 	"encoding/json"
-	"strings"
 )
 
 // Storage defines methods required for updating the read model.
 type Storage interface {
-	UpsertTask(ctx context.Context, ent map[string]any) error
-	UpdateTask(ctx context.Context, ent map[string]any) error
+	UpsertTask(ctx context.Context, ent TaskEntity) error
+	UpdateTask(ctx context.Context, ent TaskUpdate) error
 	SetTaskDone(ctx context.Context, pk, rk string) error
-	UpsertUser(ctx context.Context, ent map[string]any) error
+	UpsertUser(ctx context.Context, ent UserEntity) error
 }
 
 // Apply updates the read model based on an incoming event.
@@ -19,53 +18,66 @@ func Apply(ctx context.Context, st Storage, ev Event) {
 	pk := ev.UserID
 	rk := ev.EntityID
 	switch ev.Type {
-	case "task-created":
-		var t map[string]any
+	case TaskCreated:
+		var t struct {
+			Title    string `json:"title"`
+			Notes    string `json:"notes"`
+			Category string `json:"category"`
+			Order    int    `json:"order"`
+		}
 		if err := json.Unmarshal(ev.Data, &t); err != nil {
 			return
 		}
-		ent := map[string]any{
-			"PartitionKey": pk,
-			"RowKey":       rk,
-			"Title":        t["title"],
-			"Notes":        t["notes"],
-			"Category":     t["category"],
-			"Order":        t["order"],
-			"Done":         false,
+		ent := TaskEntity{
+			Entity:   Entity{PartitionKey: pk, RowKey: rk},
+			Title:    t.Title,
+			Notes:    t.Notes,
+			Category: t.Category,
+			Order:    t.Order,
+			Done:     false,
 		}
 		st.UpsertTask(ctx, ent)
-	case "task-updated":
-		var changes map[string]any
+	case TaskUpdated:
+		var changes struct {
+			Title    *string `json:"title"`
+			Notes    *string `json:"notes"`
+			Category *string `json:"category"`
+			Order    *int    `json:"order"`
+		}
 		if err := json.Unmarshal(ev.Data, &changes); err != nil {
 			return
 		}
-		updates := map[string]any{
-			"PartitionKey": pk,
-			"RowKey":       rk,
+		updates := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
+		if changes.Title != nil {
+			updates.Title = changes.Title
 		}
-		for k, v := range changes {
-			if k == "" {
-				continue
-			}
-			capKey := strings.ToUpper(k[:1]) + k[1:]
-			updates[capKey] = v
+		if changes.Notes != nil {
+			updates.Notes = changes.Notes
+		}
+		if changes.Category != nil {
+			updates.Category = changes.Category
+		}
+		if changes.Order != nil {
+			updates.Order = changes.Order
 		}
 		st.UpdateTask(ctx, updates)
-	case "task-completed":
+	case TaskCompleted:
 		st.SetTaskDone(ctx, pk, rk)
-	case "user-created":
-		var u map[string]any
+	case UserCreated:
+		var u struct {
+			Name  string `json:"name"`
+			Email string `json:"email"`
+		}
 		if err := json.Unmarshal(ev.Data, &u); err != nil {
 			return
 		}
-		ent := map[string]any{
-			"PartitionKey": rk,
-			"RowKey":       rk,
-			"Name":         u["name"],
-			"Email":        u["email"],
+		ent := UserEntity{
+			Entity: Entity{PartitionKey: rk, RowKey: rk},
+			Name:   u.Name,
+			Email:  u.Email,
 		}
 		st.UpsertUser(ctx, ent)
-	case "user-logged-in", "user-logged-out":
+	case UserLoggedIn, UserLoggedOut:
 		// no-op
 	}
 }
