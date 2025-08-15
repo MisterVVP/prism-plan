@@ -3,7 +3,7 @@
     {
       "type": "queueTrigger",
       "direction": "in",
-      "name": "msg",
+      "name": "event",
       "queueName": "%DOMAIN_EVENTS_QUEUE%",
       "connection": "STORAGE_CONNECTION_STRING"
     }

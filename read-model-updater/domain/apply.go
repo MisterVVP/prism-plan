@@ -14,7 +14,7 @@ type Storage interface {
 }
 
 // Apply updates the read model based on an incoming event.
-func Apply(ctx context.Context, st Storage, ev Event) {
+func Apply(ctx context.Context, st Storage, ev Event) error {
 	pk := ev.UserID
 	rk := ev.EntityID
 	switch ev.Type {
@@ -26,7 +26,7 @@ func Apply(ctx context.Context, st Storage, ev Event) {
 			Order    int    `json:"order"`
 		}
 		if err := json.Unmarshal(ev.Data, &t); err != nil {
-			return
+			return err
 		}
 		ent := TaskEntity{
 			Entity:   Entity{PartitionKey: pk, RowKey: rk},
@@ -45,7 +45,7 @@ func Apply(ctx context.Context, st Storage, ev Event) {
 			Order    *int    `json:"order"`
 		}
 		if err := json.Unmarshal(ev.Data, &changes); err != nil {
-			return
+			return err
 		}
 		updates := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
 		if changes.Title != nil {
@@ -69,7 +69,7 @@ func Apply(ctx context.Context, st Storage, ev Event) {
 			Email string `json:"email"`
 		}
 		if err := json.Unmarshal(ev.Data, &u); err != nil {
-			return
+			return err
 		}
 		ent := UserEntity{
 			Entity: Entity{PartitionKey: rk, RowKey: rk},
@@ -80,4 +80,5 @@ func Apply(ctx context.Context, st Storage, ev Event) {
 	case UserLoggedIn, UserLoggedOut:
 		// no-op
 	}
+	return nil
 }

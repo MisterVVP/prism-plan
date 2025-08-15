@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -12,6 +11,14 @@ import (
 	"read-model-updater/domain"
 	"read-model-updater/storage"
 )
+
+type QueueMessageData struct {
+	Event string `json:"event"`
+}
+
+type QueueMessage struct {
+	Data QueueMessageData `json:"Data"`
+}
 
 func main() {
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
@@ -29,23 +36,20 @@ func main() {
 
 	e := echo.New()
 	handler := func(c echo.Context) error {
-		var payload struct {
-			Data struct {
-				Msg string `json:"msg"`
-			} `json:"Data"`
-		}
+		var payload QueueMessage
 		if err := c.Bind(&payload); err != nil {
 			return c.NoContent(http.StatusBadRequest)
 		}
-		decoded, err := base64.StdEncoding.DecodeString(payload.Data.Msg)
-		if err != nil {
-			return c.NoContent(http.StatusBadRequest)
-		}
 		var ev domain.Event
-		if err := json.Unmarshal(decoded, &ev); err != nil {
+		if err := json.Unmarshal([]byte(payload.Data.Event), &ev); err != nil {
+			log.Printf("Unable to parse message JSON, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
 		}
-		domain.Apply(c.Request().Context(), st, ev)
+
+		if err := domain.Apply(c.Request().Context(), st, ev); err != nil {
+			log.Printf("Unable to process message, error: %v", err)
+			return c.NoContent(http.StatusBadRequest)
+		}
 		return c.NoContent(http.StatusOK)
 	}
 
