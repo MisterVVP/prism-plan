@@ -181,6 +181,15 @@
         <mxCell id="hFnV-RRmyNzZNkbAKMxP-5" value="Event store" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
           <mxGeometry x="367.5" y="1780" width="60" height="80" as="geometry" />
         </mxCell>
+        <mxCell id="stream-service" value="Stream service" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
+          <mxGeometry x="720" y="1470" width="115" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-rm-ss" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="7e_JotFYiRit8EVYAy1m-16" target="stream-service" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-ss-ui" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="stream-service" target="7e_JotFYiRit8EVYAy1m-1" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
