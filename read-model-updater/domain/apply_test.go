@@ -37,10 +37,10 @@ func (f *fakeStore) UpsertUser(ctx context.Context, ent UserEntity) error {
 func TestApplyTaskCreated(t *testing.T) {
 	fs := &fakeStore{}
 	data := struct {
-		Title    string  `json:"title"`
-		Notes    string  `json:"notes"`
-		Category string  `json:"category"`
-		Order    float64 `json:"order"`
+		Title    string `json:"title"`
+		Notes    string `json:"notes"`
+		Category string `json:"category"`
+		Order    int    `json:"order"`
 	}{"title1", "note", "cat", 1}
 	payload, _ := json.Marshal(data)
 	ev := Event{Type: TaskCreated, UserID: "u1", EntityID: "t1", Data: payload}
@@ -53,10 +53,10 @@ func TestApplyTaskCreated(t *testing.T) {
 func TestApplyTaskUpdated(t *testing.T) {
 	fs := &fakeStore{}
 	data := struct {
-		Title *string  `json:"title"`
-		Notes *string  `json:"notes"`
-		Order *float64 `json:"order"`
-	}{Title: ptrString("new"), Notes: ptrString("n"), Order: ptrFloat(5)}
+		Title *string `json:"title"`
+		Notes *string `json:"notes"`
+		Order *int    `json:"order"`
+	}{Title: ptrString("new"), Notes: ptrString("n"), Order: ptrInt(5)}
 	payload, _ := json.Marshal(data)
 	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload}
 	Apply(context.Background(), fs, ev)
@@ -88,5 +88,5 @@ func TestApplyUserCreated(t *testing.T) {
 	}
 }
 
-func ptrString(s string) *string  { return &s }
-func ptrFloat(f float64) *float64 { return &f }
+func ptrString(s string) *string { return &s }
+func ptrInt(i int) *int          { return &i }

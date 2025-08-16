@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
@@ -12,6 +13,9 @@ import (
 )
 
 func main() {
+	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
+		log.SetLevel(log.DebugLevel)
+	}
 	log.Info("storage init starting")
 
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")

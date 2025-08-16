@@ -30,7 +30,7 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			Title:     eventData.Title,
 			Notes:     eventData.Notes,
 			Category:  eventData.Category,
-			Order:     int(eventData.Order),
+			Order:     eventData.Order,
 			OrderType: EdmInt32,
 			Done:      false,
 			DoneType:  EdmBoolean,
@@ -52,7 +52,7 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			updates.Category = eventData.Category
 		}
 		if eventData.Order != nil {
-			v := int(*eventData.Order)
+			v := *eventData.Order
 			updates.Order = &v
 			t := EdmInt32
 			updates.OrderType = &t

@@ -28,15 +28,15 @@ type UserEventData struct {
 }
 
 type TaskCreatedEventData struct {
-	Title    string  `json:"title"`
-	Notes    string  `json:"notes"`
-	Category string  `json:"category"`
-	Order    float64 `json:"order"`
+	Title    string `json:"title"`
+	Notes    string `json:"notes"`
+	Category string `json:"category"`
+	Order    int    `json:"order"`
 }
 
 type TaskUpdatedEventData struct {
-	Title    *string  `json:"title"`
-	Notes    *string  `json:"notes"`
-	Category *string  `json:"category"`
-	Order    *float64 `json:"order"`
+	Title    *string `json:"title"`
+	Notes    *string `json:"notes"`
+	Category *string `json:"category"`
+	Order    *int    `json:"order"`
 }

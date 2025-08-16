@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/MicahParks/keyfunc"
 	"github.com/labstack/echo/v4"
@@ -14,6 +15,9 @@ import (
 )
 
 func main() {
+	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
+		log.SetLevel(log.DebugLevel)
+	}
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
 	tasksTableName := os.Getenv("TASKS_TABLE")
 	commandQueueName := os.Getenv("COMMAND_QUEUE")

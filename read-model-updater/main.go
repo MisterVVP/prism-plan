@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
@@ -19,6 +20,9 @@ type queueMessage struct {
 }
 
 func main() {
+	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
+		log.SetLevel(log.DebugLevel)
+	}
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
 	eventsQueue := os.Getenv("DOMAIN_EVENTS_QUEUE")
 	tasksTable := os.Getenv("TASKS_TABLE")
