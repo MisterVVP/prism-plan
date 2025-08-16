@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { v4 as uuid } from "uuid";
-import type { Task, Command } from "../types";
+import type { Task } from "../types";
+import {
+  tasksReducer,
+  initialState,
+} from "../reducers/tasksReducer";
 
 export function useTasks() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [commands, setCommands] = useState<Command[]>([]);
+  const [state, dispatch] = useReducer(tasksReducer, initialState);
+  const { tasks, commands } = state;
   const { isAuthenticated, getAccessTokenSilently, loginWithRedirect, user } =
     useAuth0();
   const apiBaseUrl =
@@ -31,7 +35,7 @@ export function useTasks() {
         });
         if (res.ok) {
           const data: Task[] = await res.json();
-          setTasks(data);
+          dispatch({ type: "set-tasks", tasks: data });
         }
       } catch (err) {
         if (
@@ -69,7 +73,7 @@ export function useTasks() {
         source = new EventSource(`${streamUrl}?token=${token}`);
         source.onmessage = (ev) => {
           const data: Task[] = JSON.parse(ev.data);
-          setTasks(data);
+          dispatch({ type: "set-tasks", tasks: data });
         };
       } catch (err) {
         console.error(err);
@@ -101,7 +105,7 @@ export function useTasks() {
           body: JSON.stringify(commands),
         });
         if (!cancelled) {
-          setCommands([]);
+          dispatch({ type: "clear-commands" });
         }
       } catch (err) {
         if (
@@ -129,58 +133,30 @@ export function useTasks() {
     audience,
   ]);
 
-  function addTask(partial: Omit<Task, "id">) {
-    const id = uuid();
-    const existingOrders = [
-      ...tasks
-        .filter((t) => t.category === partial.category)
-        .map((t) => t.order ?? -1),
-      ...commands
-        .filter(
-          (c) =>
-            c.type === "create-task" &&
-            (c.data as any).category === partial.category
-        )
-        .map((c) => ((c.data as any).order as number) ?? -1),
-    ];
-    const nextOrder = (existingOrders.length ? Math.max(...existingOrders) : -1) + 1;
-    const newTask: Task = { id, ...partial, order: nextOrder, done: false };
-    setTasks((t) => [...t, newTask]);
-    const cmd: Command = {
-      id: uuid(),
-      entityId: id,
-      entityType: "task",
-      type: "create-task",
-      data: { ...partial, order: nextOrder },
-    };
-    setCommands((e) => [...e, cmd]);
+  function addTask(partial: Omit<Task, "id" | "order" | "done">) {
+    dispatch({
+      type: "add-task",
+      taskId: uuid(),
+      commandId: uuid(),
+      partial,
+    });
   }
 
   function updateTask(id: string, changes: Partial<Task>) {
-    setTasks((t) =>
-      t.map((task) => (task.id === id ? { ...task, ...changes } : task)),
-    );
-    const cmd: Command = {
-      id: uuid(),
-      entityId: id,
-      entityType: "task",
+    dispatch({
       type: "update-task",
-      data: changes,
-    };
-    setCommands((e) => [...e, cmd]);
+      id,
+      commandId: uuid(),
+      changes,
+    });
   }
 
   function completeTask(id: string) {
-    setTasks((t) =>
-      t.map((task) => (task.id === id ? { ...task, done: true } : task)),
-    );
-    const cmd: Command = {
-      id: uuid(),
-      entityId: id,
-      entityType: "task",
+    dispatch({
       type: "complete-task",
-    };
-    setCommands((e) => [...e, cmd]);
+      id,
+      commandId: uuid(),
+    });
   }
 
   return { tasks, addTask, updateTask, completeTask };

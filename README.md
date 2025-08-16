@@ -81,4 +81,3 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 4. Start system design for mobile app
 5. Design application update system that can manage updates for billions of mobile devices globally
 6. Revisit error handling and triggering logic of stream-service
-7. Ensure scalability of the solution (adjust the design if required)
