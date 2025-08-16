@@ -10,8 +10,8 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	log "github.com/sirupsen/logrus"
 
-	"prism-api/api"
-	"prism-api/storage"
+	"stream-service/api"
+	"stream-service/storage"
 )
 
 func main() {
@@ -20,11 +20,10 @@ func main() {
 	}
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
 	tasksTableName := os.Getenv("TASKS_TABLE")
-	commandQueueName := os.Getenv("COMMAND_QUEUE")
-	if connStr == "" || tasksTableName == "" || commandQueueName == "" {
+	if connStr == "" || tasksTableName == "" {
 		log.Fatal("missing storage config")
 	}
-	store, err := storage.New(connStr, tasksTableName, commandQueueName)
+	store, err := storage.New(connStr, tasksTableName)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}
@@ -49,8 +48,8 @@ func main() {
 
 	api.Register(e, store, auth)
 
-	listenAddr := ":8080"
-	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
+	listenAddr := ":9000"
+	if val, ok := os.LookupEnv("STREAM_SERVICE_PORT"); ok {
 		listenAddr = ":" + val
 	}
 

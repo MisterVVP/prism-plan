@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36" version="28.0.9">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36" version="28.0.9">
   <diagram name="Page-1" id="I_R9EMvYyNtO1Z9uuBog">
     <mxGraphModel dx="2916" dy="37" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
@@ -35,7 +35,7 @@
         <mxCell id="7e_JotFYiRit8EVYAy1m-7" value="Load balancer" style="verticalLabelPosition=bottom;html=1;verticalAlign=top;align=center;strokeColor=none;fillColor=#00BEF2;shape=mxgraph.azure.load_balancer_generic;pointerEvents=1;" parent="1" vertex="1">
           <mxGeometry x="-345" y="1730" width="37.5" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="7e_JotFYiRit8EVYAy1m-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="7e_JotFYiRit8EVYAy1m-1" target="7e_JotFYiRit8EVYAy1m-50" edge="1">
+        <mxCell id="7e_JotFYiRit8EVYAy1m-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;startArrow=none;startFill=0;endArrow=classic;endFill=1;" parent="1" source="7e_JotFYiRit8EVYAy1m-1" target="7e_JotFYiRit8EVYAy1m-50" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="7e_JotFYiRit8EVYAy1m-44" value="send dynamic requests" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="7e_JotFYiRit8EVYAy1m-9" vertex="1" connectable="0">
@@ -166,20 +166,38 @@
         <mxCell id="7e_JotFYiRit8EVYAy1m-61" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;API&lt;/h1&gt;&lt;p&gt;- POST /api/commands&lt;/p&gt;&lt;p&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;- GET&amp;nbsp; &amp;nbsp;/api/tasks&lt;/span&gt;&lt;/p&gt;&lt;p&gt;- GET&amp;nbsp; &amp;nbsp;/api/stream&lt;/p&gt;" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="40" y="1140" width="180" height="220" as="geometry" />
         </mxCell>
-        <mxCell id="hFnV-RRmyNzZNkbAKMxP-1" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;DB&lt;/h1&gt;&lt;div&gt;&lt;ul&gt;&lt;li&gt;NoSQL store for both databases.&lt;/li&gt;&lt;li&gt;Optimize readonly db for reads and Event store for reads &amp;amp; appends&lt;/li&gt;&lt;li&gt;Partition/shard by&amp;nbsp;&lt;b style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;userId&lt;/b&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp;in general, for max scalability&lt;/span&gt;&lt;/li&gt;&lt;li&gt;In future, cold storage can be introduced for Event store if the amount of data affects performance. Domain service should work with &quot;hot/warm&quot; store.&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;p&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/p&gt;" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+        <mxCell id="hFnV-RRmyNzZNkbAKMxP-1" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;DB&lt;/h1&gt;&lt;div&gt;&lt;ul&gt;&lt;li&gt;NoSQL store for both databases.&lt;/li&gt;&lt;li&gt;Optimize readonly db for reads and Event store for reads &amp;amp; appends&lt;/li&gt;&lt;li&gt;Partition/shard by&amp;nbsp;&lt;b style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;userId&lt;/b&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp;in general, for max scalability&lt;/span&gt;&lt;/li&gt;&lt;li&gt;In future, cold storage can be introduced for Event store if the amount of data affects performance. Domain service should work with &quot;hot/warm&quot; store.&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;p&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/p&gt;" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="460" y="1140" width="270" height="220" as="geometry" />
         </mxCell>
-        <mxCell id="hFnV-RRmyNzZNkbAKMxP-2" value="Event store" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+        <mxCell id="hFnV-RRmyNzZNkbAKMxP-2" value="Event store" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
           <mxGeometry x="367.5" y="1792.5" width="60" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="hFnV-RRmyNzZNkbAKMxP-3" value="Readonly db" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+        <mxCell id="hFnV-RRmyNzZNkbAKMxP-3" value="Readonly db" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
           <mxGeometry x="365" y="1477.5" width="60" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="hFnV-RRmyNzZNkbAKMxP-4" value="Readonly db" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+        <mxCell id="hFnV-RRmyNzZNkbAKMxP-4" value="Readonly db" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
           <mxGeometry x="365" y="1467.5" width="60" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="hFnV-RRmyNzZNkbAKMxP-5" value="Event store" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+        <mxCell id="hFnV-RRmyNzZNkbAKMxP-5" value="Event store" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
           <mxGeometry x="367.5" y="1780" width="60" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="stream-service" value="Stream service" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
+          <mxGeometry x="-180" y="1390" width="115" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-rm-ss" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="7e_JotFYiRit8EVYAy1m-16" target="stream-service" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="30" y="1510" />
+              <mxPoint x="30" y="1448" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-ss-ui" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="stream-service" target="7e_JotFYiRit8EVYAy1m-1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-540" y="1448" />
+            </Array>
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>

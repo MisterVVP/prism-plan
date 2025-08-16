@@ -6,8 +6,6 @@ github.com/Azure/azure-sdk-for-go/sdk/data/aztables v1.4.0 h1:mXlQ+2C8A4KpXTIIYY
 github.com/Azure/azure-sdk-for-go/sdk/data/aztables v1.4.0/go.mod h1:K//Ck7MUa+r9jpV69WLeWnnju5WJx5120AFsEzvumII=
 github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 h1:FPKJS1T+clwv+OLGt13a8UjqeRuh0O4SJ3lUriThc+4=
 github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1/go.mod h1:j2chePtV91HrC22tGoRX3sGY42uF13WzmmV80/OdVAA=
-github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue v1.0.1 h1:qvrrnQ2mIjwY7IVlQuNB0ma43Nr74+9ZTZJ60KlmlV4=
-github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue v1.0.1/go.mod h1:FkF/Az07vR3S4sBdjCuisznWfFWOD8u6Ibm/g/oyDAk=
 github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 h1:oygO0locgZJe7PpYPXT5A29ZkwJaPqcva7BVeemZOZs=
 github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2/go.mod h1:wP83P5OoQ5p6ip3ScPr0BAq0BvuPAvacpEuSzyouqAI=
 github.com/MicahParks/keyfunc v1.9.0 h1:lhKd5xrFHLNOWrDc4Tyb/Q1AJ4LCzQ48GVJyVIID3+o=

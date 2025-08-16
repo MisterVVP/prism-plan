@@ -4,6 +4,16 @@
       "dynamicConcurrencyEnabled": true, 
       "snapshotPersistenceEnabled": true 
   },
+  "extensions": {
+      "queues": {
+          "maxPollingInterval": "00:00:00.250",
+          "visibilityTimeout" : "00:00:01",
+          "batchSize": 16,
+          "maxDequeueCount": 5,
+          "newBatchThreshold": 8,
+          "messageEncoding": "none"
+      }
+  },
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
     "version": "[4.*, 5.0.0)"
@@ -11,7 +21,6 @@
   "customHandler": {
     "description": {
       "defaultExecutablePath": "handler",
-      "workingDirectory": "",
       "arguments": []
     },
     "enableForwardingHttpRequest": true

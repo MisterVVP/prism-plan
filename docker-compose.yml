@@ -6,17 +6,22 @@ services:
         VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
         VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
         VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+        VITE_STREAM_URL: ${VITE_STREAM_URL}
     environment:
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-.*}
+      - PRISM_API_PORT=${PRISM_API_PORT}
+      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
     ports:
-      - "8080:443"
+      - "${FRONTEND_PORT}:443"
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on:
       - prism-api
+      - stream-service
   prism-api:
     build: ./prism-api
     environment:
+      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
       - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
@@ -25,8 +30,30 @@ services:
       - TASKS_TABLE=${TASKS_TABLE}
       - USERS_TABLE=${USERS_TABLE}
       - COMMAND_QUEUE=${COMMAND_QUEUE}
+      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
+      - AzureWebJobsScriptRoot=/home/site/wwwroot
+      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+      - FUNCTIONS_WORKER_RUNTIME=custom
+      - ASPNETCORE_URLS=http://+:${PRISM_API_PORT}
     ports:
-      - "7071:7071"
+      - "${PRISM_API_PORT}:${PRISM_API_PORT}"
+    depends_on:
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+  stream-service:
+    build: ./stream-service
+    environment:
+      - DEBUG=${DEBUG}
+      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
+      - TASKS_TABLE=${TASKS_TABLE}
+      - COMMAND_QUEUE=${COMMAND_QUEUE}
+      - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
+      - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
+      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
+    ports:
+      - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
     depends_on:
       azurite:
         condition: service_healthy
@@ -35,6 +62,7 @@ services:
   domain-service:
     build: ./domain-service
     environment:
+      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
       - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
@@ -49,10 +77,15 @@ services:
   read-model-updater:
     build: ./read-model-updater
     environment:
+      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
       - TASKS_TABLE=${TASKS_TABLE}
       - USERS_TABLE=${USERS_TABLE}
+      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
+      - AzureWebJobsScriptRoot=/home/site/wwwroot
+      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+      - FUNCTIONS_WORKER_RUNTIME=custom
     depends_on:
       azurite:
         condition: service_healthy
@@ -76,6 +109,7 @@ services:
   storage-init:
     build: ./storage-init
     environment:
+      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
       - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}

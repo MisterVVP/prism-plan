@@ -5,29 +5,23 @@ import (
 	"encoding/json"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
 
-	"prism-api/domain"
+	"stream-service/domain"
 )
 
 // Storage provides access to underlying persistence mechanisms.
 type Storage struct {
-	taskTable    *aztables.Client
-	commandQueue *azqueue.QueueClient
+	taskTable *aztables.Client
 }
 
 // New creates a Storage instance from the given connection string.
-func New(connStr, tasksTable, commandQueue string) (*Storage, error) {
+func New(connStr, tasksTable string) (*Storage, error) {
 	svc, err := aztables.NewServiceClientFromConnectionString(connStr, nil)
 	if err != nil {
 		return nil, err
 	}
 	tt := svc.NewClient(tasksTable)
-	cq, err := azqueue.NewQueueClientFromConnectionString(connStr, commandQueue, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &Storage{taskTable: tt, commandQueue: cq}, nil
+	return &Storage{taskTable: tt}, nil
 }
 
 type taskEntity struct {
@@ -65,19 +59,4 @@ func (s *Storage) FetchTasks(ctx context.Context, userID string) ([]domain.Task,
 		}
 	}
 	return tasks, nil
-}
-
-// EnqueueCommands sends the given commands to the command queue.
-func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error {
-	for _, cmd := range cmds {
-		env := domain.CommandEnvelope{UserID: userID, Command: cmd}
-		data, err := json.Marshal(env)
-		if err != nil {
-			return err
-		}
-		if _, err := s.commandQueue.EnqueueMessage(ctx, string(data), nil); err != nil {
-			return err
-		}
-	}
-	return nil
 }
