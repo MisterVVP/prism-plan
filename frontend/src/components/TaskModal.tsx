@@ -33,7 +33,7 @@ export default function TaskModal({
   }, [presetCategory, isOpen]);
 
   function handleSave() {
-    addTask({ title: title.trim(), notes, category: cat, order: 0 });
+    addTask({ title: title.trim(), notes, category: cat });
     // reset & close
     setTitle('');
     setNotes('');

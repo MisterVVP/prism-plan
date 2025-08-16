@@ -131,14 +131,18 @@ export function useTasks() {
 
   function addTask(partial: Omit<Task, "id">) {
     const id = uuid();
-    const newTask: Task = { id, ...partial, done: false };
+    const nextOrder =
+      tasks
+        .filter((t) => t.category === partial.category)
+        .reduce((max, t) => Math.max(max, t.order ?? -1), -1) + 1;
+    const newTask: Task = { id, ...partial, order: nextOrder, done: false };
     setTasks((t) => [...t, newTask]);
     const cmd: Command = {
       id: uuid(),
       entityId: id,
       entityType: "task",
       type: "create-task",
-      data: partial,
+      data: { ...partial, order: nextOrder },
     };
     setCommands((e) => [...e, cmd]);
   }
