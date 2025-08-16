@@ -51,18 +51,18 @@ func main() {
 		} else {
 			log.Debugf("unable to unquote event payload: %v", err)
 		}
-		log.Debugf("eventPayload: %s", eventPayload)
+
 		var ev domain.Event
 		if err := json.Unmarshal([]byte(eventPayload), &ev); err != nil {
 			log.Errorf("Unable to parse message JSON, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
 		}
-		log.Debug("Processing event data...")
+
 		if err := domain.Apply(c.Request().Context(), st, ev); err != nil {
 			log.Errorf("Unable to process message, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
 		}
-		log.Info("Successfully processed event data!")
+
 		return c.NoContent(http.StatusOK)
 	}
 
