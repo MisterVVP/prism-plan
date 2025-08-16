@@ -131,10 +131,19 @@ export function useTasks() {
 
   function addTask(partial: Omit<Task, "id">) {
     const id = uuid();
-    const nextOrder =
-      tasks
+    const existingOrders = [
+      ...tasks
         .filter((t) => t.category === partial.category)
-        .reduce((max, t) => Math.max(max, t.order ?? -1), -1) + 1;
+        .map((t) => t.order ?? -1),
+      ...commands
+        .filter(
+          (c) =>
+            c.type === "create-task" &&
+            (c.data as any).category === partial.category
+        )
+        .map((c) => ((c.data as any).order as number) ?? -1),
+    ];
+    const nextOrder = (existingOrders.length ? Math.max(...existingOrders) : -1) + 1;
     const newTask: Task = { id, ...partial, order: nextOrder, done: false };
     setTasks((t) => [...t, newTask]);
     const cmd: Command = {
