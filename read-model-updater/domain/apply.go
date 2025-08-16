@@ -3,7 +3,8 @@ package domain
 import (
 	"context"
 	"encoding/json"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Storage defines methods required for updating the read model.
@@ -51,7 +52,8 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			updates.Category = eventData.Category
 		}
 		if eventData.Order != nil {
-			updates.Order = eventData.Order
+			v := *eventData.Order
+			updates.Order = &v
 			t := EdmInt32
 			updates.OrderType = &t
 		}
@@ -69,12 +71,18 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			Email:  user.Email,
 		}
 		return st.UpsertUser(ctx, ent)
-	case UserLoggedIn, UserLoggedOut:
+	case UserLoggedIn:
 		var user UserEventData
 		if err := json.Unmarshal(ev.Data, &user); err != nil {
 			return err
 		}
-		log.Printf("User logged in, name: %s email: %s", user.Name, user.Email)
+		log.Infof("User logged in, name: %s email: %s", user.Name, user.Email)
+	case UserLoggedOut:
+		var user UserEventData
+		if err := json.Unmarshal(ev.Data, &user); err != nil {
+			return err
+		}
+		log.Infof("User logged out, name: %s email: %s", user.Name, user.Email)
 	}
 	return nil
 }

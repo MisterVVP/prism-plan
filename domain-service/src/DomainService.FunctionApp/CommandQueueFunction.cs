@@ -25,18 +25,18 @@ internal sealed class CommandQueueFunction(ISender sender, ILoggerFactory logger
             {
                 EntityTypes.Task => env.Command.Type switch
                 {
-                    "create-task" => new CreateTaskCommand(env.Command.EntityId, env.Command.Data, env.UserId),
-                    "update-task" => new UpdateTaskCommand(env.Command.EntityId, env.Command.Data, env.UserId),
-                    "complete-task" => new CompleteTaskCommand(env.Command.EntityId, env.UserId),
+                    CreateTaskCommand.CommandType => new CreateTaskCommand(env.Command.EntityId, env.Command.Data, env.UserId),
+                    UpdateTaskCommand.CommandType => new UpdateTaskCommand(env.Command.EntityId, env.Command.Data, env.UserId),
+                    CompleteTaskCommand.CommandType => new CompleteTaskCommand(env.Command.EntityId, env.UserId),
                     _ => null
                 },
                 "user" => env.Command.Type switch
                 {
-                    "login-user" => new LoginUserCommand(
+                    LoginUserCommand.CommandType => new LoginUserCommand(
                         env.Command.EntityId,
                         env.Command.Data?.GetProperty("name").GetString() ?? string.Empty,
                         env.Command.Data?.GetProperty("email").GetString() ?? string.Empty),
-                    "logout-user" => new LogoutUserCommand(env.Command.EntityId),
+                    LogoutUserCommand.CommandType => new LogoutUserCommand(env.Command.EntityId),
                     _ => null
                 },
                 _ => null

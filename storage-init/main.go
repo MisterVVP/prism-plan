@@ -3,16 +3,20 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
+	"strconv"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
-	log.Println("storage init starting")
+	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
+		log.SetLevel(log.DebugLevel)
+	}
+	log.Info("storage init starting")
 
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
 	if connStr == "" {
@@ -37,7 +41,7 @@ func main() {
 		log.Fatalf("create queues: %v", err)
 	}
 
-	log.Println("storage init complete")
+	log.Info("storage init complete")
 }
 
 func createTables(ctx context.Context, connStr string, names []string) error {

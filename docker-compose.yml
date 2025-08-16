@@ -21,6 +21,7 @@ services:
   prism-api:
     build: ./prism-api
     environment:
+      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
       - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
@@ -44,6 +45,7 @@ services:
   stream-service:
     build: ./stream-service
     environment:
+      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASKS_TABLE=${TASKS_TABLE}
       - COMMAND_QUEUE=${COMMAND_QUEUE}
@@ -60,6 +62,7 @@ services:
   domain-service:
     build: ./domain-service
     environment:
+      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
       - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
@@ -74,6 +77,7 @@ services:
   read-model-updater:
     build: ./read-model-updater
     environment:
+      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
       - TASKS_TABLE=${TASKS_TABLE}
@@ -105,6 +109,7 @@ services:
   storage-init:
     build: ./storage-init
     environment:
+      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
       - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}

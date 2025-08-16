@@ -17,6 +17,7 @@ flowchart LR
   %% ─── API ────────────────────────
   subgraph API_LAYER ["API Layer"]
     API[Prism API Service]
+    SS[Stream Service]
   end
 
   %% ─── Backend Logic ──────────────
@@ -36,6 +37,11 @@ flowchart LR
   %% ─── Flows ─────────────────────
   MFE -->|HTTPS| API
   WFE -->|HTTPS| API
+  MFE -->|SSE| SS
+  WFE -->|SSE| SS
+  SS -->|Stream Updates| MFE
+  SS -->|Stream Updates| WFE
+  SS -->|Query| RM
   API -->|Send Query| RM
   API -->|Send Command| CQ
   CQ -->|Consume Command| DS
@@ -49,11 +55,11 @@ flowchart LR
 
 ## Layer Responsibilities
 
-| Layer              | Component(s)                                 | Key Duties                                                                                                                                                                                                                                                                         |
-| ------------------ | ---------------------------------------------| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend**       | *Web SPA*<br>*Mobile client*                 | Calls REST/GraphQL endpoints to query data and invoke commands.                                                                                                                                                                                                                    |
-| **API**            | *Prism API Service*                          | Converts HTTP requests to **commands**, reads projections from *Read‑Model Store*, publishes commands to *Command Queue*. No business rules beyond basic DTO validation.                                                                                                           |
-| **Backend Logic**  | *Domain Service*<br>*Read‑Model Updater*     | • **Domain Service** pulls commands, re‑hydrates aggregates from the *Event Store*, validates invariants / idempotency, appends events, then emits them to *Domain Events Queue*.<br>• **Read‑Model Updater** listens to domain events and updates denormalised read tables.       |
+| Layer              | Component(s)                                 | Key Duties |
+| ------------------ | ---------------------------------------------| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend**       | *Web SPA*<br>*Mobile client*                 | Calls REST/GraphQL endpoints to query data and invoke commands. |
+| **API**            | *Prism API Service*<br>*Stream Service*      | • **Prism API Service** converts HTTP requests to **commands**, reads projections from *Read‑Model Store*, publishes commands to *Command Queue*. No business rules beyond basic DTO validation.<br>• **Stream Service** streams read‑model changes to clients using server‑sent events. |
+| **Backend Logic**  | *Domain Service*<br>*Read‑Model Updater*     | • **Domain Service** pulls commands, re‑hydrates aggregates from the *Event Store*, validates invariants / idempotency, appends events, then emits them to *Domain Events Queue*.<br>• **Read‑Model Updater** listens to domain events and updates denormalised read tables. |
 | **Infrastructure** | Queues / Stores                              | • **Command Queue**: decouples request rate from domain processing.<br>• **Event Store**: immutable append‑only log per aggregate.<br>• **Domain Events Queue**: fan‑out bus for projections or other integrations.<br>• **Read‑Model Store**: query‑optimised tables / documents. |
 
 ---

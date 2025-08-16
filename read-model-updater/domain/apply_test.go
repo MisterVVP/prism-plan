@@ -45,7 +45,7 @@ func TestApplyTaskCreated(t *testing.T) {
 	payload, _ := json.Marshal(data)
 	ev := Event{Type: TaskCreated, UserID: "u1", EntityID: "t1", Data: payload}
 	Apply(context.Background(), fs, ev)
-	if fs.upsertTask.PartitionKey != "u1" || fs.upsertTask.RowKey != "t1" || fs.upsertTask.Title != "title1" {
+	if fs.upsertTask.PartitionKey != "u1" || fs.upsertTask.RowKey != "t1" || fs.upsertTask.Title != "title1" || fs.upsertTask.Order != 1 {
 		t.Fatalf("unexpected upsertTask: %#v", fs.upsertTask)
 	}
 }
@@ -55,11 +55,12 @@ func TestApplyTaskUpdated(t *testing.T) {
 	data := struct {
 		Title *string `json:"title"`
 		Notes *string `json:"notes"`
-	}{Title: ptrString("new"), Notes: ptrString("n")}
+		Order *int    `json:"order"`
+	}{Title: ptrString("new"), Notes: ptrString("n"), Order: ptrInt(5)}
 	payload, _ := json.Marshal(data)
 	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload}
 	Apply(context.Background(), fs, ev)
-	if fs.updateTask.PartitionKey != "u1" || fs.updateTask.RowKey != "t1" || fs.updateTask.Title == nil || *fs.updateTask.Title != "new" {
+	if fs.updateTask.PartitionKey != "u1" || fs.updateTask.RowKey != "t1" || fs.updateTask.Title == nil || *fs.updateTask.Title != "new" || fs.updateTask.Order == nil || *fs.updateTask.Order != 5 {
 		t.Fatalf("unexpected updateTask: %#v", fs.updateTask)
 	}
 }
@@ -88,3 +89,4 @@ func TestApplyUserCreated(t *testing.T) {
 }
 
 func ptrString(s string) *string { return &s }
+func ptrInt(i int) *int          { return &i }

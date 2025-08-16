@@ -7,6 +7,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/data/aztables v1.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue v1.0.1
 	github.com/labstack/echo/v4 v4.13.4
+	github.com/sirupsen/logrus v1.9.3
 )
 
 require (

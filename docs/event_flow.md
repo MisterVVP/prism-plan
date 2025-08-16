@@ -27,5 +27,7 @@ flowchart LR
     DEQ --> RMU[Read-Model Updater]
     RMU --> RM[(Read Model Store)]
     RM --> API
+    RM --> SS[Stream Service]
+    SS --> UI
     API --> UI
 ```
