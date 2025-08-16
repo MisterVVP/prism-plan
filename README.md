@@ -5,6 +5,9 @@ It includes a thin Prism API, a C# Domain Service (on .NET 9) for command
 processing, and a Go Read‑Model Updater for projections. A mobile client folder
 is also provided as a placeholder.
 
+## Project Status
+The repository is one of my pet projects. Expect breaking changes and other experimental things here.
+
 ## Prerequisites
 - Docker
 - Latest NodeJs, Golang and .NET 9 SDK
