@@ -72,17 +72,9 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 		}
 		return st.UpsertUser(ctx, ent)
 	case UserLoggedIn:
-		var user UserEventData
-		if err := json.Unmarshal(ev.Data, &user); err != nil {
-			return err
-		}
-		log.Infof("User logged in, name: %s email: %s", user.Name, user.Email)
+		log.Infof("User logged in. UserID: %s", ev.UserID)
 	case UserLoggedOut:
-		var user UserEventData
-		if err := json.Unmarshal(ev.Data, &user); err != nil {
-			return err
-		}
-		log.Infof("User logged out, name: %s email: %s", user.Name, user.Email)
+		log.Infof("User logged out. UserID: %s", ev.UserID)
 	}
 	return nil
 }
