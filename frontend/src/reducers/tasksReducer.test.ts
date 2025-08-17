@@ -43,4 +43,22 @@ describe("tasksReducer", () => {
     expect(s1.commands).toHaveLength(1);
     expect((s1.commands[0].data as any).order).toBe(0);
   });
+
+  it("keeps order after remote reset", () => {
+    const s1 = tasksReducer(initialState, {
+      type: "add-task",
+      taskId: "t1",
+      commandId: "c1",
+      partial: { title: "a", notes: "", category: "normal" },
+    });
+    const s2 = tasksReducer(s1, { type: "clear-commands" });
+    const s3 = tasksReducer(s2, { type: "set-tasks", tasks: [] });
+    const s4 = tasksReducer(s3, {
+      type: "add-task",
+      taskId: "t2",
+      commandId: "c2",
+      partial: { title: "b", notes: "", category: "normal" },
+    });
+    expect(s4.tasks[0].order).toBe(1);
+  });
 });

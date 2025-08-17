@@ -5,7 +5,7 @@ import type { Category, Task } from '../types';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  addTask: (t: Omit<Task, 'id'>) => void;
+  addTask: (t: Omit<Task, 'id' | 'order' | 'done'>) => void;
   presetCategory?: Category;           // optional lane pre-select
 }
 
