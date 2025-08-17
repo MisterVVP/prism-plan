@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tasksReducer, initialState } from "./tasksReducer";
+import { tasksReducer, initialState } from ".";
 
 describe("tasksReducer", () => {
   it("increments order per category", () => {
@@ -60,5 +60,38 @@ describe("tasksReducer", () => {
       partial: { title: "b", notes: "", category: "normal" },
     });
     expect(s4.tasks[0].order).toBe(1);
+  });
+
+  it("updates task fields", () => {
+    const s1 = tasksReducer(initialState, {
+      type: "add-task",
+      taskId: "t1",
+      commandId: "c1",
+      partial: { title: "a", notes: "", category: "normal" },
+    });
+    const s2 = tasksReducer(s1, {
+      type: "update-task",
+      id: "t1",
+      commandId: "c2",
+      changes: { title: "b" },
+    });
+    expect(s2.tasks[0].title).toBe("b");
+    expect(s2.commands[1]).toMatchObject({ type: "update-task", entityId: "t1" });
+  });
+
+  it("completes task and queues command", () => {
+    const s1 = tasksReducer(initialState, {
+      type: "add-task",
+      taskId: "t1",
+      commandId: "c1",
+      partial: { title: "a", notes: "", category: "normal" },
+    });
+    const s2 = tasksReducer(s1, {
+      type: "complete-task",
+      id: "t1",
+      commandId: "c2",
+    });
+    expect(s2.tasks[0].done).toBe(true);
+    expect(s2.commands[1]).toMatchObject({ type: "complete-task", entityId: "t1" });
   });
 });
