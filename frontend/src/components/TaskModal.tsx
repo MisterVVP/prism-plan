@@ -5,7 +5,7 @@ import type { Category, Task } from '../types';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  addTask: (t: Omit<Task, 'id'>) => void;
+  addTask: (t: Omit<Task, 'id' | 'order' | 'done'>) => void;
   presetCategory?: Category;           // optional lane pre-select
 }
 
@@ -33,7 +33,7 @@ export default function TaskModal({
   }, [presetCategory, isOpen]);
 
   function handleSave() {
-    addTask({ title: title.trim(), notes, category: cat, order: 0 });
+    addTask({ title: title.trim(), notes, category: cat });
     // reset & close
     setTitle('');
     setNotes('');
