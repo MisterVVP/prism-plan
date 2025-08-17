@@ -5,8 +5,7 @@ import { UserCircleIcon, PlusIcon } from '@heroicons/react/24/solid';
 import { v4 as uuid } from 'uuid';
 import Board from './components/Board';
 import TaskModal from './components/TaskModal';
-import { useTasks } from './hooks/useTasks';
-import { useLoginUser } from './hooks/useLoginUser';
+import { useTasks, useLoginUser } from './hooks';
 import { useLayout } from './context/LayoutContext';
 
 export default function App() {

@@ -1,11 +1,8 @@
 import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { v4 as uuid } from "uuid";
-import type { Task } from "../types";
-import {
-  tasksReducer,
-  initialState,
-} from "../reducers/tasksReducer";
+import type { Task } from "../../types";
+import { tasksReducer, initialState } from "../../reducers";
 
 export function useTasks() {
   const [state, dispatch] = useReducer(tasksReducer, initialState);
