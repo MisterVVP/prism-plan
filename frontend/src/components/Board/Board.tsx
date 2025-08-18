@@ -87,7 +87,13 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
             ← Back to all categories
           </button>
           <SortableContext items={laneTasks.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
-            <Lane category={expanded} tasks={laneTasks} expanded onTaskClick={setSelected} />
+            <Lane
+              category={expanded}
+              tasks={laneTasks}
+              expanded
+              onTaskClick={setSelected}
+              onTaskComplete={(task) => completeTask(task.id)}
+            />
           </SortableContext>
         </div>
       </DndContext>
@@ -107,11 +113,22 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
               strategy={horizontalListSortingStrategy}
               key={cat}
             >
-              <Lane category={cat} tasks={laneTasks} onExpand={() => setExpanded(cat)} onTaskClick={setSelected} />
+              <Lane
+                category={cat}
+                tasks={laneTasks}
+                onExpand={() => setExpanded(cat)}
+                onTaskClick={setSelected}
+                onTaskComplete={(task) => completeTask(task.id)}
+              />
             </SortableContext>
           );
         })}
-        <Lane category="done" tasks={tasks.filter((t) => t.done)} onExpand={() => setExpanded('done')} onTaskClick={setSelected} />
+        <Lane
+          category="done"
+          tasks={tasks.filter((t) => t.done)}
+          onExpand={() => setExpanded('done')}
+          onTaskClick={setSelected}
+        />
       </div>
     </DndContext>
   );

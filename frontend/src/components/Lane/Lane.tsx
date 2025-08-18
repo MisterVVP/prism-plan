@@ -10,9 +10,10 @@ interface Props {
   onExpand?: () => void;
   expanded?: boolean;
   onTaskClick?: (task: Task) => void;
+  onTaskComplete?: (task: Task) => void;
 }
 
-export default function Lane({ category, tasks, onExpand, expanded, onTaskClick }: Props) {
+export default function Lane({ category, tasks, onExpand, expanded, onTaskClick, onTaskComplete }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: category, data: { category } });
   const { isMobile, isLarge } = useLayout();
   const titleMap = {
@@ -52,7 +53,12 @@ export default function Lane({ category, tasks, onExpand, expanded, onTaskClick 
         className={`flex flex-1 flex-wrap transition-colors ${expanded ? 'overflow-auto' : 'overflow-hidden'} ${isMobile ? 'gap-1 px-1 pb-2 pt-2' : 'gap-2 px-2 pb-4 pt-4'}`}
       >
         {visibleTasks.map((task) => (
-          <TaskCard key={task.id} task={task} onClick={() => onTaskClick?.(task)} />
+          <TaskCard
+            key={task.id}
+            task={task}
+            onClick={() => onTaskClick?.(task)}
+            onDoubleClick={() => onTaskComplete?.(task)}
+          />
         ))}
         {extra > 0 && (
           <button
