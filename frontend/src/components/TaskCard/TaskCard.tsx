@@ -39,18 +39,19 @@ export default function TaskCard({ task, onClick, onDoubleClick }: Props) {
     overflow: 'hidden'
   };
 
-  const clickTimeout = useRef<NodeJS.Timeout | null>(null);
+  const touchTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  function handlePress() {
-    if (clickTimeout.current) {
-      clearTimeout(clickTimeout.current);
-      clickTimeout.current = null;
+  function handleTouchEnd(ev: React.TouchEvent) {
+    ev.preventDefault();
+    if (touchTimeout.current) {
+      clearTimeout(touchTimeout.current);
+      touchTimeout.current = null;
       onDoubleClick?.();
     } else {
-      clickTimeout.current = setTimeout(() => {
-        clickTimeout.current = null;
+      touchTimeout.current = setTimeout(() => {
+        touchTimeout.current = null;
         onClick?.();
-      }, 200);
+      }, 250);
     }
   }
 
@@ -60,8 +61,9 @@ export default function TaskCard({ task, onClick, onDoubleClick }: Props) {
       style={style}
       {...listeners}
       {...attributes}
-      onClick={handlePress}
-      onTouchEnd={handlePress}
+      onClick={!isMobile ? onClick : undefined}
+      onDoubleClick={!isMobile ? onDoubleClick : undefined}
+      onTouchEnd={isMobile ? handleTouchEnd : undefined}
       className={`relative select-none rounded-lg border-l-4 bg-white text-gray-800 shadow transition-shadow touch-none hover:shadow-md cursor-pointer ${isMobile ? 'min-w-[60px] px-1 py-1 text-xs' : 'min-w-[160px] px-4 py-3 text-sm'}`}
     >
       <div className="font-medium">{task.title}</div>

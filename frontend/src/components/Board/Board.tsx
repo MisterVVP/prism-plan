@@ -50,15 +50,22 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
     }
 
     if (fromCat !== toCat) {
-      updateTask(active.id as string, { category: toCat });
+      // move to another lane; place at end if dropped on lane itself
+      const targetLane = tasks.filter((t) => t.category === toCat && !t.done);
+      const newIndex = targetLane.findIndex((t) => t.id === over.id);
+      const order = newIndex === -1 ? targetLane.length : newIndex;
+      updateTask(active.id as string, { category: toCat, order });
       return;
     }
 
     // reorder within lane
     const laneTasks = tasks.filter((t) => t.category === fromCat && !t.done);
     const oldIndex = laneTasks.findIndex((t) => t.id === active.id);
-    const newIndex = laneTasks.findIndex((t) => t.id === over.id);
-    if (oldIndex === newIndex || newIndex === -1) {
+    let newIndex = laneTasks.findIndex((t) => t.id === over.id);
+    if (newIndex === -1) {
+      newIndex = laneTasks.length - 1;
+    }
+    if (oldIndex === newIndex) {
       return;
     }
 
