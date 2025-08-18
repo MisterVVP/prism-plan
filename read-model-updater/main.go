@@ -63,7 +63,11 @@ func main() {
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		return c.NoContent(http.StatusOK)
+		// Azure Functions custom handlers expect a JSON body even for
+		// non-HTTP triggers. Returning an empty object signals
+		// successful processing and allows the runtime to delete the
+		// queue message.
+		return c.JSON(http.StatusOK, map[string]any{"outputs": map[string]any{}})
 	}
 
 	e.POST("/", handler)
