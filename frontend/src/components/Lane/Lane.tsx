@@ -1,8 +1,8 @@
-import TaskCard from './TaskCard';
+import TaskCard from '../TaskCard';
 import { useDroppable } from '@dnd-kit/core';
-import type { Task, Category } from '../types';
-import { palette } from '../palette';
-import { useLayout } from '../context/LayoutContext';
+import type { Task, Category } from '../../types';
+import { palette } from '../../palette';
+import { useLayout } from '../../context/LayoutContext';
 
 interface Props {
   category: Category | 'done';

@@ -7,11 +7,11 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import Lane from './Lane';
-import TaskDetails from './TaskDetails';
-import type { Category, Task } from '../types';
+import Lane from '../Lane';
+import TaskDetails from '../TaskDetails';
+import type { Category, Task } from '../../types';
 import { useState } from 'react';
-import { useLayout } from '../context/LayoutContext';
+import { useLayout } from '../../context/LayoutContext';
 
 interface Props {
   tasks: Task[];

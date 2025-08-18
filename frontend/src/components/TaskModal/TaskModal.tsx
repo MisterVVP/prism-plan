@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import type { Category, Task } from '../types';
+import type { Category, Task } from '../../types';
 
 interface Props {
   isOpen: boolean;

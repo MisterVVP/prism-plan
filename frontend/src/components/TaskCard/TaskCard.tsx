@@ -1,8 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Task } from '../types';
-import { palette } from '../palette';
-import { useLayout } from '../context/LayoutContext';
+import type { Task } from '../../types';
+import { palette } from '../../palette';
+import { useLayout } from '../../context/LayoutContext';
 
 interface Props {
   task: Task;

@@ -19,6 +19,12 @@ type queueMessage struct {
 	} `json:"Data"`
 }
 
+// Azure Functions custom handlers expect a JSON body even for non-HTTP triggers.
+// See https://learn.microsoft.com/en-us/azure/azure-functions/functions-custom-handlers#response-payload
+type azFuncResponse struct {
+	Outputs map[string]any `json:"Outputs"`
+}
+
 func main() {
 	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
 		log.SetLevel(log.DebugLevel)
@@ -63,7 +69,7 @@ func main() {
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		return c.NoContent(http.StatusOK)
+		return c.JSON(http.StatusOK, azFuncResponse{Outputs: map[string]any{}})
 	}
 
 	e.POST("/", handler)

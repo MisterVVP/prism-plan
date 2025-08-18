@@ -1,5 +1,5 @@
-import type { Task, Category } from '../types';
-import { palette } from '../palette';
+import type { Task, Category } from '../../types';
+import { palette } from '../../palette';
 
 const titleMap: Record<Category, string> = {
   critical: 'Critical',
