@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
+	"stream-service/domain"
 	"stream-service/internal/consts"
 )
 
@@ -39,23 +41,27 @@ func TestSubscribeUpdates(t *testing.T) {
 	}()
 	// wait for subscription to start
 	time.Sleep(50 * time.Millisecond)
-	payload := `{"UserId":"user1","msg":"hi"}`
+	payload := `{"Id":"1","EntityId":"t1","EntityType":"task","Type":"task-created","Data":{"title":"task1","category":"cat","order":1},"Time":123,"UserId":"user1"}`
 	if err := rc.Publish(context.Background(), "chan", payload).Err(); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 	time.Sleep(100 * time.Millisecond)
 	mu.Lock()
 	uid := gotUID
-	data := string(gotData)
+	data := gotData
 	mu.Unlock()
 	if uid != "user1" {
 		t.Fatalf("expected user1, got %s", uid)
 	}
-	if data != payload {
-		t.Fatalf("unexpected data %s", data)
+	var tasks []domain.Task
+	if err := json.Unmarshal(data, &tasks); err != nil {
+		t.Fatalf("unmarshal tasks: %v", err)
 	}
-	if val := rc.Get(context.Background(), consts.TasksKeyPrefix+"user1").Val(); val != payload {
-		t.Fatalf("expected cache %s, got %s", payload, val)
+	if len(tasks) != 1 || tasks[0].ID != "t1" || tasks[0].Title != "task1" || tasks[0].Category != "cat" || tasks[0].Order != 1 {
+		t.Fatalf("unexpected tasks %+v", tasks)
+	}
+	if val := rc.Get(context.Background(), consts.TasksKeyPrefix+"user1").Val(); val != string(data) {
+		t.Fatalf("expected cache %s, got %s", string(data), val)
 	}
 	cancel()
 	select {

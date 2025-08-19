@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
+	"stream-service/domain"
 	"stream-service/internal/consts"
 )
 
@@ -31,16 +32,93 @@ func SubscribeUpdates(
 					break
 				}
 				var ev struct {
-					UserID string `json:"UserId"`
+					UserID   string          `json:"UserId"`
+					EntityID string          `json:"EntityId"`
+					Type     string          `json:"Type"`
+					Data     json.RawMessage `json:"Data"`
 				}
 				if err := json.Unmarshal([]byte(msg.Payload), &ev); err != nil {
 					logger.Errorf("unable to parse update: %v", err)
 					continue
 				}
-				if err := rc.Set(ctx, consts.TasksKeyPrefix+ev.UserID, []byte(msg.Payload), 0).Err(); err != nil {
+
+				key := consts.TasksKeyPrefix + ev.UserID
+				var tasks []domain.Task
+				if b, err := rc.Get(ctx, key).Bytes(); err == nil {
+					if err := json.Unmarshal(b, &tasks); err != nil {
+						logger.Errorf("unmarshal cache: %v", err)
+						tasks = nil
+					}
+				}
+
+				switch ev.Type {
+				case "task-created":
+					var d struct {
+						Title    string `json:"title"`
+						Notes    string `json:"notes"`
+						Category string `json:"category"`
+						Order    int    `json:"order"`
+					}
+					if err := json.Unmarshal(ev.Data, &d); err != nil {
+						logger.Errorf("parse task-created: %v", err)
+						continue
+					}
+					tasks = append(tasks, domain.Task{
+						ID:       ev.EntityID,
+						Title:    d.Title,
+						Notes:    d.Notes,
+						Category: d.Category,
+						Order:    d.Order,
+					})
+				case "task-updated":
+					var d struct {
+						Title    *string `json:"title"`
+						Notes    *string `json:"notes"`
+						Category *string `json:"category"`
+						Order    *int    `json:"order"`
+					}
+					if err := json.Unmarshal(ev.Data, &d); err != nil {
+						logger.Errorf("parse task-updated: %v", err)
+						continue
+					}
+					for i := range tasks {
+						if tasks[i].ID == ev.EntityID {
+							if d.Title != nil {
+								tasks[i].Title = *d.Title
+							}
+							if d.Notes != nil {
+								tasks[i].Notes = *d.Notes
+							}
+							if d.Category != nil {
+								tasks[i].Category = *d.Category
+							}
+							if d.Order != nil {
+								tasks[i].Order = *d.Order
+							}
+							break
+						}
+					}
+				case "task-completed":
+					for i := range tasks {
+						if tasks[i].ID == ev.EntityID {
+							tasks[i].Done = true
+							break
+						}
+					}
+				default:
+					// ignore other events
+					continue
+				}
+
+				data, err := json.Marshal(tasks)
+				if err != nil {
+					logger.Errorf("marshal tasks: %v", err)
+					continue
+				}
+				if err := rc.Set(ctx, key, data, 0).Err(); err != nil {
 					logger.Errorf("cache update: %v", err)
 				}
-				broadcast(ev.UserID, []byte(msg.Payload))
+				broadcast(ev.UserID, data)
 			}
 		}
 		if ctx.Err() != nil {
