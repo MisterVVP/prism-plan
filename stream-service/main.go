@@ -14,23 +14,12 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"stream-service/api"
-	"stream-service/storage"
 )
 
 func main() {
 	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
 		log.SetLevel(log.DebugLevel)
 	}
-	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
-	tasksTableName := os.Getenv("TASKS_TABLE")
-	if connStr == "" || tasksTableName == "" {
-		log.Fatal("missing storage config")
-	}
-	store, err := storage.New(connStr, tasksTableName)
-	if err != nil {
-		log.Fatalf("storage: %v", err)
-	}
-
 	redisConn := os.Getenv("REDIS_CONNECTION_STRING")
 	if redisConn == "" {
 		log.Fatal("missing redis config")
@@ -78,7 +67,7 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	api.Register(e, store, rc, auth, readModelUpdatesChannel)
+	api.Register(e, rc, auth, readModelUpdatesChannel)
 
 	listenAddr := ":9000"
 	if val, ok := os.LookupEnv("STREAM_SERVICE_PORT"); ok {
