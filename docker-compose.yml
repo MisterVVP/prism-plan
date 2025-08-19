@@ -52,6 +52,7 @@ services:
       - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
       - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
       - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
+      - STREAM_SERVICE_TOKEN=${STREAM_SERVICE_TOKEN}
     ports:
       - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
     depends_on:
@@ -82,6 +83,8 @@ services:
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
       - TASKS_TABLE=${TASKS_TABLE}
       - USERS_TABLE=${USERS_TABLE}
+      - STREAM_SERVICE_URL=${STREAM_SERVICE_URL}
+      - STREAM_SERVICE_TOKEN=${STREAM_SERVICE_TOKEN}
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
       - AzureWebJobsScriptRoot=/home/site/wwwroot
       - AzureFunctionsJobHost__Logging__Console__IsEnabled=true

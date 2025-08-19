@@ -40,13 +40,18 @@ func main() {
 	}
 	auth := api.NewAuth(jwks, jwtAudience, "https://"+domain+"/")
 
+	updatesToken := os.Getenv("STREAM_SERVICE_TOKEN")
+	if updatesToken == "" {
+		log.Fatal("missing updates token")
+	}
+
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	api.Register(e, store, auth)
+	api.Register(e, store, auth, updatesToken)
 
 	listenAddr := ":9000"
 	if val, ok := os.LookupEnv("STREAM_SERVICE_PORT"); ok {

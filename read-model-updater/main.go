@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -33,8 +34,10 @@ func main() {
 	eventsQueue := os.Getenv("DOMAIN_EVENTS_QUEUE")
 	tasksTable := os.Getenv("TASKS_TABLE")
 	usersTable := os.Getenv("USERS_TABLE")
-	if connStr == "" || eventsQueue == "" || tasksTable == "" || usersTable == "" {
-		log.Fatal("missing storage config")
+	streamURL := os.Getenv("STREAM_SERVICE_URL")
+	streamToken := os.Getenv("STREAM_SERVICE_TOKEN")
+	if connStr == "" || eventsQueue == "" || tasksTable == "" || usersTable == "" || streamURL == "" || streamToken == "" {
+		log.Fatal("missing storage or stream config")
 	}
 
 	st, err := storage.New(connStr, eventsQueue, tasksTable, usersTable)
@@ -64,9 +67,30 @@ func main() {
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		if err := domain.Apply(c.Request().Context(), st, ev); err != nil {
+		ctx := c.Request().Context()
+		if err := domain.Apply(ctx, st, ev); err != nil {
 			log.Errorf("Unable to process message, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
+		}
+
+		update := map[string]any{
+			"userID":  ev.UserID,
+			"taskID":  ev.EntityID,
+			"payload": ev.Data,
+		}
+		body, _ := json.Marshal(update)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, streamURL+"/updates", bytes.NewReader(body))
+		if err == nil {
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+streamToken)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				log.Errorf("Unable to POST update, error: %v", err)
+			} else {
+				resp.Body.Close()
+			}
+		} else {
+			log.Errorf("Unable to create update request, error: %v", err)
 		}
 
 		return c.JSON(http.StatusOK, azFuncResponse{Outputs: map[string]any{}})
