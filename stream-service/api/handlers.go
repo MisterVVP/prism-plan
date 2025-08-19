@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
 	"stream-service/domain"
+	"stream-service/internal/consts"
+	"stream-service/subscription"
 )
 
 type Storage interface {
@@ -28,7 +29,7 @@ var (
 
 // Register wires up stream endpoints on the given Echo instance.
 func Register(e *echo.Echo, store Storage, rc *redis.Client, auth Authenticator, readModelUpdatesChannel string) {
-	go subscribeUpdates(e.Logger, rc, store, readModelUpdatesChannel)
+	go subscription.SubscribeUpdates(context.Background(), e.Logger, rc, store, readModelUpdatesChannel, broadcast)
 	e.GET("/stream", streamTasks(store, rc, auth))
 }
 
@@ -63,39 +64,6 @@ func broadcast(userID string, msg []byte) {
 	}
 }
 
-func subscribeUpdates(logger echo.Logger, rc *redis.Client, store Storage, readModelUpdatesChannel string) {
-	ctx := context.Background()
-	for {
-		sub := rc.Subscribe(ctx, readModelUpdatesChannel)
-		ch := sub.Channel()
-		for msg := range ch {
-			var ev struct {
-				UserID string `json:"UserId"`
-			}
-			if err := json.Unmarshal([]byte(msg.Payload), &ev); err != nil {
-				logger.Errorf("unable to parse update: %v", err)
-				continue
-			}
-			tasks, err := store.FetchTasks(ctx, ev.UserID)
-			if err != nil {
-				logger.Errorf("fetch tasks: %v", err)
-				continue
-			}
-			data, err := json.Marshal(tasks)
-			if err != nil {
-				logger.Errorf("marshal tasks: %v", err)
-				continue
-			}
-			if err := rc.Set(ctx, "tasks:"+ev.UserID, data, 0).Err(); err != nil {
-				logger.Errorf("cache tasks: %v", err)
-			}
-			broadcast(ev.UserID, data)
-		}
-		logger.Error("pubsub channel closed, reconnecting")
-		time.Sleep(time.Second)
-	}
-}
-
 func streamTasks(store Storage, rc *redis.Client, auth Authenticator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		token := c.QueryParam("token")
@@ -116,7 +84,7 @@ func streamTasks(store Storage, rc *redis.Client, auth Authenticator) echo.Handl
 			return c.String(http.StatusInternalServerError, "stream unsupported")
 		}
 		ctx := c.Request().Context()
-		key := "tasks:" + userID
+		key := consts.TasksKeyPrefix + userID
 		data, err := rc.Get(ctx, key).Bytes()
 		if err != nil {
 			tasks, err := store.FetchTasks(ctx, userID)
@@ -133,7 +101,7 @@ func streamTasks(store Storage, rc *redis.Client, auth Authenticator) echo.Handl
 				c.Logger().Error(err)
 			}
 		}
-		if _, err := c.Response().Write([]byte("data: ")); err != nil {
+		if _, err := c.Response().Write([]byte(consts.SSEDataPrefix)); err != nil {
 			c.Logger().Error(err)
 			return err
 		}
@@ -156,7 +124,7 @@ func streamTasks(store Storage, rc *redis.Client, auth Authenticator) echo.Handl
 			case <-ctx.Done():
 				return nil
 			case msg := <-ch:
-				if _, err := c.Response().Write([]byte("data: ")); err != nil {
+				if _, err := c.Response().Write([]byte(consts.SSEDataPrefix)); err != nil {
 					c.Logger().Error(err)
 					return err
 				}
