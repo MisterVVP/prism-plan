@@ -26,8 +26,10 @@ flowchart LR
     DS[Domain Service] -->|Publish Domain Event| DEQ[Domain Events Queue]
     DEQ --> RMU[Read-Model Updater]
     RMU --> RM[(Read Model Store)]
+    RMU -->|Publish Update| REDIS[(Redis Pub/Sub)]
+    REDIS --> SS[Stream Service]
     RM --> API
-    RM --> SS[Stream Service]
+    RM --> SS
     SS --> UI
     API --> UI
 ```
