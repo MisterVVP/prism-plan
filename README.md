@@ -82,4 +82,4 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
    - Ideally, PoC should be made locally. However system design is enough with relevant enterprise techs.
    - If PoC is implemented, create load test script to emulate real-world scenario
 4. Start system design for mobile app
-5. Revisit error handling and triggering logic of stream-service
+5. Revisit error handling and triggering logic of stream-service & update system design diagrams

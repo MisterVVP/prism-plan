@@ -32,6 +32,7 @@ flowchart LR
     ES[(Event Store – Table Storage)]
     DEQ[[Domain Events Queue]]
     RM[(Read-Model Store)]
+    RS[(Redis)]
   end
 
   %% ─── Flows ─────────────────────
@@ -42,6 +43,8 @@ flowchart LR
   SS -->|Stream Updates| MFE
   SS -->|Stream Updates| WFE
   SS -->|Query| RM
+  RMU -->|Publish Update| RS
+  RS -->|Notify| SS
   API -->|Send Query| RM
   API -->|Send Command| CQ
   CQ -->|Consume Command| DS
