@@ -1,12 +1,15 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 
 	"read-model-updater/domain"
@@ -41,6 +44,30 @@ func main() {
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}
+	redisConn := os.Getenv("REDIS_CONNECTION_STRING")
+	if redisConn == "" {
+		log.Fatal("missing redis config")
+	}
+	redisOpts, err := redis.ParseURL(redisConn)
+	if err != nil {
+		parts := strings.Split(redisConn, ",")
+		redisOpts = &redis.Options{Addr: parts[0]}
+		for _, p := range parts[1:] {
+			kv := strings.SplitN(p, "=", 2)
+			if len(kv) != 2 {
+				continue
+			}
+			switch strings.ToLower(kv[0]) {
+			case "password":
+				redisOpts.Password = kv[1]
+			case "ssl":
+				if strings.ToLower(kv[1]) == "true" {
+					redisOpts.TLSConfig = &tls.Config{}
+				}
+			}
+		}
+	}
+	rc := redis.NewClient(redisOpts)
 
 	e := echo.New()
 	handler := func(c echo.Context) error {
@@ -64,9 +91,13 @@ func main() {
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		if err := domain.Apply(c.Request().Context(), st, ev); err != nil {
+		ctx := c.Request().Context()
+		if err := domain.Apply(ctx, st, ev); err != nil {
 			log.Errorf("Unable to process message, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
+		}
+		if err := rc.Publish(ctx, "readmodel-updates", eventPayload).Err(); err != nil {
+			log.Errorf("Unable to publish update, error: %v", err)
 		}
 
 		return c.JSON(http.StatusOK, azFuncResponse{Outputs: map[string]any{}})

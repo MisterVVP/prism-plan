@@ -82,6 +82,7 @@ services:
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
       - TASKS_TABLE=${TASKS_TABLE}
       - USERS_TABLE=${USERS_TABLE}
+      - REDIS_CONNECTION_STRING=redis://redis:6379
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
       - AzureWebJobsScriptRoot=/home/site/wwwroot
       - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
@@ -91,6 +92,8 @@ services:
         condition: service_healthy
       storage-init:
         condition: service_completed_successfully
+      redis:
+        condition: service_started
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     healthcheck:
@@ -121,6 +124,11 @@ services:
       azurite:
         condition: service_healthy
     restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
 
 volumes:
   azurite_data:
