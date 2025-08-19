@@ -68,6 +68,10 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
+	readModelUpdatesChannel := os.Getenv("READ_MODEL_UPDATES_CHANNEL")
+	if readModelUpdatesChannel == "" {
+		log.Fatal("READ_MODEL_UPDATES_CHANNEL environment variable is empty or not defined")
+	}
 
 	e := echo.New()
 	handler := func(c echo.Context) error {
@@ -96,7 +100,7 @@ func main() {
 			log.Errorf("Unable to process message, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
 		}
-		if err := rc.Publish(ctx, "readmodel-updates", eventPayload).Err(); err != nil {
+		if err := rc.Publish(ctx, readModelUpdatesChannel, eventPayload).Err(); err != nil {
 			log.Errorf("Unable to publish update, error: %v", err)
 		}
 

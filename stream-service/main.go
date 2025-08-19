@@ -55,6 +55,10 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
+	readModelUpdatesChannel := os.Getenv("READ_MODEL_UPDATES_CHANNEL")
+	if readModelUpdatesChannel == "" {
+		log.Fatal("READ_MODEL_UPDATES_CHANNEL environment variable is empty or not defined")
+	}
 
 	jwtAudience := os.Getenv("AUTH0_AUDIENCE")
 	domain := os.Getenv("AUTH0_DOMAIN")
@@ -74,7 +78,7 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	api.Register(e, store, rc, auth)
+	api.Register(e, store, rc, auth, readModelUpdatesChannel)
 
 	listenAddr := ":9000"
 	if val, ok := os.LookupEnv("STREAM_SERVICE_PORT"); ok {

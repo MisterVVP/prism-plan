@@ -27,8 +27,8 @@ var (
 )
 
 // Register wires up stream endpoints on the given Echo instance.
-func Register(e *echo.Echo, store Storage, rc *redis.Client, auth Authenticator) {
-	go subscribeUpdates(e.Logger, rc, store)
+func Register(e *echo.Echo, store Storage, rc *redis.Client, auth Authenticator, readModelUpdatesChannel string) {
+	go subscribeUpdates(e.Logger, rc, store, readModelUpdatesChannel)
 	e.GET("/stream", streamTasks(store, rc, auth))
 }
 
@@ -63,10 +63,10 @@ func broadcast(userID string, msg []byte) {
 	}
 }
 
-func subscribeUpdates(logger echo.Logger, rc *redis.Client, store Storage) {
+func subscribeUpdates(logger echo.Logger, rc *redis.Client, store Storage, readModelUpdatesChannel string) {
 	ctx := context.Background()
 	for {
-		sub := rc.Subscribe(ctx, "readmodel-updates")
+		sub := rc.Subscribe(ctx, readModelUpdatesChannel)
 		ch := sub.Channel()
 		for msg := range ch {
 			var ev struct {
