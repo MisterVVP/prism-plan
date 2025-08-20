@@ -28,7 +28,7 @@ export default function TaskDetails({ task, onBack }: { task: Task; onBack: () =
           {titleMap[task.category]}
         </div>
         {task.notes && (
-          <p className="whitespace-pre-wrap text-sm text-gray-700">{task.notes}</p>
+          <p className="whitespace-pre-wrap break-words text-sm text-gray-700">{task.notes}</p>
         )}
       </div>
     </div>

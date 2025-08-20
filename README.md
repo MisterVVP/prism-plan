@@ -91,3 +91,4 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
    - LLM generated styles are fine but we can do better (e.g. remove isMobile from javascript, unless it's absolutely necessary and utilize css styles that can adopt to screen size)
    - Split code into more components to embrace React philosophy better and ensure fast rendering of all pieces. (I wonder on what data LLM was trained.)
    - Add aria attributes and make ui good for everyone
+   - Improve web UX on mobile devices

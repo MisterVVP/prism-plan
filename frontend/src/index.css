@@ -20,4 +20,25 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
+  /* Clamp task card notes with responsive line counts */
+  .task-card-note {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: 4;
+  }
+
+  @media (max-width: 639px) {
+    .task-card-note {
+      -webkit-line-clamp: 1;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .task-card-note {
+      -webkit-line-clamp: 6;
+    }
+  }
 }

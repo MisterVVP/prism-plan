@@ -83,7 +83,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
 
     return (
       <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
-        <div className="mx-auto flex h-full max-w-5xl flex-col">
+        <div className="mx-auto flex max-w-5xl flex-col">
           <button
             type="button"
             className="mb-4 flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800"
@@ -107,7 +107,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
 
   return (
     <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
-      <div className="flex flex-1 flex-col sm:grid-cols-2 lg:grid-cols-5">
+      <div className="flex w-full flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
         {categories.map((cat) => {
           const laneTasks = tasks
             .filter((t) => t.category === cat && !t.done)
