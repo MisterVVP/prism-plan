@@ -29,7 +29,6 @@ flowchart LR
     RMU -->|Publish Update| REDIS[(Redis Pub/Sub)]
     REDIS --> SS[Stream Service]
     RM --> API
-    RM --> SS
     SS --> UI
     API --> UI
 ```
