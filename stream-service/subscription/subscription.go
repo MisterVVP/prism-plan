@@ -3,7 +3,6 @@ package subscription
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -12,58 +11,100 @@ import (
 	"stream-service/internal/consts"
 )
 
-// Storage fetches tasks for a user.
-type Storage interface {
-	FetchTasks(ctx context.Context, userID string) ([]domain.Task, error)
-}
-
 // SubscribeUpdates listens for read model updates and broadcasts tasks to clients.
 func SubscribeUpdates(
 	ctx context.Context,
 	logger echo.Logger,
 	rc *redis.Client,
-	store Storage,
 	readModelUpdatesChannel string,
 	broadcast func(userID string, data []byte),
 ) {
+	sub := rc.Subscribe(ctx, readModelUpdatesChannel)
+	ch := sub.Channel()
 	for {
-		sub := rc.Subscribe(ctx, readModelUpdatesChannel)
-		ch := sub.Channel()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case msg, ok := <-ch:
-				if !ok {
-					break
-				}
-				var ev struct {
-					UserID string `json:"UserId"`
-				}
-				if err := json.Unmarshal([]byte(msg.Payload), &ev); err != nil {
-					logger.Errorf("unable to parse update: %v", err)
-					continue
-				}
-				tasks, err := store.FetchTasks(ctx, ev.UserID)
-				if err != nil {
-					logger.Errorf("fetch tasks: %v", err)
-					continue
-				}
-				data, err := json.Marshal(tasks)
-				if err != nil {
-					logger.Errorf("marshal tasks: %v", err)
-					continue
-				}
-				if err := rc.Set(ctx, consts.TasksKeyPrefix+ev.UserID, data, 0).Err(); err != nil {
-					logger.Errorf("cache tasks: %v", err)
-				}
-				broadcast(ev.UserID, data)
-			}
-		}
-		if ctx.Err() != nil {
+		select {
+		case <-ctx.Done():
 			return
+		case msg, ok := <-ch:
+			if !ok {
+				break
+			}
+			var taskEvent domain.TaskEvent
+			if err := json.Unmarshal([]byte(msg.Payload), &taskEvent); err != nil {
+				logger.Errorf("unable to parse update: %v", err)
+				continue
+			}
+
+			key := consts.TasksKeyPrefix + taskEvent.UserID
+			tasks := []domain.Task{}
+			if b, err := rc.Get(ctx, key).Bytes(); err == nil {
+				if err := json.Unmarshal(b, &tasks); err != nil {
+					logger.Errorf("unmarshal cache: %v", err)
+					tasks = nil
+				}
+			}
+			if tasks == nil {
+				tasks = []domain.Task{}
+			}
+
+			switch taskEvent.Type {
+			case domain.TaskCreated:
+				var taskCreatedEvent domain.TaskCreatedEventData
+				if err := json.Unmarshal(taskEvent.Data, &taskCreatedEvent); err != nil {
+					logger.Errorf("parse task-created: %v", err)
+					continue
+				}
+				tasks = append(tasks, domain.Task{
+					ID:       taskEvent.EntityID,
+					Title:    taskCreatedEvent.Title,
+					Notes:    taskCreatedEvent.Notes,
+					Category: taskCreatedEvent.Category,
+					Order:    taskCreatedEvent.Order,
+				})
+			case domain.TaskUpdated:
+				var taskUpdatedEvent domain.TaskUpdatedEventData
+				if err := json.Unmarshal(taskEvent.Data, &taskUpdatedEvent); err != nil {
+					logger.Errorf("parse task-updated: %v", err)
+					continue
+				}
+				for i := range tasks {
+					if tasks[i].ID == taskEvent.EntityID {
+						if taskUpdatedEvent.Title != nil {
+							tasks[i].Title = *taskUpdatedEvent.Title
+						}
+						if taskUpdatedEvent.Notes != nil {
+							tasks[i].Notes = *taskUpdatedEvent.Notes
+						}
+						if taskUpdatedEvent.Category != nil {
+							tasks[i].Category = *taskUpdatedEvent.Category
+						}
+						if taskUpdatedEvent.Order != nil {
+							tasks[i].Order = *taskUpdatedEvent.Order
+						}
+						break
+					}
+				}
+			case domain.TaskCompleted:
+				for i := range tasks {
+					if tasks[i].ID == taskEvent.EntityID {
+						tasks[i].Done = true
+						break
+					}
+				}
+			default:
+				logger.Warnf("Received unknown task event of type %s in %s channel - ignoring it", taskEvent.Type, readModelUpdatesChannel)
+				continue
+			}
+
+			data, err := json.Marshal(tasks)
+			if err != nil {
+				logger.Errorf("marshal tasks: %v", err)
+				continue
+			}
+			if err := rc.Set(ctx, key, data, 0).Err(); err != nil {
+				logger.Errorf("cache update: %v", err)
+			}
+			broadcast(taskEvent.UserID, data)
 		}
-		logger.Error("pubsub channel closed, reconnecting")
-		time.Sleep(time.Second)
 	}
 }

@@ -42,7 +42,6 @@ flowchart LR
   WFE -->|SSE| SS
   SS -->|Stream Updates| MFE
   SS -->|Stream Updates| WFE
-  SS -->|Query| RM
   RMU -->|Publish Update| RS
   RS -->|Notify| SS
   API -->|Send Query| RM

@@ -2,21 +2,15 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"sync"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
-	"stream-service/domain"
 	"stream-service/internal/consts"
 	"stream-service/subscription"
 )
-
-type Storage interface {
-	FetchTasks(ctx context.Context, userID string) ([]domain.Task, error)
-}
 
 type Authenticator interface {
 	UserIDFromAuthHeader(string) (string, error)
@@ -28,9 +22,9 @@ var (
 )
 
 // Register wires up stream endpoints on the given Echo instance.
-func Register(e *echo.Echo, store Storage, rc *redis.Client, auth Authenticator, readModelUpdatesChannel string) {
-	go subscription.SubscribeUpdates(context.Background(), e.Logger, rc, store, readModelUpdatesChannel, broadcast)
-	e.GET("/stream", streamTasks(store, rc, auth))
+func Register(e *echo.Echo, rc *redis.Client, auth Authenticator, readModelUpdatesChannel string) {
+	go subscription.SubscribeUpdates(context.Background(), e.Logger, rc, readModelUpdatesChannel, broadcast)
+	e.GET("/stream", streamTasks(rc, auth))
 }
 
 func addClient(userID string, ch chan []byte) {
@@ -64,7 +58,7 @@ func broadcast(userID string, msg []byte) {
 	}
 }
 
-func streamTasks(store Storage, rc *redis.Client, auth Authenticator) echo.HandlerFunc {
+func streamTasks(rc *redis.Client, auth Authenticator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		token := c.QueryParam("token")
 		authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
@@ -87,19 +81,7 @@ func streamTasks(store Storage, rc *redis.Client, auth Authenticator) echo.Handl
 		key := consts.TasksKeyPrefix + userID
 		data, err := rc.Get(ctx, key).Bytes()
 		if err != nil {
-			tasks, err := store.FetchTasks(ctx, userID)
-			if err != nil {
-				c.Logger().Error(err)
-				return err
-			}
-			data, err = json.Marshal(tasks)
-			if err != nil {
-				c.Logger().Error(err)
-				return err
-			}
-			if err := rc.Set(ctx, key, data, 0).Err(); err != nil {
-				c.Logger().Error(err)
-			}
+			data = []byte("[]")
 		}
 		if _, err := c.Response().Write([]byte(consts.SSEDataPrefix)); err != nil {
 			c.Logger().Error(err)

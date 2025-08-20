@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,19 +11,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
-	"stream-service/domain"
 	"stream-service/internal/consts"
 )
-
-type fakeStore struct {
-	tasks  []domain.Task
-	called int
-}
-
-func (f *fakeStore) FetchTasks(ctx context.Context, userID string) ([]domain.Task, error) {
-	f.called++
-	return f.tasks, nil
-}
 
 type fakeAuth struct{}
 
@@ -68,10 +56,9 @@ func TestAddRemoveClientBroadcast(t *testing.T) {
 	}
 }
 
-func TestStreamTasksFetchesFromStoreAndCaches(t *testing.T) {
+func TestStreamTasksReceivesUpdates(t *testing.T) {
 	rc, cleanup := setupRedis(t)
 	defer cleanup()
-	store := &fakeStore{tasks: []domain.Task{{ID: "1", Title: "t"}}}
 	auth := fakeAuth{}
 
 	e := echo.New()
@@ -80,38 +67,32 @@ func TestStreamTasksFetchesFromStoreAndCaches(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	req = req.WithContext(ctx)
 	c := e.NewContext(req, rec)
-	handler := streamTasks(store, rc, auth)
+	handler := streamTasks(rc, auth)
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- handler(c) }()
+	time.Sleep(100 * time.Millisecond)
+	update := []byte(`{"hello":"world"}`)
+	broadcast("user1", update)
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 	if err := <-errCh; err != nil {
 		t.Fatalf("handler error: %v", err)
 	}
 
-	expectedData, _ := json.Marshal(store.tasks)
-	expected := consts.SSEDataPrefix + string(expectedData) + "\n\n"
+	expected := consts.SSEDataPrefix + "[]\n\n" + consts.SSEDataPrefix + string(update) + "\n\n"
 	if rec.Body.String() != expected {
 		t.Fatalf("unexpected body %q", rec.Body.String())
-	}
-	if store.called != 1 {
-		t.Fatalf("expected FetchTasks once, got %d", store.called)
-	}
-	if val := rc.Get(context.Background(), consts.TasksKeyPrefix+"user1").Val(); val != string(expectedData) {
-		t.Fatalf("expected cache %s, got %s", string(expectedData), val)
 	}
 }
 
-func TestStreamTasksUsesCache(t *testing.T) {
+func TestStreamTasksUsesCachedPayload(t *testing.T) {
 	rc, cleanup := setupRedis(t)
 	defer cleanup()
-	tasks := []domain.Task{{ID: "1", Title: "cached"}}
-	data, _ := json.Marshal(tasks)
-	if err := rc.Set(context.Background(), consts.TasksKeyPrefix+"user1", data, 0).Err(); err != nil {
+	payload := []byte(`{"cached":true}`)
+	if err := rc.Set(context.Background(), consts.TasksKeyPrefix+"user1", payload, 0).Err(); err != nil {
 		t.Fatalf("set cache: %v", err)
 	}
-	store := &fakeStore{tasks: tasks}
 	auth := fakeAuth{}
 
 	e := echo.New()
@@ -120,7 +101,7 @@ func TestStreamTasksUsesCache(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	req = req.WithContext(ctx)
 	c := e.NewContext(req, rec)
-	handler := streamTasks(store, rc, auth)
+	handler := streamTasks(rc, auth)
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- handler(c) }()
@@ -130,11 +111,8 @@ func TestStreamTasksUsesCache(t *testing.T) {
 		t.Fatalf("handler error: %v", err)
 	}
 
-	expected := consts.SSEDataPrefix + string(data) + "\n\n"
+	expected := consts.SSEDataPrefix + string(payload) + "\n\n"
 	if rec.Body.String() != expected {
 		t.Fatalf("unexpected body %q", rec.Body.String())
-	}
-	if store.called != 0 {
-		t.Fatalf("expected no store calls, got %d", store.called)
 	}
 }

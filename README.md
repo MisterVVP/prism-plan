@@ -76,10 +76,14 @@ The commands above rely on the Azure CLI and the Azure Functions Core Tools. All
 You can also run `scripts/deploy-azure.sh` to execute the same steps automatically.
 
 ## TODO
-1. Handle edge-case and error scenarios related to event sourcing
+1. Handle edge-case and error scenarios related to event sourcing and complex design
+   - deduplication
+   - connection and other errors (consider circuit breakers, exponential retries, transactional outbox, sagas and other patterns)
+   - partial offline or outage of one of the components
 2. Deploy this project to Azure/GCP or AWS on free tier. Budget infra costs to 10 EUR per month.
 3. Draw overall system design for this project and ensure it can scale to handle millions of simultaneous users
    - Ideally, PoC should be made locally. However system design is enough with relevant enterprise techs.
    - If PoC is implemented, create load test script to emulate real-world scenario
 4. Start system design for mobile app
-5. Revisit error handling and triggering logic of stream-service & update system design diagrams
+5. Determine appropriate expiration for cached updates in Redis channel and enforce it while keeping this setting configurable
+6. Observability setup would've been beneficial, consider adding wide events or traces

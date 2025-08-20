@@ -3,6 +3,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { v4 as uuid } from "uuid";
 import type { Task } from "../../types";
 import { tasksReducer, initialState } from "../../reducers";
+import { parseTasks } from "./parseTasks";
 
 export function useTasks() {
   const [state, dispatch] = useReducer(tasksReducer, initialState);
@@ -31,7 +32,8 @@ export function useTasks() {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
-          const data: Task[] = await res.json();
+          const raw = await res.json();
+          const data: Task[] = Array.isArray(raw) ? raw : [];
           dispatch({ type: "set-tasks", tasks: data });
         }
       } catch (err) {
@@ -69,7 +71,7 @@ export function useTasks() {
         });
         source = new EventSource(`${streamUrl}?token=${token}`);
         source.onmessage = (ev) => {
-          const data: Task[] = JSON.parse(ev.data);
+          const data = parseTasks(ev.data);
           dispatch({ type: "set-tasks", tasks: data });
         };
       } catch (err) {
