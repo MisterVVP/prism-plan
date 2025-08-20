@@ -2,7 +2,6 @@ import TaskCard from '../TaskCard';
 import { useDroppable } from '@dnd-kit/core';
 import type { Task, Category } from '../../types';
 import { palette } from '../../palette';
-import { useLayout } from '../../context/LayoutContext';
 
 interface Props {
   category: Category | 'done';
@@ -15,7 +14,6 @@ interface Props {
 
 export default function Lane({ category, tasks, onExpand, expanded, onTaskClick, onTaskComplete }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: category, data: { category } });
-  const { isLarge } = useLayout();
   const titleMap = {
     critical: 'Critical',
     fun: 'Fun',
@@ -31,12 +29,12 @@ export default function Lane({ category, tasks, onExpand, expanded, onTaskClick,
       }
     : undefined;
 
-  const maxVisible = expanded ? tasks.length : isLarge ? 6 : 3;
+  const maxVisible = expanded ? tasks.length : 6;
   const visibleTasks = tasks.slice(0, maxVisible);
   const extra = tasks.length - maxVisible;
 
   return (
-    <section className="mb-2 flex h-full flex-col sm:mb-4">
+    <section className="mb-2 flex h-full w-full flex-col sm:mb-4 sm:flex-1 sm:min-w-[16rem]">
       <h2 className="mx-1 mb-1 sm:mx-2 sm:mb-2">
         <button
           type="button"
@@ -50,7 +48,7 @@ export default function Lane({ category, tasks, onExpand, expanded, onTaskClick,
       <div
         ref={setNodeRef}
         style={droppableStyle}
-        className={`flex flex-1 flex-col transition-colors ${expanded ? 'overflow-auto' : 'overflow-hidden'} gap-1 px-1 pb-2 pt-2 sm:gap-2 sm:px-2 sm:pb-4 sm:pt-4`}
+        className={`flex w-full flex-1 flex-col transition-colors ${expanded ? 'overflow-auto' : 'overflow-hidden'} gap-1 px-1 pb-2 pt-2 sm:gap-2 sm:px-2 sm:pb-4 sm:pt-4`}
       >
         {visibleTasks.map((task) => (
           <TaskCard
@@ -64,7 +62,7 @@ export default function Lane({ category, tasks, onExpand, expanded, onTaskClick,
           <button
             type="button"
             onClick={onExpand}
-            className="flex items-center justify-center rounded-lg bg-gray-100 px-1 py-1 text-xs text-gray-500 shadow transition-colors hover:bg-gray-200 min-w-[60px] sm:min-w-[160px] sm:px-4 sm:py-3 sm:text-sm"
+            className="flex w-full items-center justify-center rounded-lg bg-gray-100 px-1 py-1 text-xs text-gray-500 shadow transition-colors hover:bg-gray-200 sm:px-4 sm:py-3 sm:text-sm"
           >
             +{extra} more
           </button>
