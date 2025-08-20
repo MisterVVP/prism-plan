@@ -42,14 +42,17 @@ func SubscribeUpdates(
 					continue
 				}
 
-				key := consts.TasksKeyPrefix + ev.UserID
-				var tasks []domain.Task
-				if b, err := rc.Get(ctx, key).Bytes(); err == nil {
-					if err := json.Unmarshal(b, &tasks); err != nil {
-						logger.Errorf("unmarshal cache: %v", err)
-						tasks = nil
-					}
-				}
+                               key := consts.TasksKeyPrefix + ev.UserID
+                               tasks := []domain.Task{}
+                               if b, err := rc.Get(ctx, key).Bytes(); err == nil {
+                                       if err := json.Unmarshal(b, &tasks); err != nil {
+                                               logger.Errorf("unmarshal cache: %v", err)
+                                               tasks = nil
+                                       }
+                               }
+                               if tasks == nil {
+                                       tasks = []domain.Task{}
+                               }
 
 				switch ev.Type {
 				case "task-created":
