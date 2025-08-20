@@ -83,7 +83,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
 
     return (
       <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
-        <div className="mx-auto flex h-full max-w-5xl flex-col">
+        <div className="mx-auto flex max-w-5xl flex-col">
           <button
             type="button"
             className="mb-4 flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800"

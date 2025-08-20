@@ -34,7 +34,7 @@ export default function Lane({ category, tasks, onExpand, expanded, onTaskClick,
   const extra = tasks.length - maxVisible;
 
   return (
-    <section className="mb-2 flex h-full w-full flex-col sm:mb-4 sm:flex-1 sm:min-w-[16rem]">
+    <section className="mb-2 flex w-full flex-col sm:mb-4 sm:flex-1 sm:min-w-[16rem]">
       <h2 className="mx-1 mb-1 sm:mx-2 sm:mb-2">
         <button
           type="button"
