@@ -87,3 +87,7 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 4. Start system design for mobile app
 5. Determine appropriate expiration for cached updates in Redis channel and enforce it while keeping this setting configurable
 6. Observability setup would've been beneficial, consider adding wide events or traces
+7. Frontend code can be revisited and re-factored
+   - LLM generated styles are fine but we can do better (e.g. remove isMobile from javascript, unless it's absolutely necessary and utilize css styles that can adopt to screen size)
+   - Split code into more components to embrace React philosophy better and ensure fast rendering of all pieces. (I wonder on what data LLM was trained.)
+   - Add aria attributes and make ui good for everyone

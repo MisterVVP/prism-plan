@@ -131,7 +131,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1">
+      <main className="flex flex-1">
         <Board tasks={filteredTasks} updateTask={updateTask} completeTask={completeTask} />
       </main>
 
