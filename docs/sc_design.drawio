@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36" version="28.0.9">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36" version="28.1.0">
   <diagram name="Page-1" id="I_R9EMvYyNtO1Z9uuBog">
     <mxGraphModel dx="2916" dy="37" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
@@ -38,7 +38,7 @@
         <mxCell id="7e_JotFYiRit8EVYAy1m-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;startArrow=none;startFill=0;endArrow=classic;endFill=1;" parent="1" source="7e_JotFYiRit8EVYAy1m-1" target="7e_JotFYiRit8EVYAy1m-50" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="7e_JotFYiRit8EVYAy1m-44" value="send dynamic requests" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="7e_JotFYiRit8EVYAy1m-9" vertex="1" connectable="0">
+        <mxCell id="7e_JotFYiRit8EVYAy1m-44" value="send dynamic&lt;div&gt;HTTP requests&lt;/div&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="7e_JotFYiRit8EVYAy1m-9" vertex="1" connectable="0">
           <mxGeometry x="-0.443" y="-4" relative="1" as="geometry">
             <mxPoint x="4" y="69" as="offset" />
           </mxGeometry>
@@ -46,12 +46,12 @@
         <mxCell id="7e_JotFYiRit8EVYAy1m-10" value="API" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
           <mxGeometry x="-200" y="1687.5" width="115" height="115" as="geometry" />
         </mxCell>
-        <mxCell id="7e_JotFYiRit8EVYAy1m-40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="7e_JotFYiRit8EVYAy1m-11" target="7e_JotFYiRit8EVYAy1m-16" edge="1">
+        <mxCell id="7e_JotFYiRit8EVYAy1m-40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0;entryDx=0;entryDy=52.5;entryPerimeter=0;" parent="1" source="7e_JotFYiRit8EVYAy1m-11" target="hFnV-RRmyNzZNkbAKMxP-4" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="260" y="1737.5" as="targetPoint" />
             <Array as="points">
-              <mxPoint x="30" y="1755.5" />
-              <mxPoint x="30" y="1527.5" />
+              <mxPoint x="30" y="1755" />
+              <mxPoint x="30" y="1572" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -79,7 +79,7 @@
           <mxGeometry x="367.5" y="1802.5" width="60" height="80" as="geometry" />
         </mxCell>
         <mxCell id="7e_JotFYiRit8EVYAy1m-16" value="Readonly db" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
-          <mxGeometry x="365" y="1487.5" width="60" height="80" as="geometry" />
+          <mxGeometry x="365" y="1539.5" width="60" height="80" as="geometry" />
         </mxCell>
         <mxCell id="7e_JotFYiRit8EVYAy1m-17" value="API" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
           <mxGeometry x="320" y="1947.5" width="115" height="115" as="geometry" />
@@ -105,7 +105,12 @@
           <mxGeometry x="570" y="1460" width="115" height="115" as="geometry" />
         </mxCell>
         <mxCell id="7e_JotFYiRit8EVYAy1m-37" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="7e_JotFYiRit8EVYAy1m-22" target="7e_JotFYiRit8EVYAy1m-16" edge="1">
-          <mxGeometry relative="1" as="geometry" />
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="503" y="1528" />
+              <mxPoint x="503" y="1570" />
+            </Array>
+          </mxGeometry>
         </mxCell>
         <mxCell id="7e_JotFYiRit8EVYAy1m-38" value="store data" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="7e_JotFYiRit8EVYAy1m-37" vertex="1" connectable="0">
           <mxGeometry x="0.2197" relative="1" as="geometry">
@@ -167,16 +172,16 @@
           <mxGeometry x="40" y="1140" width="180" height="220" as="geometry" />
         </mxCell>
         <mxCell id="hFnV-RRmyNzZNkbAKMxP-1" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;DB&lt;/h1&gt;&lt;div&gt;&lt;ul&gt;&lt;li&gt;NoSQL store for both databases.&lt;/li&gt;&lt;li&gt;Optimize readonly db for reads and Event store for reads &amp;amp; appends&lt;/li&gt;&lt;li&gt;Partition/shard by&amp;nbsp;&lt;b style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;userId&lt;/b&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp;in general, for max scalability&lt;/span&gt;&lt;/li&gt;&lt;li&gt;In future, cold storage can be introduced for Event store if the amount of data affects performance. Domain service should work with &quot;hot/warm&quot; store.&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;p&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/p&gt;" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;" parent="1" vertex="1">
-          <mxGeometry x="460" y="1140" width="270" height="220" as="geometry" />
+          <mxGeometry x="175" y="1140" width="270" height="220" as="geometry" />
         </mxCell>
         <mxCell id="hFnV-RRmyNzZNkbAKMxP-2" value="Event store" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
           <mxGeometry x="367.5" y="1792.5" width="60" height="80" as="geometry" />
         </mxCell>
         <mxCell id="hFnV-RRmyNzZNkbAKMxP-3" value="Readonly db" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
-          <mxGeometry x="365" y="1477.5" width="60" height="80" as="geometry" />
+          <mxGeometry x="365" y="1529.5" width="60" height="80" as="geometry" />
         </mxCell>
         <mxCell id="hFnV-RRmyNzZNkbAKMxP-4" value="Readonly db" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
-          <mxGeometry x="365" y="1467.5" width="60" height="80" as="geometry" />
+          <mxGeometry x="365" y="1519.5" width="60" height="80" as="geometry" />
         </mxCell>
         <mxCell id="hFnV-RRmyNzZNkbAKMxP-5" value="Event store" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
           <mxGeometry x="367.5" y="1780" width="60" height="80" as="geometry" />
@@ -184,12 +189,14 @@
         <mxCell id="stream-service" value="Stream service" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
           <mxGeometry x="-180" y="1390" width="115" height="115" as="geometry" />
         </mxCell>
-        <mxCell id="edge-rm-ss" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="7e_JotFYiRit8EVYAy1m-16" target="stream-service" edge="1">
+        <mxCell id="edge-rm-ss" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;endArrow=none;endFill=0;" parent="1" source="uUYapT7iWyU0SXpz5yz--2" target="stream-service" edge="1">
           <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="30" y="1510" />
-              <mxPoint x="30" y="1448" />
-            </Array>
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="uUYapT7iWyU0SXpz5yz--5" value="subscribe to updates" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="edge-rm-ss">
+          <mxGeometry x="0.2437" y="-2" relative="1" as="geometry">
+            <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
         <mxCell id="edge-ss-ui" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="stream-service" target="7e_JotFYiRit8EVYAy1m-1" edge="1">
@@ -197,6 +204,26 @@
             <Array as="points">
               <mxPoint x="-540" y="1448" />
             </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="uUYapT7iWyU0SXpz5yz--7" value="SSE" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="edge-ss-ui">
+          <mxGeometry x="0.0011" y="-2" relative="1" as="geometry">
+            <mxPoint x="94" y="-1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="uUYapT7iWyU0SXpz5yz--2" value="Redis cluster" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/azure2/databases/Cache_Redis.svg;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1418" width="64" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="uUYapT7iWyU0SXpz5yz--3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.984;entryY=0.548;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="7e_JotFYiRit8EVYAy1m-22" target="uUYapT7iWyU0SXpz5yz--2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="638" y="1446" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="uUYapT7iWyU0SXpz5yz--6" value="publish updates" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="uUYapT7iWyU0SXpz5yz--3">
+          <mxGeometry x="0.1419" relative="1" as="geometry">
+            <mxPoint x="1" as="offset" />
           </mxGeometry>
         </mxCell>
       </root>
