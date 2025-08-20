@@ -59,7 +59,7 @@ export default function TaskCard({ task, onClick, onDoubleClick }: Props) {
     >
       <div className="font-medium">{task.title}</div>
       {task.notes && (
-        <div className="mt-1 text-gray-500 text-[10px] sm:text-xs task-card-note">
+        <div className="mt-1 text-gray-500 text-[10px] sm:text-xs whitespace-pre-line break-words overflow-hidden text-ellipsis task-card-note">
           {task.notes}
         </div>
       )}
