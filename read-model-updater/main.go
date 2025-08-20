@@ -68,9 +68,9 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
-	readModelUpdatesChannel := os.Getenv("READ_MODEL_UPDATES_CHANNEL")
+	readModelUpdatesChannel := os.Getenv("TASK_UPDATES_CHANNEL")
 	if readModelUpdatesChannel == "" {
-		log.Fatal("READ_MODEL_UPDATES_CHANNEL environment variable is empty or not defined")
+		log.Fatal("TASK_UPDATES_CHANNEL environment variable is empty or not defined")
 	}
 
 	e := echo.New()
