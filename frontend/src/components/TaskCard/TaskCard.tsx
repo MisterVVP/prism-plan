@@ -55,7 +55,7 @@ export default function TaskCard({ task, onClick, onDoubleClick }: Props) {
       {...listeners}
       {...attributes}
       onClick={handleClick}
-      className="relative select-none rounded-lg border-l-4 bg-white text-gray-800 shadow transition-shadow touch-none hover:shadow-md cursor-pointer min-w-[60px] px-1 py-1 text-xs sm:min-w-[160px] sm:px-4 sm:py-3 sm:text-sm"
+      className="select-none rounded-lg border-l-4 bg-white text-gray-800 shadow transition-shadow touch-none hover:shadow-md cursor-pointer min-w-[60px] px-1 py-1 text-xs sm:min-w-[160px] sm:px-4 sm:py-3 sm:text-sm"
     >
       <div className="font-medium">{task.title}</div>
       {task.notes && (

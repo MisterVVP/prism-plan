@@ -107,7 +107,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
 
   return (
     <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
-      <div className="flex flex-1 flex-col sm:grid-cols-2 lg:grid-cols-5">
+      <div className="flex w-full flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
         {categories.map((cat) => {
           const laneTasks = tasks
             .filter((t) => t.category === cat && !t.done)
