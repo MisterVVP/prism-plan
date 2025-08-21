@@ -26,7 +26,8 @@ func SubscribeUpdates(
 			return
 		case msg, ok := <-ch:
 			if !ok {
-				break
+				logger.Error("subscription channel closed")
+				return
 			}
 			var taskEvent TaskEvent
 			if err := json.Unmarshal([]byte(msg.Payload), &taskEvent); err != nil {
