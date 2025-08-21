@@ -1,4 +1,4 @@
-package subscription
+package domain
 
 import (
 	"context"
@@ -7,9 +7,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
-
-	"stream-service/domain"
-	"stream-service/domain/consts"
 )
 
 // SubscribeUpdates listens for read model updates and broadcasts tasks to clients.
@@ -31,14 +28,14 @@ func SubscribeUpdates(
 			if !ok {
 				break
 			}
-			var taskEvent domain.TaskEvent
+			var taskEvent TaskEvent
 			if err := json.Unmarshal([]byte(msg.Payload), &taskEvent); err != nil {
 				logger.Errorf("unable to parse update: %v", err)
 				continue
 			}
 
-			key := consts.TasksKeyPrefix + taskEvent.UserID
-			tasks := []domain.Task{}
+			key := TasksKeyPrefix + taskEvent.UserID
+			tasks := []Task{}
 			if b, err := rc.Get(ctx, key).Bytes(); err == nil {
 				if err := json.Unmarshal(b, &tasks); err != nil {
 					logger.Errorf("unmarshal cache: %v", err)
@@ -46,25 +43,25 @@ func SubscribeUpdates(
 				}
 			}
 			if tasks == nil {
-				tasks = []domain.Task{}
+				tasks = []Task{}
 			}
 
 			switch taskEvent.Type {
-			case domain.TaskCreated:
-				var taskCreatedEvent domain.TaskCreatedEventData
+			case TaskCreated:
+				var taskCreatedEvent TaskCreatedEventData
 				if err := json.Unmarshal(taskEvent.Data, &taskCreatedEvent); err != nil {
 					logger.Errorf("parse task-created: %v", err)
 					continue
 				}
-				tasks = append(tasks, domain.Task{
+				tasks = append(tasks, Task{
 					ID:       taskEvent.EntityID,
 					Title:    taskCreatedEvent.Title,
 					Notes:    taskCreatedEvent.Notes,
 					Category: taskCreatedEvent.Category,
 					Order:    taskCreatedEvent.Order,
 				})
-			case domain.TaskUpdated:
-				var taskUpdatedEvent domain.TaskUpdatedEventData
+			case TaskUpdated:
+				var taskUpdatedEvent TaskUpdatedEventData
 				if err := json.Unmarshal(taskEvent.Data, &taskUpdatedEvent); err != nil {
 					logger.Errorf("parse task-updated: %v", err)
 					continue
@@ -86,7 +83,7 @@ func SubscribeUpdates(
 						break
 					}
 				}
-			case domain.TaskCompleted:
+			case TaskCompleted:
 				for i := range tasks {
 					if tasks[i].ID == taskEvent.EntityID {
 						tasks[i].Done = true

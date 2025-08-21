@@ -1,4 +1,4 @@
-package subscription
+package domain
 
 import (
 	"context"
@@ -10,9 +10,6 @@ import (
 	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
-
-	"stream-service/domain"
-	"stream-service/domain/consts"
 )
 
 func TestSubscribeUpdates(t *testing.T) {
@@ -53,17 +50,17 @@ func TestSubscribeUpdates(t *testing.T) {
 	if uid != "user1" {
 		t.Fatalf("expected user1, got %s", uid)
 	}
-	var tasks []domain.Task
+	var tasks []Task
 	if err := json.Unmarshal(data, &tasks); err != nil {
 		t.Fatalf("unmarshal tasks: %v", err)
 	}
 	if len(tasks) != 1 || tasks[0].ID != "t1" || tasks[0].Title != "task1" || tasks[0].Category != "cat" || tasks[0].Order != 1 {
 		t.Fatalf("unexpected tasks %+v", tasks)
 	}
-	if val := rc.Get(context.Background(), consts.TasksKeyPrefix+"user1").Val(); val != string(data) {
+	if val := rc.Get(context.Background(), TasksKeyPrefix+"user1").Val(); val != string(data) {
 		t.Fatalf("expected cache %s, got %s", string(data), val)
 	}
-	if ttl := rc.TTL(context.Background(), consts.TasksKeyPrefix+"user1").Val(); ttl != time.Minute {
+	if ttl := rc.TTL(context.Background(), TasksKeyPrefix+"user1").Val(); ttl != time.Minute {
 		t.Fatalf("expected ttl %v, got %v", time.Minute, ttl)
 	}
 	cancel()
@@ -108,7 +105,7 @@ func TestSubscribeUpdatesHandlesMissingCache(t *testing.T) {
 	if string(data) != "[]" {
 		t.Fatalf("expected [], got %s", data)
 	}
-	if val := rc.Get(context.Background(), consts.TasksKeyPrefix+"user1").Val(); val != "[]" {
+	if val := rc.Get(context.Background(), TasksKeyPrefix+"user1").Val(); val != "[]" {
 		t.Fatalf("expected cache [], got %s", val)
 	}
 	cancel()

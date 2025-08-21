@@ -1,4 +1,4 @@
-package consts
+package domain
 
 const (
 	TasksKeyPrefix = "tasks:"
