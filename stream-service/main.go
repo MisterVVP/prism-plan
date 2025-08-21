@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/MicahParks/keyfunc"
 	"github.com/labstack/echo/v4"
@@ -48,6 +49,14 @@ func main() {
 	if readModelUpdatesChannel == "" {
 		log.Fatal("TASK_UPDATES_CHANNEL environment variable is empty or not defined")
 	}
+	cacheExpStr := os.Getenv("REDIS_CACHE_EXPIRATION")
+	if cacheExpStr == "" {
+		log.Fatal("REDIS_CACHE_EXPIRATION environment variable is empty or not defined")
+	}
+	cacheExpiration, err := time.ParseDuration(cacheExpStr)
+	if err != nil {
+		log.Fatalf("parse REDIS_CACHE_EXPIRATION: %v", err)
+	}
 
 	jwtAudience := os.Getenv("AUTH0_AUDIENCE")
 	domain := os.Getenv("AUTH0_DOMAIN")
@@ -67,7 +76,7 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	api.Register(e, rc, auth, readModelUpdatesChannel)
+	api.Register(e, rc, auth, readModelUpdatesChannel, cacheExpiration)
 
 	listenAddr := ":9000"
 	if val, ok := os.LookupEnv("STREAM_SERVICE_PORT"); ok {

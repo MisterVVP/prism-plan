@@ -46,21 +46,14 @@ services:
     build: ./stream-service
     environment:
       - DEBUG=${DEBUG}
-      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - TASKS_TABLE=${TASKS_TABLE}
-      - COMMAND_QUEUE=${COMMAND_QUEUE}
       - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
       - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
       - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
       - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
       - TASK_UPDATES_CHANNEL=${TASK_UPDATES_CHANNEL}
+      - REDIS_CACHE_EXPIRATION=${REDIS_CACHE_EXPIRATION}
     ports:
       - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
-    depends_on:
-      azurite:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
   domain-service:
     build: ./domain-service
     environment:

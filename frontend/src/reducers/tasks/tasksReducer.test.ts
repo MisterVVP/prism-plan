@@ -62,6 +62,38 @@ describe("tasksReducer", () => {
     expect(s4.tasks[0].order).toBe(1);
   });
 
+  it("merges streamed tasks", () => {
+    const s1 = tasksReducer(initialState, {
+      type: "set-tasks",
+      tasks: [
+        { id: "t1", title: "a", notes: "", category: "normal", order: 0 },
+      ],
+    });
+    const s2 = tasksReducer(s1, {
+      type: "merge-tasks",
+      tasks: [
+        { id: "t2", title: "b", notes: "", category: "normal", order: 1 },
+      ],
+    });
+    expect(s2.tasks).toHaveLength(2);
+    const s3 = tasksReducer(s2, {
+      type: "merge-tasks",
+      tasks: [
+        {
+          id: "t1",
+          title: "a2",
+          notes: "",
+          category: "normal",
+          order: 0,
+          done: true,
+        },
+      ],
+    });
+    const t1 = s3.tasks.find((t) => t.id === "t1");
+    expect(t1?.title).toBe("a2");
+    expect(t1?.done).toBe(true);
+  });
+
   it("updates task fields", () => {
     const s1 = tasksReducer(initialState, {
       type: "add-task",
