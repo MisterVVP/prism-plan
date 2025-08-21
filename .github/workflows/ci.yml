@@ -53,7 +53,7 @@ jobs:
     strategy:
       matrix:
         path: [read-model-updater, prism-api, stream-service]
-    if: needs.changes.outputs[matrix.path] == 'true'
+    if: ${{ needs.changes.outputs[matrix.path] == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
