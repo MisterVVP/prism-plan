@@ -1,4 +1,5 @@
 # Prism plan
+![main](https://github.com/MisterVVP/prism-plan/actions/workflows/ci.yml/badge.svg?branch=main)
 
 This repository implements an event‑sourced micro‑services architecture.
 It includes a thin Prism API, a C# Domain Service (on .NET 9) for command
