@@ -4,12 +4,13 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
-	"stream-service/internal/consts"
-	"stream-service/subscription"
+	"stream-service/domain/consts"
+	"stream-service/domain/subscription"
 )
 
 type Authenticator interface {
@@ -22,8 +23,8 @@ var (
 )
 
 // Register wires up stream endpoints on the given Echo instance.
-func Register(e *echo.Echo, rc *redis.Client, auth Authenticator, readModelUpdatesChannel string) {
-	go subscription.SubscribeUpdates(context.Background(), e.Logger, rc, readModelUpdatesChannel, broadcast)
+func Register(e *echo.Echo, rc *redis.Client, auth Authenticator, readModelUpdatesChannel string, cacheExpiration time.Duration) {
+	go subscription.SubscribeUpdates(context.Background(), e.Logger, rc, readModelUpdatesChannel, cacheExpiration, broadcast)
 	e.GET("/stream", streamTasks(rc, auth))
 }
 

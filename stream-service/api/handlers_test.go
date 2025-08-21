@@ -11,7 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
-	"stream-service/internal/consts"
+	"stream-service/domain/consts"
 )
 
 type fakeAuth struct{}

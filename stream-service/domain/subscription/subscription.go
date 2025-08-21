@@ -3,12 +3,13 @@ package subscription
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
 	"stream-service/domain"
-	"stream-service/internal/consts"
+	"stream-service/domain/consts"
 )
 
 // SubscribeUpdates listens for read model updates and broadcasts tasks to clients.
@@ -17,6 +18,7 @@ func SubscribeUpdates(
 	logger echo.Logger,
 	rc *redis.Client,
 	readModelUpdatesChannel string,
+	cacheExpiration time.Duration,
 	broadcast func(userID string, data []byte),
 ) {
 	sub := rc.Subscribe(ctx, readModelUpdatesChannel)
@@ -101,7 +103,7 @@ func SubscribeUpdates(
 				logger.Errorf("marshal tasks: %v", err)
 				continue
 			}
-			if err := rc.Set(ctx, key, data, 0).Err(); err != nil {
+			if err := rc.Set(ctx, key, data, cacheExpiration).Err(); err != nil {
 				logger.Errorf("cache update: %v", err)
 			}
 			broadcast(taskEvent.UserID, data)

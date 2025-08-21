@@ -12,7 +12,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"stream-service/domain"
-	"stream-service/internal/consts"
+	"stream-service/domain/consts"
 )
 
 func TestSubscribeUpdates(t *testing.T) {
@@ -36,7 +36,7 @@ func TestSubscribeUpdates(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		SubscribeUpdates(ctx, echo.New().Logger, rc, "chan", broadcast)
+		SubscribeUpdates(ctx, echo.New().Logger, rc, "chan", time.Minute, broadcast)
 		close(done)
 	}()
 	// wait for subscription to start
@@ -63,6 +63,9 @@ func TestSubscribeUpdates(t *testing.T) {
 	if val := rc.Get(context.Background(), consts.TasksKeyPrefix+"user1").Val(); val != string(data) {
 		t.Fatalf("expected cache %s, got %s", string(data), val)
 	}
+	if ttl := rc.TTL(context.Background(), consts.TasksKeyPrefix+"user1").Val(); ttl != time.Minute {
+		t.Fatalf("expected ttl %v, got %v", time.Minute, ttl)
+	}
 	cancel()
 	select {
 	case <-done:
@@ -72,46 +75,46 @@ func TestSubscribeUpdates(t *testing.T) {
 }
 
 func TestSubscribeUpdatesHandlesMissingCache(t *testing.T) {
-        m, err := miniredis.Run()
-        if err != nil {
-                t.Fatalf("start miniredis: %v", err)
-        }
-        defer m.Close()
-        rc := redis.NewClient(&redis.Options{Addr: m.Addr()})
-        defer rc.Close()
+	m, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	defer m.Close()
+	rc := redis.NewClient(&redis.Options{Addr: m.Addr()})
+	defer rc.Close()
 
-        var mu sync.Mutex
-        var gotData []byte
-        broadcast := func(uid string, data []byte) {
-                mu.Lock()
-                gotData = data
-                mu.Unlock()
-        }
-        ctx, cancel := context.WithCancel(context.Background())
-        done := make(chan struct{})
-        go func() {
-                SubscribeUpdates(ctx, echo.New().Logger, rc, "chan", broadcast)
-                close(done)
-        }()
-        time.Sleep(50 * time.Millisecond)
-        payload := `{"Id":"1","EntityId":"t1","EntityType":"task","Type":"task-completed","Data":{},"Time":123,"UserId":"user1"}`
-        if err := rc.Publish(context.Background(), "chan", payload).Err(); err != nil {
-                t.Fatalf("publish: %v", err)
-        }
-        time.Sleep(100 * time.Millisecond)
-        mu.Lock()
-        data := gotData
-        mu.Unlock()
-        if string(data) != "[]" {
-                t.Fatalf("expected [], got %s", data)
-        }
-        if val := rc.Get(context.Background(), consts.TasksKeyPrefix+"user1").Val(); val != "[]" {
-                t.Fatalf("expected cache [], got %s", val)
-        }
-        cancel()
-        select {
-        case <-done:
-        case <-time.After(time.Second):
-                t.Fatal("SubscribeUpdates did not exit")
-        }
+	var mu sync.Mutex
+	var gotData []byte
+	broadcast := func(uid string, data []byte) {
+		mu.Lock()
+		gotData = data
+		mu.Unlock()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		SubscribeUpdates(ctx, echo.New().Logger, rc, "chan", time.Minute, broadcast)
+		close(done)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	payload := `{"Id":"1","EntityId":"t1","EntityType":"task","Type":"task-completed","Data":{},"Time":123,"UserId":"user1"}`
+	if err := rc.Publish(context.Background(), "chan", payload).Err(); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+	mu.Lock()
+	data := gotData
+	mu.Unlock()
+	if string(data) != "[]" {
+		t.Fatalf("expected [], got %s", data)
+	}
+	if val := rc.Get(context.Background(), consts.TasksKeyPrefix+"user1").Val(); val != "[]" {
+		t.Fatalf("expected cache [], got %s", val)
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("SubscribeUpdates did not exit")
+	}
 }
