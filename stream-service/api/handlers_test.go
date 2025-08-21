@@ -11,7 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
-	"stream-service/domain/consts"
+	"stream-service/domain"
 )
 
 type fakeAuth struct{}
@@ -80,7 +80,7 @@ func TestStreamTasksReceivesUpdates(t *testing.T) {
 		t.Fatalf("handler error: %v", err)
 	}
 
-	expected := consts.SSEDataPrefix + "[]\n\n" + consts.SSEDataPrefix + string(update) + "\n\n"
+	expected := domain.SSEDataPrefix + "[]\n\n" + domain.SSEDataPrefix + string(update) + "\n\n"
 	if rec.Body.String() != expected {
 		t.Fatalf("unexpected body %q", rec.Body.String())
 	}
@@ -90,7 +90,7 @@ func TestStreamTasksUsesCachedPayload(t *testing.T) {
 	rc, cleanup := setupRedis(t)
 	defer cleanup()
 	payload := []byte(`{"cached":true}`)
-	if err := rc.Set(context.Background(), consts.TasksKeyPrefix+"user1", payload, 0).Err(); err != nil {
+	if err := rc.Set(context.Background(), domain.TasksKeyPrefix+"user1", payload, 0).Err(); err != nil {
 		t.Fatalf("set cache: %v", err)
 	}
 	auth := fakeAuth{}
@@ -111,7 +111,7 @@ func TestStreamTasksUsesCachedPayload(t *testing.T) {
 		t.Fatalf("handler error: %v", err)
 	}
 
-	expected := consts.SSEDataPrefix + string(payload) + "\n\n"
+	expected := domain.SSEDataPrefix + string(payload) + "\n\n"
 	if rec.Body.String() != expected {
 		t.Fatalf("unexpected body %q", rec.Body.String())
 	}

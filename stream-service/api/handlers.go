@@ -9,8 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
-	"stream-service/domain/consts"
-	"stream-service/domain/subscription"
+	"stream-service/domain"
 )
 
 type Authenticator interface {
@@ -24,7 +23,7 @@ var (
 
 // Register wires up stream endpoints on the given Echo instance.
 func Register(e *echo.Echo, rc *redis.Client, auth Authenticator, readModelUpdatesChannel string, cacheExpiration time.Duration) {
-	go subscription.SubscribeUpdates(context.Background(), e.Logger, rc, readModelUpdatesChannel, cacheExpiration, broadcast)
+	go domain.SubscribeUpdates(context.Background(), e.Logger, rc, readModelUpdatesChannel, cacheExpiration, broadcast)
 	e.GET("/stream", streamTasks(rc, auth))
 }
 
@@ -79,12 +78,12 @@ func streamTasks(rc *redis.Client, auth Authenticator) echo.HandlerFunc {
 			return c.String(http.StatusInternalServerError, "stream unsupported")
 		}
 		ctx := c.Request().Context()
-		key := consts.TasksKeyPrefix + userID
+		key := domain.TasksKeyPrefix + userID
 		data, err := rc.Get(ctx, key).Bytes()
 		if err != nil {
 			data = []byte("[]")
 		}
-		if _, err := c.Response().Write([]byte(consts.SSEDataPrefix)); err != nil {
+		if _, err := c.Response().Write([]byte(domain.SSEDataPrefix)); err != nil {
 			c.Logger().Error(err)
 			return err
 		}
@@ -107,7 +106,7 @@ func streamTasks(rc *redis.Client, auth Authenticator) echo.HandlerFunc {
 			case <-ctx.Done():
 				return nil
 			case msg := <-ch:
-				if _, err := c.Response().Write([]byte(consts.SSEDataPrefix)); err != nil {
+				if _, err := c.Response().Write([]byte(domain.SSEDataPrefix)); err != nil {
 					c.Logger().Error(err)
 					return err
 				}
