@@ -53,13 +53,15 @@ jobs:
     strategy:
       matrix:
         path: [read-model-updater, prism-api, stream-service]
-    if: ${{ needs.changes.outputs[matrix.path] == 'true' }}
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs[matrix.path] == 'true'
       - uses: actions/setup-go@v5
+        if: needs.changes.outputs[matrix.path] == 'true'
         with:
           go-version: '1.22'
       - run: go test ./...
+        if: needs.changes.outputs[matrix.path] == 'true'
         working-directory: ${{ matrix.path }}
 
   frontend:
