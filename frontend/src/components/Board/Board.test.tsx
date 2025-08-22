@@ -1,11 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import Board from '.';
+import Board, { aria } from '.';
 import type { Task } from '../../types';
 
 describe('Board', () => {
   it('renders categories', () => {
     render(<Board tasks={[]} updateTask={() => {}} completeTask={() => {}} />);
+    const board = screen.getByRole('region', { name: aria.root['aria-label'] });
+    expect(board).toBeTruthy();
     expect(screen.getByText('Critical')).toBeTruthy();
   });
 

@@ -7,6 +7,7 @@ import { useTasks, useLoginUser } from './hooks';
 import UserMenu from './components/UserMenu';
 import SearchBar from './components/SearchBar';
 import AddTaskButton from './components/AddTaskButton';
+import { aria } from './aria';
 
 export default function App() {
   const { tasks, addTask, updateTask, completeTask } = useTasks();
@@ -62,7 +63,10 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col p-2 space-y-2 sm:p-4 sm:space-y-6 lg:space-y-8">
-      <header className="flex items-center justify-between gap-2 sm:gap-4">
+      <header
+        {...aria.header}
+        className="flex items-center justify-between gap-2 sm:gap-4"
+      >
         <UserMenu
           isAuthenticated={isAuthenticated}
           userPicture={user?.picture}
@@ -73,11 +77,11 @@ export default function App() {
         <AddTaskButton onAdd={handleOpenModal} />
       </header>
 
-      <main className="flex w-full flex-1 overflow-x-auto">
+      <main {...aria.main} className="flex w-full flex-1 overflow-x-auto">
         <Board tasks={filteredTasks} updateTask={updateTask} completeTask={completeTask} />
       </main>
 
-      <footer className="pt-2 text-center text-[10px] text-gray-500 sm:pt-4 sm:text-xs">
+      <footer {...aria.footer} className="pt-2 text-center text-[10px] text-gray-500 sm:pt-4 sm:text-xs">
         Copyright © 2025 Vladimir Pavlov. All rights reserved.
       </footer>
 

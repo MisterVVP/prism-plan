@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useRef } from 'react';
 import type { Task } from '../../types';
 import { palette } from '../../palette';
+import { aria } from './aria';
 
 interface Props {
   task: Task;
@@ -54,6 +55,7 @@ export default function TaskCard({ task, onClick, onDoubleClick }: Props) {
       style={style}
       {...listeners}
       {...attributes}
+      {...aria.root(task.title)}
       onClick={handleClick}
       className="w-full select-none rounded-lg border-l-4 bg-white text-gray-800 shadow transition-shadow touch-none hover:shadow-md cursor-pointer px-1 py-1 text-xs sm:px-4 sm:py-3 sm:text-sm"
     >
