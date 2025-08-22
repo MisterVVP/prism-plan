@@ -1,6 +1,7 @@
 import { Fragment, memo } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { UserCircleIcon } from '@heroicons/react/24/solid';
+import { aria } from './aria';
 
 interface UserMenuProps {
   isAuthenticated: boolean;
@@ -15,7 +16,7 @@ function UserMenu({ isAuthenticated, userPicture, onLogin, onLogout }: UserMenuP
       {isAuthenticated ? (
         <Menu as="div" className="flex">
           <Menu.Button className="focus:outline-none">
-            <img src={userPicture} alt="User avatar" className="h-10 w-10 rounded-full" />
+            <img src={userPicture} {...aria.avatar} className="h-10 w-10 rounded-full" />
           </Menu.Button>
           <Transition
             as={Fragment}
@@ -41,7 +42,7 @@ function UserMenu({ isAuthenticated, userPicture, onLogin, onLogout }: UserMenuP
           </Transition>
         </Menu>
       ) : (
-        <button onClick={onLogin} aria-label="Log in" className="focus:outline-none">
+        <button onClick={onLogin} {...aria.loginButton} className="focus:outline-none">
           <UserCircleIcon className="h-8 w-8 cursor-pointer text-gray-400 sm:h-10 sm:w-10" />
         </button>
       )}
