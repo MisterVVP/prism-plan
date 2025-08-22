@@ -11,6 +11,7 @@ import Lane from '../Lane';
 import TaskDetails from '../TaskDetails';
 import type { Category, Task } from '../../types';
 import { useState } from 'react';
+import { aria } from './aria';
 
 interface Props {
   tasks: Task[];
@@ -83,7 +84,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
 
     return (
       <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
-        <div className="mx-auto flex max-w-5xl flex-col">
+        <div {...aria.root} className="mx-auto flex max-w-5xl flex-col">
           <button
             type="button"
             className="mb-4 flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800"
@@ -107,7 +108,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
 
   return (
     <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
-      <div className="flex w-full flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
+      <div {...aria.root} className="flex w-full flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
         {categories.map((cat) => {
           const laneTasks = tasks
             .filter((t) => t.category === cat && !t.done)

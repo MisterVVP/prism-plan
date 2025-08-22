@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import TaskCard from '.';
+import TaskCard, { aria } from '.';
 import type { Task } from '../../types';
 
 vi.mock('@dnd-kit/sortable', () => ({
@@ -17,6 +17,11 @@ describe('TaskCard', () => {
   it('renders task title', () => {
     const task: Task = { id: '1', title: 'Sample', category: 'normal', notes: '', order: 0, done: false };
     render(<TaskCard task={task} />);
+    const card = screen.getByLabelText(aria.root(task.title)['aria-label']);
+    expect(card).toBeTruthy();
+    expect(card.getAttribute('aria-label')).toBe(
+      aria.root(task.title)['aria-label']
+    );
     expect(screen.getByText('Sample')).toBeTruthy();
   });
 
