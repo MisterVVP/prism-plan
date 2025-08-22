@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -22,8 +21,8 @@ var (
 )
 
 // Register wires up stream endpoints on the given Echo instance.
-func Register(e *echo.Echo, rc *redis.Client, auth Authenticator, readModelUpdatesChannel string, cacheExpiration time.Duration) {
-	go domain.SubscribeUpdates(context.Background(), e.Logger, rc, readModelUpdatesChannel, cacheExpiration, broadcast)
+func Register(e *echo.Echo, rc *redis.Client, auth Authenticator, readModelUpdatesChannel string) {
+	go domain.SubscribeUpdates(context.Background(), e.Logger, rc, readModelUpdatesChannel, broadcast)
 	e.GET("/stream", streamTasks(rc, auth))
 }
 

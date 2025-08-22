@@ -33,7 +33,7 @@ func TestSubscribeUpdates(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		SubscribeUpdates(ctx, echo.New().Logger, rc, "chan", time.Minute, broadcast)
+		SubscribeUpdates(ctx, echo.New().Logger, rc, "chan", broadcast)
 		close(done)
 	}()
 	// wait for subscription to start
@@ -90,7 +90,7 @@ func TestSubscribeUpdatesHandlesMissingCache(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		SubscribeUpdates(ctx, echo.New().Logger, rc, "chan", time.Minute, broadcast)
+		SubscribeUpdates(ctx, echo.New().Logger, rc, "chan", broadcast)
 		close(done)
 	}()
 	time.Sleep(50 * time.Millisecond)

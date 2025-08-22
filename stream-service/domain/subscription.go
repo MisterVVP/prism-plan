@@ -3,7 +3,6 @@ package domain
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -15,7 +14,6 @@ func SubscribeUpdates(
 	logger echo.Logger,
 	rc *redis.Client,
 	readModelUpdatesChannel string,
-	cacheExpiration time.Duration,
 	broadcast func(userID string, data []byte),
 ) {
 	sub := rc.Subscribe(ctx, readModelUpdatesChannel)
@@ -35,17 +33,7 @@ func SubscribeUpdates(
 				continue
 			}
 
-			key := TasksKeyPrefix + taskEvent.UserID
 			tasks := []Task{}
-			if b, err := rc.Get(ctx, key).Bytes(); err == nil {
-				if err := json.Unmarshal(b, &tasks); err != nil {
-					logger.Errorf("unmarshal cache: %v", err)
-					tasks = nil
-				}
-			}
-			if tasks == nil {
-				tasks = []Task{}
-			}
 
 			switch taskEvent.Type {
 			case TaskCreated:
@@ -67,30 +55,25 @@ func SubscribeUpdates(
 					logger.Errorf("parse task-updated: %v", err)
 					continue
 				}
-				for i := range tasks {
-					if tasks[i].ID == taskEvent.EntityID {
-						if taskUpdatedEvent.Title != nil {
-							tasks[i].Title = *taskUpdatedEvent.Title
-						}
-						if taskUpdatedEvent.Notes != nil {
-							tasks[i].Notes = *taskUpdatedEvent.Notes
-						}
-						if taskUpdatedEvent.Category != nil {
-							tasks[i].Category = *taskUpdatedEvent.Category
-						}
-						if taskUpdatedEvent.Order != nil {
-							tasks[i].Order = *taskUpdatedEvent.Order
-						}
-						break
-					}
+				newTask := Task{ID: taskEvent.EntityID}
+				if taskUpdatedEvent.Title != nil {
+					newTask.Title = *taskUpdatedEvent.Title
 				}
+				if taskUpdatedEvent.Notes != nil {
+					newTask.Notes = *taskUpdatedEvent.Notes
+				}
+				if taskUpdatedEvent.Category != nil {
+					newTask.Category = *taskUpdatedEvent.Category
+				}
+				if taskUpdatedEvent.Order != nil {
+					newTask.Order = *taskUpdatedEvent.Order
+				}
+				tasks = append(tasks, newTask)
 			case TaskCompleted:
-				for i := range tasks {
-					if tasks[i].ID == taskEvent.EntityID {
-						tasks[i].Done = true
-						break
-					}
-				}
+				tasks = append(tasks, Task{
+					ID:   taskEvent.EntityID,
+					Done: true,
+				})
 			default:
 				logger.Warnf("Received unknown task event of type %s in %s channel - ignoring it", taskEvent.Type, readModelUpdatesChannel)
 				continue
@@ -101,9 +84,7 @@ func SubscribeUpdates(
 				logger.Errorf("marshal tasks: %v", err)
 				continue
 			}
-			if err := rc.Set(ctx, key, data, cacheExpiration).Err(); err != nil {
-				logger.Errorf("cache update: %v", err)
-			}
+
 			broadcast(taskEvent.UserID, data)
 		}
 	}
