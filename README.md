@@ -89,6 +89,5 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 5. Determine appropriate expiration for cached updates in Redis channel and enforce it while keeping this setting configurable
 6. Observability setup would've been beneficial, consider adding wide events or traces
 7. Frontend code can be revisited and re-factored
-   - Add aria attributes and make ui good for everyone
    - Improve web UX on mobile devices
    - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
