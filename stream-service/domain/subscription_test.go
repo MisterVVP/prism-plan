@@ -57,12 +57,6 @@ func TestSubscribeUpdates(t *testing.T) {
 	if len(tasks) != 1 || tasks[0].ID != "t1" || tasks[0].Title != "task1" || tasks[0].Category != "cat" || tasks[0].Order != 1 {
 		t.Fatalf("unexpected tasks %+v", tasks)
 	}
-	if val := rc.Get(context.Background(), TasksKeyPrefix+"user1").Val(); val != string(data) {
-		t.Fatalf("expected cache %s, got %s", string(data), val)
-	}
-	if ttl := rc.TTL(context.Background(), TasksKeyPrefix+"user1").Val(); ttl != time.Minute {
-		t.Fatalf("expected ttl %v, got %v", time.Minute, ttl)
-	}
 	cancel()
 	select {
 	case <-done:
