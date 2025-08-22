@@ -63,7 +63,10 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col p-2 space-y-2 sm:p-4 sm:space-y-6 lg:space-y-8">
-      <header className="flex items-center justify-between gap-2 sm:gap-4">
+      <header
+        {...aria.header}
+        className="flex items-center justify-between gap-2 sm:gap-4"
+      >
         <UserMenu
           isAuthenticated={isAuthenticated}
           userPicture={user?.picture}

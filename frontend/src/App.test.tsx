@@ -24,8 +24,11 @@ vi.mock('@auth0/auth0-react', () => ({
 }));
 
 describe('App', () => {
-  it('applies aria attributes to main and footer', () => {
+  it('applies aria attributes to header, main and footer', () => {
     render(<App />);
+    expect(
+      screen.getByRole('banner', { name: aria.header['aria-label'] })
+    ).toBeTruthy();
     expect(
       screen.getByRole('main', { name: aria.main['aria-label'] })
     ).toBeTruthy();
