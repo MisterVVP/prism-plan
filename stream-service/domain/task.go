@@ -1,11 +1,10 @@
 package domain
 
-// Task represents a single board item in the read model.
 type Task struct {
 	ID       string `json:"id"`
-	Title    string `json:"title"`
+	Title    string `json:"title,omitempty"`
 	Notes    string `json:"notes,omitempty"`
-	Category string `json:"category"`
+	Category string `json:"category,omitempty"`
 	Order    int    `json:"order,omitempty"`
 	Done     bool   `json:"done,omitempty"`
 }

@@ -36,6 +36,8 @@ type CompleteTaskAction = {
 
 type SetTasksAction = { type: "set-tasks"; tasks: Task[] };
 
+type MergeTasksAction = { type: "merge-tasks"; tasks: Task[] };
+
 type ClearCommandsAction = { type: "clear-commands" };
 
 type Action =
@@ -43,6 +45,7 @@ type Action =
   | UpdateTaskAction
   | CompleteTaskAction
   | SetTasksAction
+  | MergeTasksAction
   | ClearCommandsAction;
 const categories: Task["category"][] = [
   "critical",
@@ -71,6 +74,22 @@ export function tasksReducer(state: State = initialState, action: Action): State
         tasks: action.tasks,
         nextOrder: deriveCounters(action.tasks, state.nextOrder),
       };
+    case "merge-tasks": {
+      const merged = [...state.tasks];
+      for (const t of action.tasks) {
+        const idx = merged.findIndex((m) => m.id === t.id);
+        if (idx >= 0) {
+          merged[idx] = { ...merged[idx], ...t };
+        } else {
+          merged.push(t);
+        }
+      }
+      return {
+        ...state,
+        tasks: merged,
+        nextOrder: deriveCounters(merged, state.nextOrder),
+      };
+    }
     case "add-task": {
       const { taskId, commandId, partial } = action;
       const order = state.nextOrder[partial.category];

@@ -72,7 +72,7 @@ export function useTasks() {
         source = new EventSource(`${streamUrl}?token=${token}`);
         source.onmessage = (ev) => {
           const data = parseTasks(ev.data);
-          dispatch({ type: "set-tasks", tasks: data });
+          dispatch({ type: "merge-tasks", tasks: data });
         };
       } catch (err) {
         console.error(err);

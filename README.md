@@ -91,3 +91,4 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 7. Frontend code can be revisited and re-factored
    - Add aria attributes and make ui good for everyone
    - Improve web UX on mobile devices
+   - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
