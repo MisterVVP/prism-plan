@@ -9,19 +9,20 @@ import {
 import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import Lane from '../Lane';
 import TaskDetails from '../TaskDetails';
-import type { Category, Task } from '../../types';
+import type { Category, Task, Settings } from '../../types';
 import { useState } from 'react';
 import { aria } from './aria';
 
 interface Props {
   tasks: Task[];
+  settings: Settings;
   updateTask: (id: string, changes: Partial<Task>) => void;
   completeTask: (id: string) => void;
 }
 
 const categories: Category[] = ['critical', 'fun', 'important', 'normal'];
 
-export default function Board({ tasks, updateTask, completeTask }: Props) {
+export default function Board({ tasks, settings, updateTask, completeTask }: Props) {
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { distance: 5 } })
@@ -96,6 +97,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
             <Lane
               category={expanded}
               tasks={laneTasks}
+              limit={settings.tasksPerCategory}
               expanded
               onTaskClick={setSelected}
               onTaskComplete={(task) => completeTask(task.id)}
@@ -122,6 +124,7 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
               <Lane
                 category={cat}
                 tasks={laneTasks}
+                limit={settings.tasksPerCategory}
                 onExpand={() => setExpanded(cat)}
                 onTaskClick={setSelected}
                 onTaskComplete={(task) => completeTask(task.id)}
@@ -129,12 +132,15 @@ export default function Board({ tasks, updateTask, completeTask }: Props) {
             </SortableContext>
           );
         })}
-        <Lane
-          category="done"
-          tasks={tasks.filter((t) => t.done)}
-          onExpand={() => setExpanded('done')}
-          onTaskClick={setSelected}
-        />
+        {settings.showDoneTasks && (
+          <Lane
+            category="done"
+            tasks={tasks.filter((t) => t.done)}
+            limit={settings.tasksPerCategory}
+            onExpand={() => setExpanded('done')}
+            onTaskClick={setSelected}
+          />
+        )}
       </div>
     </DndContext>
   );

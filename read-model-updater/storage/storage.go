@@ -13,13 +13,14 @@ import (
 
 // Storage wraps Azure clients used by the service.
 type Storage struct {
-	queue     *azqueue.QueueClient
-	taskTable *aztables.Client
-	userTable *aztables.Client
+        queue     *azqueue.QueueClient
+        taskTable *aztables.Client
+        userTable *aztables.Client
+        settingsTable *aztables.Client
 }
 
 // New creates a Storage from connection parameters.
-func New(connStr, eventsQueue, tasksTable, usersTable string) (*Storage, error) {
+func New(connStr, eventsQueue, tasksTable, usersTable, settingsTable string) (*Storage, error) {
 	queue, err := azqueue.NewQueueClientFromConnectionString(connStr, eventsQueue, nil)
 	if err != nil {
 		return nil, err
@@ -28,9 +29,10 @@ func New(connStr, eventsQueue, tasksTable, usersTable string) (*Storage, error) 
 	if err != nil {
 		return nil, err
 	}
-	taskClient := svc.NewClient(tasksTable)
-	userClient := svc.NewClient(usersTable)
-	return &Storage{queue: queue, taskTable: taskClient, userTable: userClient}, nil
+        taskClient := svc.NewClient(tasksTable)
+        userClient := svc.NewClient(usersTable)
+        settingsClient := svc.NewClient(settingsTable)
+        return &Storage{queue: queue, taskTable: taskClient, userTable: userClient, settingsTable: settingsClient}, nil
 }
 
 // Dequeue retrieves a single message from the events queue.
@@ -89,9 +91,26 @@ func (s *Storage) SetTaskDone(ctx context.Context, pk, rk string) error {
 
 // UpsertUser creates or replaces a user entity.
 func (s *Storage) UpsertUser(ctx context.Context, ent domain.UserEntity) error {
-	payload, err := json.Marshal(ent)
-	if err == nil {
-		_, err = s.userTable.UpsertEntity(ctx, payload, nil)
-	}
-	return err
+        payload, err := json.Marshal(ent)
+        if err == nil {
+                _, err = s.userTable.UpsertEntity(ctx, payload, nil)
+        }
+        return err
+}
+
+func (s *Storage) UpsertUserSettings(ctx context.Context, ent domain.UserSettingsEntity) error {
+        payload, err := json.Marshal(ent)
+        if err == nil {
+                _, err = s.settingsTable.UpsertEntity(ctx, payload, nil)
+        }
+        return err
+}
+
+func (s *Storage) UpdateUserSettings(ctx context.Context, ent domain.UserSettingsUpdate) error {
+        payload, err := json.Marshal(ent)
+        if err == nil {
+                et := azcore.ETagAny
+                _, err = s.settingsTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
+        }
+        return err
 }

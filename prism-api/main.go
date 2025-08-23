@@ -18,13 +18,14 @@ func main() {
 	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
 		log.SetLevel(log.DebugLevel)
 	}
-	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
-	tasksTableName := os.Getenv("TASKS_TABLE")
-	commandQueueName := os.Getenv("COMMAND_QUEUE")
-	if connStr == "" || tasksTableName == "" || commandQueueName == "" {
-		log.Fatal("missing storage config")
-	}
-	store, err := storage.New(connStr, tasksTableName, commandQueueName)
+        connStr := os.Getenv("STORAGE_CONNECTION_STRING")
+        tasksTableName := os.Getenv("TASKS_TABLE")
+        settingsTableName := os.Getenv("SETTINGS_TABLE")
+        commandQueueName := os.Getenv("COMMAND_QUEUE")
+        if connStr == "" || tasksTableName == "" || settingsTableName == "" || commandQueueName == "" {
+                log.Fatal("missing storage config")
+        }
+        store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}

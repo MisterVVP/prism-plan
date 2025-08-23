@@ -10,7 +10,11 @@ vi.mock('./hooks', () => ({
     updateTask: vi.fn(),
     completeTask: vi.fn()
   }),
-  useLoginUser: () => {}
+  useLoginUser: () => {},
+  useSettings: () => ({
+    settings: { tasksPerCategory: 3, showDoneTasks: true },
+    updateSettings: vi.fn()
+  })
 }));
 
 vi.mock('@auth0/auth0-react', () => ({

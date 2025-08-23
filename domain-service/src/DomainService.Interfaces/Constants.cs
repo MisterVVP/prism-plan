@@ -4,6 +4,7 @@ public static class EntityTypes
 {
     public const string Task = "task";
     public const string User = "user";
+    public const string UserSettings = "user-settings";
 }
 
 public static class TaskEventTypes
@@ -20,4 +21,5 @@ public static class CommandTypes
     public const string UpdateTask = "update-task";
     public const string LoginUser = "login-user";
     public const string LogoutUser = "logout-user";
+    public const string UpdateUserSettings = "update-user-settings";
 }

@@ -14,4 +14,6 @@ namespace DomainService.Domain.Commands
 
     public sealed record UpdateTaskCommand(string TaskId, JsonElement? Data, string UserId) : ICommand<Unit>;
 
+    public sealed record UpdateUserSettingsCommand(JsonElement? Data, string UserId) : ICommand<Unit>;
+
 }

@@ -3,12 +3,14 @@ package domain
 import "encoding/json"
 
 const (
-	TaskCreated   = "task-created"
-	TaskUpdated   = "task-updated"
-	TaskCompleted = "task-completed"
-	UserCreated   = "user-created"
-	UserLoggedIn  = "user-logged-in"
-	UserLoggedOut = "user-logged-out"
+        TaskCreated   = "task-created"
+        TaskUpdated   = "task-updated"
+        TaskCompleted = "task-completed"
+        UserCreated   = "user-created"
+        UserLoggedIn  = "user-logged-in"
+        UserLoggedOut = "user-logged-out"
+        UserSettingsCreated = "user-settings-created"
+        UserSettingsUpdated = "user-settings-updated"
 )
 
 // Event represents a change in the domain model.
@@ -35,8 +37,19 @@ type TaskCreatedEventData struct {
 }
 
 type TaskUpdatedEventData struct {
-	Title    *string `json:"title"`
-	Notes    *string `json:"notes"`
-	Category *string `json:"category"`
-	Order    *int    `json:"order"`
+        Title    *string `json:"title"`
+        Notes    *string `json:"notes"`
+        Category *string `json:"category"`
+        Order    *int    `json:"order"`
+        Done     *bool   `json:"done"`
+}
+
+type UserSettingsEventData struct {
+        TasksPerCategory int  `json:"tasksPerCategory"`
+        ShowDoneTasks    bool `json:"displayDoneTasks"`
+}
+
+type UserSettingsUpdatedEventData struct {
+        TasksPerCategory *int  `json:"tasksPerCategory"`
+        ShowDoneTasks    *bool `json:"displayDoneTasks"`
 }
