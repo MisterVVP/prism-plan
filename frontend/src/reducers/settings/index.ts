@@ -1,1 +1,6 @@
-export { settingsReducer, initialState, State, Action } from "./settingsReducer";
+export {
+  settingsReducer,
+  initialState as settingsInitialState,
+  State as SettingsState,
+  Action as SettingsAction,
+} from "./settingsReducer";

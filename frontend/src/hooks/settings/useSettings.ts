@@ -2,10 +2,10 @@ import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { v4 as uuid } from "uuid";
 import type { Settings } from "../../types";
-import { settingsReducer, initialState } from "../../reducers";
+import { settingsReducer, settingsInitialState } from "../../reducers";
 
 export function useSettings() {
-  const [state, dispatch] = useReducer(settingsReducer, initialState);
+  const [state, dispatch] = useReducer(settingsReducer, settingsInitialState);
   const { settings, commands } = state;
   const { isAuthenticated, getAccessTokenSilently, loginWithRedirect, user } =
     useAuth0();
