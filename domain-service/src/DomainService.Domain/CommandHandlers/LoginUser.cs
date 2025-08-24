@@ -13,7 +13,7 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
     public async Task<Unit> Handle(LoginUserCommand request, CancellationToken ct)
     {
         var exists = await _userRepo.Exists(request.UserId, ct);
-        var type = exists ? "user-logged-in" : "user-created";
+        var type = exists ? UserEventTypes.Login : UserEventTypes.Created;
         JsonElement? data = null;
         if (!exists)
         {
@@ -22,7 +22,7 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
         var ev = new Event(
             Guid.NewGuid().ToString(),
             request.UserId,
-            "user",
+            EntityTypes.User,
             type,
             data,
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -36,7 +36,7 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
                 Guid.NewGuid().ToString(),
                 request.UserId,
                 EntityTypes.UserSettings,
-                "user-settings-created",
+                UserEventTypes.SettingsCreated,
                 settingsData,
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 request.UserId);

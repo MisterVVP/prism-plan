@@ -16,7 +16,7 @@ internal sealed class UpdateUserSettings(IUserEventRepository userRepo, IEventQu
             Guid.NewGuid().ToString(),
             request.UserId,
             EntityTypes.UserSettings,
-            "user-settings-updated",
+            UserEventTypes.SettingsUpdated,
             request.Data,
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             request.UserId);

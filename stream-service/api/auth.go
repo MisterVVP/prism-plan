@@ -36,7 +36,7 @@ func (a *Auth) UserIDFromAuthHeader(h string) (string, error) {
 		return "", errors.New("bad auth header")
 	}
 
-	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}), jwt.WithoutClaimsValidation())
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}))
 	token, err := parser.Parse(tokenStr, a.JWKS.Keyfunc)
 	if err != nil {
 		return "", err

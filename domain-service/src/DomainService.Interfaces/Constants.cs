@@ -14,6 +14,15 @@ public static class TaskEventTypes
     public const string Completed = "task-completed";
 }
 
+public static class UserEventTypes
+{
+    public const string Created = "user-created";
+    public const string Login = "user-logged-in";
+    public const string Logout = "user-logged-out";
+    public const string SettingsUpdated = "user-settings-updated";
+    public const string SettingsCreated = "user-settings-created";
+}
+
 public static class CommandTypes
 {
     public const string CompleteTask = "complete-task";
