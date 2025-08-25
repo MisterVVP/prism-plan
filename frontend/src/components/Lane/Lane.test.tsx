@@ -6,7 +6,7 @@ import type { Task } from '../../types';
 describe('Lane', () => {
   it('shows lane title', () => {
     const tasks: Task[] = [{ id: '1', title: 'Sample', category: 'critical', notes: '', order: 0, done: false }];
-    render(<Lane category="critical" tasks={tasks} />);
+    render(<Lane category="critical" tasks={tasks} limit={3} />);
     const section = screen.getByRole('region', {
       name: aria.section('critical')['aria-label']
     });

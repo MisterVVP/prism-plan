@@ -37,7 +37,23 @@ type TaskUpdate struct {
 
 // UserEntity represents a user stored in the read model.
 type UserEntity struct {
-	Entity
-	Name  string `json:"Name,omitempty"`
-	Email string `json:"Email,omitempty"`
+        Entity
+        Name  string `json:"Name,omitempty"`
+        Email string `json:"Email,omitempty"`
+}
+
+type UserSettingsEntity struct {
+        Entity
+        TasksPerCategory     int    `json:"TasksPerCategory"`
+        TasksPerCategoryType string `json:"TasksPerCategory@odata.type"`
+        ShowDoneTasks        bool   `json:"ShowDoneTasks"`
+        ShowDoneTasksType    string `json:"ShowDoneTasks@odata.type"`
+}
+
+type UserSettingsUpdate struct {
+        Entity
+        TasksPerCategory     *int    `json:"TasksPerCategory,omitempty"`
+        TasksPerCategoryType *string `json:"TasksPerCategory@odata.type,omitempty"`
+        ShowDoneTasks        *bool   `json:"ShowDoneTasks,omitempty"`
+        ShowDoneTasksType    *string `json:"ShowDoneTasks@odata.type,omitempty"`
 }

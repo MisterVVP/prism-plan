@@ -1,6 +1,7 @@
 package domain
 
 const (
-	TasksKeyPrefix = "tasks:"
-	SSEDataPrefix  = "data: "
+        TasksKeyPrefix = "tasks:"
+        SettingsKeyPrefix = "settings:"
+        SSEDataPrefix  = "data: "
 )

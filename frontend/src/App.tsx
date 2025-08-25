@@ -3,7 +3,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { v4 as uuid } from 'uuid';
 import Board from './components/Board';
 import TaskModal from './components/TaskModal';
-import { useTasks, useLoginUser } from './hooks';
+import { useTasks, useLoginUser, useSettings } from './hooks';
 import UserMenu from './components/UserMenu';
 import SearchBar from './components/SearchBar';
 import AddTaskButton from './components/AddTaskButton';
@@ -11,6 +11,7 @@ import { aria } from './aria';
 
 export default function App() {
   const { tasks, addTask, updateTask, completeTask } = useTasks();
+  const { settings, updateSettings } = useSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const { loginWithRedirect, logout, isAuthenticated, user, getAccessTokenSilently } = useAuth0();
@@ -72,13 +73,20 @@ export default function App() {
           userPicture={user?.picture}
           onLogin={loginWithRedirect}
           onLogout={handleLogout}
+          settings={settings}
+          onUpdateSettings={updateSettings}
         />
         <SearchBar value={search} onChange={handleSearchChange} />
         <AddTaskButton onAdd={handleOpenModal} />
       </header>
 
       <main {...aria.main} className="flex w-full flex-1 overflow-x-auto">
-        <Board tasks={filteredTasks} updateTask={updateTask} completeTask={completeTask} />
+        <Board
+          tasks={filteredTasks}
+          settings={settings}
+          updateTask={updateTask}
+          completeTask={completeTask}
+        />
       </main>
 
       <footer {...aria.footer} className="pt-2 text-center text-[10px] text-gray-500 sm:pt-4 sm:text-xs">

@@ -30,6 +30,7 @@ func main() {
 		os.Getenv("USER_EVENTS_TABLE"),
 		os.Getenv("TASKS_TABLE"),
 		os.Getenv("USERS_TABLE"),
+		os.Getenv("SETTINGS_TABLE"),
 	}); err != nil {
 		log.Fatalf("create tables: %v", err)
 	}

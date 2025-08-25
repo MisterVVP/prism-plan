@@ -7,13 +7,14 @@ import { aria } from './aria';
 interface Props {
   category: Category | 'done';
   tasks: Task[];
+  limit: number;
   onExpand?: () => void;
   expanded?: boolean;
   onTaskClick?: (task: Task) => void;
   onTaskComplete?: (task: Task) => void;
 }
 
-export default function Lane({ category, tasks, onExpand, expanded, onTaskClick, onTaskComplete }: Props) {
+export default function Lane({ category, tasks, limit, onExpand, expanded, onTaskClick, onTaskComplete }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: category, data: { category } });
   const titleMap = {
     critical: 'Critical',
@@ -30,7 +31,7 @@ export default function Lane({ category, tasks, onExpand, expanded, onTaskClick,
       }
     : undefined;
 
-  const maxVisible = expanded ? tasks.length : 6;
+  const maxVisible = expanded ? tasks.length : limit;
   const visibleTasks = tasks.slice(0, maxVisible);
   const extra = tasks.length - maxVisible;
 

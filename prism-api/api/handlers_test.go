@@ -13,12 +13,17 @@ import (
 )
 
 type mockStore struct {
-	tasks []domain.Task
-	cmds  []domain.Command
+        tasks []domain.Task
+        cmds  []domain.Command
+        settings domain.Settings
 }
 
 func (m *mockStore) FetchTasks(ctx context.Context, userID string) ([]domain.Task, error) {
-	return m.tasks, nil
+        return m.tasks, nil
+}
+
+func (m *mockStore) FetchSettings(ctx context.Context, userID string) (domain.Settings, error) {
+        return m.settings, nil
 }
 
 func (m *mockStore) EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error {
@@ -51,4 +56,27 @@ func TestGetTasks(t *testing.T) {
 	if len(tasks) != 1 || tasks[0].ID != "1" {
 		t.Fatalf("unexpected tasks: %#v", tasks)
 	}
+}
+
+func TestGetSettings(t *testing.T) {
+        e := echo.New()
+        store := &mockStore{settings: domain.Settings{TasksPerCategory: 3, ShowDoneTasks: true}}
+        req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+        req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+        rec := httptest.NewRecorder()
+        c := e.NewContext(req, rec)
+
+        if err := getSettings(store, mockAuth{})(c); err != nil {
+                t.Fatalf("handler returned error: %v", err)
+        }
+        if rec.Code != http.StatusOK {
+                t.Fatalf("expected status 200 got %d", rec.Code)
+        }
+        var s domain.Settings
+        if err := json.Unmarshal(rec.Body.Bytes(), &s); err != nil {
+                t.Fatalf("invalid json: %v", err)
+        }
+        if s.TasksPerCategory != 3 || !s.ShowDoneTasks {
+                t.Fatalf("unexpected settings: %#v", s)
+        }
 }

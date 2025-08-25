@@ -36,7 +36,7 @@ func (a *Auth) UserIDFromAuthHeader(h string) (string, error) {
 		return "", errors.New("bad auth header")
 	}
 
-        parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}), jwt.WithoutClaimsValidation())
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}))
 	token, err := parser.Parse(tokenStr, a.JWKS.Keyfunc)
 	if err != nil {
 		return "", err
@@ -47,16 +47,16 @@ func (a *Auth) UserIDFromAuthHeader(h string) (string, error) {
 		return "", errors.New("invalid claims")
 	}
 
-        now := time.Now().Add(time.Minute).Unix()
-        if !claims.VerifyExpiresAt(now, true) {
-                return "", errors.New("token expired")
-        }
-        if !claims.VerifyNotBefore(now, false) {
-                return "", errors.New("token not valid yet")
-        }
-        if !claims.VerifyIssuedAt(now, false) {
-                return "", errors.New("token used before issued")
-        }
+	now := time.Now().Add(time.Minute).Unix()
+	if !claims.VerifyExpiresAt(now, true) {
+		return "", errors.New("token expired")
+	}
+	if !claims.VerifyNotBefore(now, false) {
+		return "", errors.New("token not valid yet")
+	}
+	if !claims.VerifyIssuedAt(now, false) {
+		return "", errors.New("token used before issued")
+	}
 	if !claims.VerifyAudience(a.Audience, false) {
 		return "", errors.New("invalid audience")
 	}

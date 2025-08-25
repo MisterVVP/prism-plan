@@ -32,6 +32,11 @@ namespace DomainService.Domain.Commands
                         CommandTypes.LogoutUser => new LogoutUserCommand(envelope.Command.EntityId),
                         _ => throw new ArgumentException("Unknown Command.Type!", nameof(queueMessage))
                     },
+                    EntityTypes.UserSettings => envelope.Command.Type switch
+                    {
+                        CommandTypes.UpdateUserSettings => new UpdateUserSettingsCommand(envelope.Command.Data, envelope.UserId),
+                        _ => throw new ArgumentException("Unknown Command.Type!", nameof(queueMessage))
+                    },
                     _ => throw new ArgumentException("Unknown Command.EntityType!", nameof(queueMessage))
                 };
 
