@@ -31,7 +31,7 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
         await _eventQueue.Add(ev, ct);
         if (!exists)
         {
-            var settingsData = JsonSerializer.SerializeToElement(new { tasksPerCategory = 3, displayDoneTasks = false });
+            var settingsData = JsonSerializer.SerializeToElement(new { tasksPerCategory = 3, showDoneTasks = false });
             var settingsEv = new Event(
                 Guid.NewGuid().ToString(),
                 request.UserId,
