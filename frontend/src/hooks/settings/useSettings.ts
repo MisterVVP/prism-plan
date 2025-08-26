@@ -59,6 +59,7 @@ export function useSettings() {
   useEffect(() => {
     if (!isAuthenticated) return;
     let source: EventSource | null = null;
+    let reconnectTimer: number | null = null;
     async function connect() {
       try {
         const token = await getAccessTokenSilently({
@@ -67,7 +68,8 @@ export function useSettings() {
             scope: "openid profile email offline_access",
           },
         });
-        source = new EventSource(`${streamUrl}?token=${token}`);
+        const encoded = encodeURIComponent(token);
+        source = new EventSource(`${streamUrl}?token=${encoded}`);
         source.onmessage = (ev) => {
           try {
             const msg = JSON.parse(ev.data);
@@ -78,12 +80,19 @@ export function useSettings() {
             console.error(e);
           }
         };
+        source.onerror = () => {
+          source?.close();
+          reconnectTimer = window.setTimeout(connect, 5000);
+        };
       } catch (err) {
         console.error(err);
       }
     }
     connect();
     return () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
       if (source) source.close();
     };
   }, [isAuthenticated, streamUrl, getAccessTokenSilently, audience]);

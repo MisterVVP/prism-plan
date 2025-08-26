@@ -144,10 +144,12 @@ func stream(rc *redis.Client, auth Authenticator) echo.HandlerFunc {
 			}
 		}
 
-		// Stream updates
 		ch := make(chan []byte, 1)
 		addClient(userID, ch)
-		defer removeClient(userID, ch)
+		defer func() {
+			removeClient(userID, ch)
+			close(ch)
+		}()
 
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()

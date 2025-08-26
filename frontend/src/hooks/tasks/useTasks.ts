@@ -61,6 +61,7 @@ export function useTasks() {
   useEffect(() => {
     if (!isAuthenticated) return;
     let source: EventSource | null = null;
+    let reconnectTimer: number | null = null;
     async function connect() {
       try {
         const token = await getAccessTokenSilently({
@@ -69,12 +70,17 @@ export function useTasks() {
             scope: "openid profile email offline_access",
           },
         });
-        source = new EventSource(`${streamUrl}?token=${token}`);
+        const encoded = encodeURIComponent(token);
+        source = new EventSource(`${streamUrl}?token=${encoded}`);
         source.onmessage = (ev) => {
           const data = parseTasks(ev.data);
           if (data.length) {
             dispatch({ type: "merge-tasks", tasks: data });
           }
+        };
+        source.onerror = () => {
+          source?.close();
+          reconnectTimer = window.setTimeout(connect, 5000);
         };
       } catch (err) {
         console.error(err);
@@ -82,6 +88,9 @@ export function useTasks() {
     }
     connect();
     return () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
       if (source) source.close();
     };
   }, [isAuthenticated, streamUrl, getAccessTokenSilently, audience]);
