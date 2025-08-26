@@ -85,9 +85,9 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 3. Draw overall system design for this project and ensure it can scale to handle millions of simultaneous users
    - Ideally, PoC should be made locally. However system design is enough with relevant enterprise techs.
    - If PoC is implemented, create load test script to emulate real-world scenario
-4. Start system design for mobile app
-5. Determine appropriate expiration for cached updates in Redis channel and enforce it while keeping this setting configurable
-6. Observability setup would've been beneficial, consider adding wide events or traces
-7. Frontend code can be revisited and re-factored
+4. Determine appropriate expiration for cached updates in Redis channel and enforce it while keeping this setting configurable
+5. Observability setup would've been beneficial, consider adding wide events or traces
+6. Frontend code can be revisited and re-factored
    - Improve web UX on mobile devices
    - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
+7. Add some basic features to utilise event sourcing (e.g. undo/redo)
