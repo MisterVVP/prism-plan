@@ -2,6 +2,7 @@ using DomainService.Domain.Commands;
 using DomainService.Interfaces;
 using MediatR;
 using System.Text.Json;
+using DomainService.Domain;
 
 namespace DomainService.Domain.CommandHandlers;
 
@@ -29,7 +30,7 @@ internal sealed class UpdateTask(ITaskEventRepository taskRepo, IEventQueue even
                 request.TaskId,
                 EntityTypes.Task,
                 TaskEventTypes.Updated,
-                JsonSerializer.SerializeToElement(new { done = false }),
+                JsonSerializer.SerializeToElement(new TaskStatusData(false)),
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 request.UserId);
             await _taskRepo.Add(reopen, ct);
