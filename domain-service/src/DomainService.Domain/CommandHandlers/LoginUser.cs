@@ -2,6 +2,7 @@ using DomainService.Domain.Commands;
 using DomainService.Interfaces;
 using MediatR;
 using System.Text.Json;
+using DomainService.Domain;
 
 namespace DomainService.Domain.CommandHandlers;
 
@@ -17,7 +18,7 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
         JsonElement? data = null;
         if (!exists)
         {
-            data = JsonSerializer.SerializeToElement(new { name = request.Name, email = request.Email });
+            data = JsonSerializer.SerializeToElement(new UserProfileData(request.Name, request.Email));
         }
         var ev = new Event(
             Guid.NewGuid().ToString(),
@@ -31,7 +32,7 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
         await _eventQueue.Add(ev, ct);
         if (!exists)
         {
-            var settingsData = JsonSerializer.SerializeToElement(new { tasksPerCategory = 3, showDoneTasks = false });
+            var settingsData = JsonSerializer.SerializeToElement(new UserSettingsData(3, false));
             var settingsEv = new Event(
                 Guid.NewGuid().ToString(),
                 request.UserId,

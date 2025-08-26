@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -94,15 +95,20 @@ func stream(rc *redis.Client, auth Authenticator) echo.HandlerFunc {
 		// Helpers
 		writeSSE := func(payload []byte) error {
 			if _, err := res.Write([]byte(domain.SSEDataPrefix)); err != nil {
-				c.Logger().Error(err)
 				return err
 			}
 			if _, err := res.Write(payload); err != nil {
-				c.Logger().Error(err)
 				return err
 			}
 			if _, err := res.Write([]byte("\n\n")); err != nil {
-				c.Logger().Error(err)
+				return err
+			}
+			flusher.Flush()
+			return nil
+		}
+
+		writeKeepAlive := func() error {
+			if _, err := res.Write([]byte(": keep-alive\n\n")); err != nil {
 				return err
 			}
 			flusher.Flush()
@@ -123,7 +129,8 @@ func stream(rc *redis.Client, auth Authenticator) echo.HandlerFunc {
 			Data:       getOrDefault(domain.TasksKeyPrefix+userID, []byte("[]")),
 		}); true {
 			if err := writeSSE(payload); err != nil {
-				return err
+				c.Logger().Errorf("stream write: %v", err)
+				return nil
 			}
 		}
 
@@ -132,7 +139,8 @@ func stream(rc *redis.Client, auth Authenticator) echo.HandlerFunc {
 			Data:       getOrDefault(domain.SettingsKeyPrefix+userID, []byte("{}")),
 		}); true {
 			if err := writeSSE(payload); err != nil {
-				return err
+				c.Logger().Errorf("stream write: %v", err)
+				return nil
 			}
 		}
 
@@ -141,13 +149,22 @@ func stream(rc *redis.Client, auth Authenticator) echo.HandlerFunc {
 		addClient(userID, ch)
 		defer removeClient(userID, ch)
 
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return nil
 			case msg := <-ch:
 				if err := writeSSE(msg); err != nil {
-					return err
+					c.Logger().Errorf("stream write: %v", err)
+					return nil
+				}
+			case <-ticker.C:
+				if err := writeKeepAlive(); err != nil {
+					c.Logger().Errorf("stream write: %v", err)
+					return nil
 				}
 			}
 		}
