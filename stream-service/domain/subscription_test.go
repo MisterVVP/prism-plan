@@ -38,10 +38,10 @@ func TestSubscribeUpdates(t *testing.T) {
 	}()
 	// wait for subscription to start
 	time.Sleep(50 * time.Millisecond)
-	payload := `{"Id":"1","EntityId":"t1","EntityType":"task","Type":"task-created","Data":{"title":"task1","category":"cat","order":1},"Time":123,"UserId":"user1"}`
-	if err := rc.Publish(context.Background(), "chan", payload).Err(); err != nil {
-		t.Fatalf("publish: %v", err)
-	}
+        payload := `{"Id":"1","EntityId":"t1","EntityType":"task","Type":"task-created","Data":{"title":"task1","category":"cat","order":1},"Time":123,"UserId":"user1"}`
+        if err := rc.Publish(context.Background(), "chan", payload).Err(); err != nil {
+                t.Fatalf("publish: %v", err)
+        }
 	time.Sleep(100 * time.Millisecond)
 	mu.Lock()
 	uid := gotUID
@@ -50,13 +50,16 @@ func TestSubscribeUpdates(t *testing.T) {
 	if uid != "user1" {
 		t.Fatalf("expected user1, got %s", uid)
 	}
-	var tasks []Task
-	if err := json.Unmarshal(data, &tasks); err != nil {
-		t.Fatalf("unmarshal tasks: %v", err)
-	}
-	if len(tasks) != 1 || tasks[0].ID != "t1" || tasks[0].Title != "task1" || tasks[0].Category != "cat" || tasks[0].Order != 1 {
-		t.Fatalf("unexpected tasks %+v", tasks)
-	}
+        var payloadObj struct {
+                EntityType string `json:"entityType"`
+                Data       []Task `json:"data"`
+        }
+        if err := json.Unmarshal(data, &payloadObj); err != nil {
+                t.Fatalf("unmarshal payload: %v", err)
+        }
+        if payloadObj.EntityType != "task" || len(payloadObj.Data) != 1 || payloadObj.Data[0].ID != "t1" || payloadObj.Data[0].Title != "task1" || payloadObj.Data[0].Category != "cat" || payloadObj.Data[0].Order != 1 {
+                t.Fatalf("unexpected payload %+v", payloadObj)
+        }
 	cancel()
 	select {
 	case <-done:

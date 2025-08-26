@@ -48,6 +48,10 @@ internal static class TaskStateBuilder
                     if (data.TryGetProperty("notes", out var n)) state.Notes = n.GetString();
                     if (data.TryGetProperty("category", out var c)) state.Category = c.GetString();
                     if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi)) state.Order = oi;
+                    if (data.TryGetProperty("done", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.False)
+                    {
+                        state.Done = false;
+                    }
                 }
                 break;
             case TaskEventTypes.Completed:

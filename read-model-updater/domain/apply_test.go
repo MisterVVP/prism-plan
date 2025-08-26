@@ -7,11 +7,13 @@ import (
 )
 
 type fakeStore struct {
-	upsertTask TaskEntity
-	updateTask TaskUpdate
-	donePK     string
-	doneRK     string
-	upsertUser UserEntity
+        upsertTask TaskEntity
+        updateTask TaskUpdate
+        donePK     string
+        doneRK     string
+        upsertUser UserEntity
+        upsertSettings UserSettingsEntity
+        updateSettings UserSettingsUpdate
 }
 
 func (f *fakeStore) UpsertTask(ctx context.Context, ent TaskEntity) error {
@@ -30,8 +32,18 @@ func (f *fakeStore) SetTaskDone(ctx context.Context, pk, rk string) error {
 }
 
 func (f *fakeStore) UpsertUser(ctx context.Context, ent UserEntity) error {
-	f.upsertUser = ent
-	return nil
+        f.upsertUser = ent
+        return nil
+}
+
+func (f *fakeStore) UpsertUserSettings(ctx context.Context, ent UserSettingsEntity) error {
+        f.upsertSettings = ent
+        return nil
+}
+
+func (f *fakeStore) UpdateUserSettings(ctx context.Context, ent UserSettingsUpdate) error {
+        f.updateSettings = ent
+        return nil
 }
 
 func TestApplyTaskCreated(t *testing.T) {

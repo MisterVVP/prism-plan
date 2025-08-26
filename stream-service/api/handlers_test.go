@@ -35,10 +35,10 @@ func setupRedis(t *testing.T) (*redis.Client, func()) {
 }
 
 func TestAddRemoveClientBroadcast(t *testing.T) {
-	clients = map[string]map[chan []byte]struct{}{}
-	ch := make(chan []byte, 1)
-	addClient("user1", ch)
-	broadcast("user1", []byte("hello"))
+        clients = map[string]map[chan []byte]struct{}{}
+        ch := make(chan []byte, 1)
+        addClient("user1", ch)
+        broadcast("user1", []byte("hello"))
 	select {
 	case msg := <-ch:
 		if string(msg) != "hello" {
@@ -67,12 +67,12 @@ func TestStreamTasksReceivesUpdates(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	req = req.WithContext(ctx)
 	c := e.NewContext(req, rec)
-	handler := streamTasks(rc, auth)
+        handler := stream(rc, auth)
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- handler(c) }()
 	time.Sleep(100 * time.Millisecond)
-	update := []byte(`{"hello":"world"}`)
+        update := []byte(`{"entityType":"task","data":{"hello":"world"}}`)
 	broadcast("user1", update)
 	time.Sleep(100 * time.Millisecond)
 	cancel()
@@ -80,7 +80,9 @@ func TestStreamTasksReceivesUpdates(t *testing.T) {
 		t.Fatalf("handler error: %v", err)
 	}
 
-	expected := domain.SSEDataPrefix + "[]\n\n" + domain.SSEDataPrefix + string(update) + "\n\n"
+        initialTasks := `{"entityType":"task","data":[]}`
+        initialSettings := `{"entityType":"user-settings","data":{}}`
+        expected := domain.SSEDataPrefix + initialTasks + "\n\n" + domain.SSEDataPrefix + initialSettings + "\n\n" + domain.SSEDataPrefix + string(update) + "\n\n"
 	if rec.Body.String() != expected {
 		t.Fatalf("unexpected body %q", rec.Body.String())
 	}
@@ -89,10 +91,10 @@ func TestStreamTasksReceivesUpdates(t *testing.T) {
 func TestStreamTasksUsesCachedPayload(t *testing.T) {
 	rc, cleanup := setupRedis(t)
 	defer cleanup()
-	payload := []byte(`{"cached":true}`)
-	if err := rc.Set(context.Background(), domain.TasksKeyPrefix+"user1", payload, 0).Err(); err != nil {
-		t.Fatalf("set cache: %v", err)
-	}
+        payload := []byte(`{"cached":true}`)
+        if err := rc.Set(context.Background(), domain.TasksKeyPrefix+"user1", payload, 0).Err(); err != nil {
+                t.Fatalf("set cache: %v", err)
+        }
 	auth := fakeAuth{}
 
 	e := echo.New()
@@ -101,7 +103,7 @@ func TestStreamTasksUsesCachedPayload(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	req = req.WithContext(ctx)
 	c := e.NewContext(req, rec)
-	handler := streamTasks(rc, auth)
+        handler := stream(rc, auth)
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- handler(c) }()
@@ -111,7 +113,9 @@ func TestStreamTasksUsesCachedPayload(t *testing.T) {
 		t.Fatalf("handler error: %v", err)
 	}
 
-	expected := domain.SSEDataPrefix + string(payload) + "\n\n"
+        initialSettings := `{"entityType":"user-settings","data":{}}`
+        taskPayload := `{"entityType":"task","data":` + string(payload) + `}`
+        expected := domain.SSEDataPrefix + taskPayload + "\n\n" + domain.SSEDataPrefix + initialSettings + "\n\n"
 	if rec.Body.String() != expected {
 		t.Fatalf("unexpected body %q", rec.Body.String())
 	}

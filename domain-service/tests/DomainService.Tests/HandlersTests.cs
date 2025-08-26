@@ -72,6 +72,18 @@ public class HandlersTests
         Assert.Single(repo.Events);
         Assert.Equal("user-logged-out", repo.Events[0].Type);
     }
+
+    [Fact]
+    public async Task UpdateUserSettings_adds_event()
+    {
+        var repo = new InMemoryUserRepo();
+        var queue = new InMemoryQueue();
+        ICommandHandler<UpdateUserSettingsCommand> handler = new UpdateUserSettings(repo, queue);
+        var cmd = new UpdateUserSettingsCommand(JsonDocument.Parse("{\"tasksPerCategory\":5}").RootElement, "u1");
+        await handler.Handle(cmd, CancellationToken.None);
+        Assert.Single(repo.Events);
+        Assert.Equal("user-settings-updated", repo.Events[0].Type);
+    }
 }
 
 class InMemoryQueue : IEventQueue

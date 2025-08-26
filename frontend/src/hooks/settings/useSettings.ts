@@ -1,13 +1,12 @@
 import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { v4 as uuid } from "uuid";
-import type { Task } from "../../types";
-import { tasksReducer, initialState } from "../../reducers";
-import { parseTasks } from "./parseTasks";
+import type { Settings } from "../../types";
+import { settingsReducer, settingsInitialState } from "../../reducers";
 
-export function useTasks() {
-  const [state, dispatch] = useReducer(tasksReducer, initialState);
-  const { tasks, commands } = state;
+export function useSettings() {
+  const [state, dispatch] = useReducer(settingsReducer, settingsInitialState);
+  const { settings, commands } = state;
   const { isAuthenticated, getAccessTokenSilently, loginWithRedirect, user } =
     useAuth0();
   const apiBaseUrl =
@@ -28,13 +27,12 @@ export function useTasks() {
             scope: "openid profile email offline_access",
           },
         });
-        const res = await fetch(`${apiBaseUrl}/tasks`, {
+        const res = await fetch(`${apiBaseUrl}/settings`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
-          const raw = await res.json();
-          const data: Task[] = Array.isArray(raw) ? raw : [];
-          dispatch({ type: "set-tasks", tasks: data });
+          const data = await res.json();
+          dispatch({ type: "set-settings", settings: data as Settings });
         }
       } catch (err) {
         if (
@@ -73,9 +71,13 @@ export function useTasks() {
         const encoded = encodeURIComponent(token);
         source = new EventSource(`${streamUrl}?token=${encoded}`);
         source.onmessage = (ev) => {
-          const data = parseTasks(ev.data);
-          if (data.length) {
-            dispatch({ type: "merge-tasks", tasks: data });
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.entityType === "user-settings") {
+              dispatch({ type: "merge-settings", settings: msg.data as Partial<Settings> });
+            }
+          } catch (e) {
+            console.error(e);
           }
         };
         source.onerror = () => {
@@ -143,31 +145,15 @@ export function useTasks() {
     audience,
   ]);
 
-  function addTask(partial: Omit<Task, "id" | "order" | "done">) {
+  function updateSettings(changes: Partial<Settings>) {
+    if (!user?.sub) return;
     dispatch({
-      type: "add-task",
-      taskId: uuid(),
+      type: "update-settings",
       commandId: uuid(),
-      partial,
+      userId: user.sub,
+      settings: changes,
     });
   }
 
-  function updateTask(id: string, changes: Partial<Task>) {
-    dispatch({
-      type: "update-task",
-      id,
-      commandId: uuid(),
-      changes,
-    });
-  }
-
-  function completeTask(id: string) {
-    dispatch({
-      type: "complete-task",
-      id,
-      commandId: uuid(),
-    });
-  }
-
-  return { tasks, addTask, updateTask, completeTask };
+  return { settings, updateSettings };
 }

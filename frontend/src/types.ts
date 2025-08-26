@@ -16,3 +16,8 @@ export interface Command {
   type: string;
   data?: any;
 }
+
+export interface Settings {
+  tasksPerCategory: number;
+  showDoneTasks: boolean;
+}

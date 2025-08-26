@@ -8,3 +8,8 @@ type Task struct {
 	Order    int    `json:"order,omitempty"`
 	Done     bool   `json:"done,omitempty"`
 }
+
+type UserSettings struct {
+	TasksPerCategory *int  `json:"tasksPerCategory,omitempty"`
+	ShowDoneTasks    *bool `json:"showDoneTasks,omitempty"`
+}

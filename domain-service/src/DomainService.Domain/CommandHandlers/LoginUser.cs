@@ -2,6 +2,7 @@ using DomainService.Domain.Commands;
 using DomainService.Interfaces;
 using MediatR;
 using System.Text.Json;
+using DomainService.Domain;
 
 namespace DomainService.Domain.CommandHandlers;
 
@@ -13,22 +14,36 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
     public async Task<Unit> Handle(LoginUserCommand request, CancellationToken ct)
     {
         var exists = await _userRepo.Exists(request.UserId, ct);
-        var type = exists ? "user-logged-in" : "user-created";
+        var type = exists ? UserEventTypes.Login : UserEventTypes.Created;
         JsonElement? data = null;
         if (!exists)
         {
-            data = JsonSerializer.SerializeToElement(new { name = request.Name, email = request.Email });
+            data = JsonSerializer.SerializeToElement(new UserProfileData(request.Name, request.Email));
         }
         var ev = new Event(
             Guid.NewGuid().ToString(),
             request.UserId,
-            "user",
+            EntityTypes.User,
             type,
             data,
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             request.UserId);
         await _userRepo.Add(ev, ct);
         await _eventQueue.Add(ev, ct);
+        if (!exists)
+        {
+            var settingsData = JsonSerializer.SerializeToElement(new UserSettingsData(3, false));
+            var settingsEv = new Event(
+                Guid.NewGuid().ToString(),
+                request.UserId,
+                EntityTypes.UserSettings,
+                UserEventTypes.SettingsCreated,
+                settingsData,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                request.UserId);
+            await _userRepo.Add(settingsEv, ct);
+            await _eventQueue.Add(settingsEv, ct);
+        }
         return Unit.Value;
     }
 }

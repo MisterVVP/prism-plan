@@ -34,13 +34,14 @@ func main() {
 	}
 	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
 	eventsQueue := os.Getenv("DOMAIN_EVENTS_QUEUE")
-	tasksTable := os.Getenv("TASKS_TABLE")
-	usersTable := os.Getenv("USERS_TABLE")
-	if connStr == "" || eventsQueue == "" || tasksTable == "" || usersTable == "" {
-		log.Fatal("missing storage config")
-	}
+        tasksTable := os.Getenv("TASKS_TABLE")
+        usersTable := os.Getenv("USERS_TABLE")
+        settingsTable := os.Getenv("SETTINGS_TABLE")
+        if connStr == "" || eventsQueue == "" || tasksTable == "" || usersTable == "" || settingsTable == "" {
+                log.Fatal("missing storage config")
+        }
 
-	st, err := storage.New(connStr, eventsQueue, tasksTable, usersTable)
+        st, err := storage.New(connStr, eventsQueue, tasksTable, usersTable, settingsTable)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}
@@ -68,10 +69,11 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
-	readModelUpdatesChannel := os.Getenv("TASK_UPDATES_CHANNEL")
-	if readModelUpdatesChannel == "" {
-		log.Fatal("TASK_UPDATES_CHANNEL environment variable is empty or not defined")
-	}
+        taskUpdatesChannel := os.Getenv("TASK_UPDATES_CHANNEL")
+        settingsUpdatesChannel := os.Getenv("SETTINGS_UPDATES_CHANNEL")
+        if taskUpdatesChannel == "" || settingsUpdatesChannel == "" {
+                log.Fatal("missing redis channel config")
+        }
 
 	e := echo.New()
 	handler := func(c echo.Context) error {
@@ -96,13 +98,17 @@ func main() {
 		}
 
 		ctx := c.Request().Context()
-		if err := domain.Apply(ctx, st, ev); err != nil {
-			log.Errorf("Unable to process message, error: %v", err)
-			return c.NoContent(http.StatusBadRequest)
-		}
-		if err := rc.Publish(ctx, readModelUpdatesChannel, eventPayload).Err(); err != nil {
-			log.Errorf("Unable to publish update, error: %v", err)
-		}
+                if err := domain.Apply(ctx, st, ev); err != nil {
+                        log.Errorf("Unable to process message, error: %v", err)
+                        return c.NoContent(http.StatusBadRequest)
+                }
+                channel := taskUpdatesChannel
+                if ev.EntityType == "user-settings" {
+                        channel = settingsUpdatesChannel
+                }
+                if err := rc.Publish(ctx, channel, eventPayload).Err(); err != nil {
+                        log.Errorf("Unable to publish update, error: %v", err)
+                }
 
 		return c.JSON(http.StatusOK, azFuncResponse{Outputs: map[string]any{}})
 	}
