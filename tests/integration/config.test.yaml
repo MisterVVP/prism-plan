@@ -1,0 +1,2 @@
+api_base: http://localhost
+projection_visibility_sla_ms: 10000

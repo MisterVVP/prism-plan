@@ -3,10 +3,13 @@ services:
     environment:
       - APP_ENV=test
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 5s
       timeout: 3s
       retries: 5
+    depends_on:
+      azurite:
+        condition: service_healthy
   prism-api:
     environment:
       - APP_ENV=test
@@ -41,6 +44,9 @@ services:
   redis:
     environment:
       - APP_ENV=test
+    depends_on:
+      azurite:
+        condition: service_healthy
   azurite:
     volumes:
       - azurite_data_test:/data
