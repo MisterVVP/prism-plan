@@ -4,8 +4,8 @@ export const options = {
   scenarios: {
     default: {
       executor: 'constant-vus',
-      vus: 1,
-      duration: '1s',
+      vus: 10,
+      duration: '30s',
     },
   },
   thresholds: {
@@ -16,6 +16,14 @@ export const options = {
 
 export default function () {
   const base = __ENV.API_BASE || 'http://localhost';
-  http.get(`${base}/api/tasks`);
+  if (Math.random() < 0.95) {
+    http.get(`${base}/api/tasks`);
+  } else {
+    http.post(
+      `${base}/api/commands`,
+      JSON.stringify({ type: 'CreateTask', payload: { title: 'k6 task' } }),
+      { headers: { 'Content-Type': 'application/json' } },
+    );
+  }
 }
 

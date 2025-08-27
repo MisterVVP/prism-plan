@@ -4,8 +4,8 @@ export const options = {
   scenarios: {
     default: {
       executor: 'constant-vus',
-      vus: 1,
-      duration: '1s',
+      vus: 5,
+      duration: '1h',
     },
   },
 };
