@@ -12,5 +12,9 @@ trap "$COMPOSE down -v" EXIT
 
 tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz
 
-STREAM_URL=http://localhost:${STREAM_SERVICE_PORT}/stream go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
+STREAM_URL=${STREAM_URL:-http://localhost:${STREAM_SERVICE_PORT}/stream} \
+SSE_CONNECTIONS=${SSE_CONNECTIONS:-200} \
+DURATION_SEC=${DURATION_SEC:-120} \
+TEST_BEARER=${TEST_BEARER:-} \
+go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
 
