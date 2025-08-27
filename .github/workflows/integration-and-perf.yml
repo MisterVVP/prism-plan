@@ -22,7 +22,8 @@ jobs:
         with:
           go-version: '1.24'
       - run: |
-          source ./tests/docker/env.test.example &&
+          ls &&
+          source tests/docker/env.test.example &&
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
           tests/docker/wait-for.sh http://localhost:${PRISM_API_PORT}${HEALTH_ENDPOINT} 60
           pushd tests/integration
@@ -40,7 +41,7 @@ jobs:
           go-version: '1.24'
       - uses: grafana/setup-k6-action@v1
       - run: |
-          source ./tests/docker/env.test.example &&
+          source tests/docker/env.test.example &&
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
           tests/docker/wait-for.sh http://localhost:${PRISM_API_PORT}${HEALTH_ENDPOINT} 60
           API_BASE=http://localhost:${PRISM_API_PORT} k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
