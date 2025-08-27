@@ -10,7 +10,7 @@ COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/dock
 $COMPOSE up -d
 trap "$COMPOSE down -v" EXIT
 
-tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz
+tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz 60
 
 API_BASE=http://localhost:${PRISM_API_PORT} k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
 

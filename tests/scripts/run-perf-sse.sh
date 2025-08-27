@@ -10,7 +10,7 @@ COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/dock
 $COMPOSE up -d
 trap "$COMPOSE down -v" EXIT
 
-tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz
+tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz 60
 
 STREAM_URL=${STREAM_URL:-http://localhost:${STREAM_SERVICE_PORT}/stream} \
 SSE_CONNECTIONS=${SSE_CONNECTIONS:-200} \

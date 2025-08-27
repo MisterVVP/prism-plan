@@ -25,7 +25,7 @@ jobs:
           PRISM_API_PORT=$(grep PRISM_API_PORT $ENV_FILE | cut -d'=' -f2)
           FRONTEND_PORT=$(grep FRONTEND_PORT $ENV_FILE | cut -d'=' -f2)
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
-          tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz
+            tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz 60
           pushd tests/integration
           API_BASE=http://localhost:${PRISM_API_PORT} go test ./...
           popd
@@ -46,7 +46,7 @@ jobs:
           FRONTEND_PORT=$(grep FRONTEND_PORT $ENV_FILE | cut -d'=' -f2)
           STREAM_SERVICE_PORT=$(grep STREAM_SERVICE_PORT $ENV_FILE | cut -d'=' -f2)
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
-          tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz
+            tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz 60
           API_BASE=http://localhost:${PRISM_API_PORT} k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
           STREAM_URL=http://localhost:${STREAM_SERVICE_PORT}/stream go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
