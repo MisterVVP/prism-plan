@@ -21,12 +21,15 @@ jobs:
         with:
           go-version: '1.24'
       - run: |
-          docker compose -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
-          tests/docker/wait-for.sh http://localhost/healthz
+          ENV_FILE=tests/docker/env.test.example
+          PRISM_API_PORT=$(grep PRISM_API_PORT $ENV_FILE | cut -d'=' -f2)
+          FRONTEND_PORT=$(grep FRONTEND_PORT $ENV_FILE | cut -d'=' -f2)
+          docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
+          tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz
           pushd tests/integration
-          go test ./...
+          API_BASE=http://localhost:${PRISM_API_PORT} go test ./...
           popd
-          docker compose -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
+          docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
 
   perf:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_performance == 'true' || github.event_name == 'schedule'
@@ -37,8 +40,16 @@ jobs:
         with:
           go-version: '1.24'
       - uses: grafana/setup-k6-action@v1
-      - run: k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
-      - run: go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
+      - run: |
+          ENV_FILE=tests/docker/env.test.example
+          PRISM_API_PORT=$(grep PRISM_API_PORT $ENV_FILE | cut -d'=' -f2)
+          FRONTEND_PORT=$(grep FRONTEND_PORT $ENV_FILE | cut -d'=' -f2)
+          STREAM_SERVICE_PORT=$(grep STREAM_SERVICE_PORT $ENV_FILE | cut -d'=' -f2)
+          docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
+          tests/docker/wait-for.sh https://localhost:${FRONTEND_PORT}/healthz
+          API_BASE=http://localhost:${PRISM_API_PORT} k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
+          STREAM_URL=http://localhost:${STREAM_SERVICE_PORT}/stream go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
+          docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
       - uses: actions/upload-artifact@v3
         with:
           name: k6-summary
