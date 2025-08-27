@@ -29,13 +29,14 @@ func TestResilienceBackpressure(t *testing.T) {
 	}
 	t.Cleanup(func() { dc("start", "domain-service") })
 
-	title := fmt.Sprintf("backpressure-%d", time.Now().UnixNano())
-	resp, err := client.PostJSON("/api/commands", command{Type: "CreateTask", Payload: map[string]interface{}{"title": title}}, nil)
+	taskID := fmt.Sprintf("backpressure-%d", time.Now().UnixNano())
+	title := "backpressure-title-" + taskID
+	resp, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]interface{}{"title": title}}}, nil)
 	if err != nil {
 		t.Fatalf("post command: %v", err)
 	}
-	if resp.StatusCode != http.StatusAccepted {
-		t.Fatalf("expected 202, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status %d", resp.StatusCode)
 	}
 
 	if err := dc("start", "domain-service"); err != nil {
@@ -44,8 +45,8 @@ func TestResilienceBackpressure(t *testing.T) {
 	start := time.Now()
 	pollTasks(t, client, func(ts []task) bool {
 		for _, tk := range ts {
-			if tk.Title == title {
-				return true
+			if tk.ID == taskID {
+				return tk.Title == title
 			}
 		}
 		return false

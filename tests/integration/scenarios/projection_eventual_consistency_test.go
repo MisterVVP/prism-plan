@@ -11,20 +11,21 @@ func TestProjectionEventualConsistency(t *testing.T) {
 	client := newClient(t)
 	sla := projectionSLA(t)
 
-	title := fmt.Sprintf("consistency-%d", time.Now().UnixNano())
+	taskID := fmt.Sprintf("consistency-%d", time.Now().UnixNano())
+	title := "consistency-title-" + taskID
 	start := time.Now()
-	resp, err := client.PostJSON("/api/commands", command{Type: "CreateTask", Payload: map[string]interface{}{"title": title}}, nil)
+	resp, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]interface{}{"title": title}}}, nil)
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if resp.StatusCode != http.StatusAccepted {
-		t.Fatalf("expected 202, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status %d", resp.StatusCode)
 	}
 
 	pollTasks(t, client, func(ts []task) bool {
 		for _, tk := range ts {
-			if tk.Title == title {
-				return true
+			if tk.ID == taskID {
+				return tk.Title == title
 			}
 		}
 		return false

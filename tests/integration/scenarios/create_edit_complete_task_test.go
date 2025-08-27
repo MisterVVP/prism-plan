@@ -11,20 +11,19 @@ import (
 func TestCreateEditCompleteTask(t *testing.T) {
 	client := newClient(t)
 
-	title := fmt.Sprintf("task-%d", time.Now().UnixNano())
+	taskID := fmt.Sprintf("task-%d", time.Now().UnixNano())
+	title := "task-title-" + taskID
 	// Create task
-	_, err := client.PostJSON("/api/commands", command{Type: "CreateTask", Payload: map[string]interface{}{"title": title}}, nil)
+	_, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]interface{}{"title": title}}}, nil)
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 
-	// Wait for task to appear and capture ID
-	var taskID string
+	// Wait for task to appear
 	pollTasks(t, client, func(ts []task) bool {
 		for _, tk := range ts {
-			if tk.Title == title {
-				taskID = tk.ID
-				return true
+			if tk.ID == taskID {
+				return tk.Title == title
 			}
 		}
 		return false
@@ -32,7 +31,7 @@ func TestCreateEditCompleteTask(t *testing.T) {
 
 	// Edit task title
 	newTitle := title + " updated"
-	_, err = client.PostJSON("/api/commands", command{Type: "EditTask", Payload: map[string]interface{}{"id": taskID, "title": newTitle}}, nil)
+	_, err = client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]interface{}{"title": newTitle}}}, nil)
 	if err != nil {
 		t.Fatalf("edit task: %v", err)
 	}
@@ -46,7 +45,7 @@ func TestCreateEditCompleteTask(t *testing.T) {
 	})
 
 	// Complete task
-	_, err = client.PostJSON("/api/commands", command{Type: "CompleteTask", Payload: map[string]interface{}{"id": taskID}}, nil)
+	_, err = client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "complete-task"}}, nil)
 	if err != nil {
 		t.Fatalf("complete task: %v", err)
 	}
