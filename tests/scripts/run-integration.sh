@@ -1,9 +1,12 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 ROOT_DIR=$(dirname "$0")/..
 cd "$ROOT_DIR"/..
 
-docker compose -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
+COMPOSE="docker compose -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
+$COMPOSE up -d
+trap "$COMPOSE down -v" EXIT
+
 tests/docker/wait-for.sh http://localhost/healthz
-go test ./tests/integration/...
-docker compose -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
+
+(cd tests/integration && go test ./...)
