@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"time"
 
@@ -11,14 +12,25 @@ import (
 
 // Auth validates incoming JWT tokens.
 type Auth struct {
-	JWKS     *keyfunc.JWKS
-	Audience string
-	Issuer   string
+	JWKS       *keyfunc.JWKS
+	Audience   string
+	Issuer     string
+	TestMode   bool
+	TestSecret []byte
 }
 
 // NewAuth creates a new Auth instance.
 func NewAuth(jwks *keyfunc.JWKS, audience, issuer string) *Auth {
-	return &Auth{JWKS: jwks, Audience: audience, Issuer: issuer}
+	a := &Auth{JWKS: jwks, Audience: audience, Issuer: issuer}
+	if os.Getenv("AUTH0_TEST_MODE") == "1" {
+		secret := os.Getenv("TEST_JWT_SECRET")
+		if secret == "" {
+			secret = "testsecret"
+		}
+		a.TestMode = true
+		a.TestSecret = []byte(secret)
+	}
+	return a
 }
 
 // UserIDFromAuthHeader extracts the user identifier from the Authorization header.
@@ -34,6 +46,27 @@ func (a *Auth) UserIDFromAuthHeader(h string) (string, error) {
 	tokenStr := parts[1]
 	if strings.Count(tokenStr, ".") != 2 {
 		return "", errors.New("bad auth header")
+	}
+
+	if a.TestMode {
+		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, errors.New("invalid signing method")
+			}
+			return a.TestSecret, nil
+		})
+		if err != nil {
+			return "", err
+		}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return "", errors.New("invalid claims")
+		}
+		sub, ok := claims["sub"].(string)
+		if !ok || sub == "" {
+			return "", errors.New("missing sub")
+		}
+		return sub, nil
 	}
 
 	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}))

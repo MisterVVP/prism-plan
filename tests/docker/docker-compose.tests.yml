@@ -1,0 +1,49 @@
+services:
+  web:
+    environment:
+      - APP_ENV=test
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+  prism-api:
+    environment:
+      - APP_ENV=test
+      - AUTH0_TEST_MODE=1
+    depends_on:
+      azurite:
+        condition: service_healthy
+  stream-service:
+    environment:
+      - APP_ENV=test
+    depends_on:
+      azurite:
+        condition: service_healthy
+  domain-service:
+    environment:
+      - APP_ENV=test
+    depends_on:
+      azurite:
+        condition: service_healthy
+  read-model-updater:
+    environment:
+      - APP_ENV=test
+    depends_on:
+      azurite:
+        condition: service_healthy
+  storage-init:
+    environment:
+      - APP_ENV=test
+    depends_on:
+      azurite:
+        condition: service_healthy
+  redis:
+    environment:
+      - APP_ENV=test
+  azurite:
+    volumes:
+      - azurite_data_test:/data
+
+volumes:
+  azurite_data_test:

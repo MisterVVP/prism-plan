@@ -1,0 +1,43 @@
+name: Integration and Performance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_performance:
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: go test ./tests/integration/...
+
+  perf:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_performance == 'true' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: grafana/setup-k6-action@v1
+      - run: k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
+      - run: go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
+      - uses: actions/upload-artifact@v3
+        with:
+          name: k6-summary
+          path: k6-summary.json
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sse-summary
+          path: tests/perf_sse_summary.txt

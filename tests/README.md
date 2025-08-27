@@ -1,8 +1,35 @@
 # Tests
 
-This directory houses the primary test suites for the project.
+This workspace contains integration and performance tests for Prism Plan.
 
-- `integration/` – scenarios that cover end-to-end interactions across services.
-- `performance/` – load and stress tests to ensure the system performs under pressure.
+## Prerequisites
 
-Add test cases in the respective folders as the application evolves.
+- Docker and Docker Compose
+- Go 1.22+
+- [k6](https://k6.io) for API load tests
+
+## Running locally
+
+```bash
+bash tests/scripts/run-integration.sh
+```
+
+```bash
+bash tests/scripts/run-perf-api.sh
+```
+
+```bash
+bash tests/scripts/run-perf-sse.sh
+```
+
+## Environment variables
+
+- `API_BASE` – base URL for API requests (default `http://localhost`)
+- `STREAM_URL` – SSE endpoint for streaming tests (default `http://localhost/stream`)
+- `TEST_BEARER` – bearer token for authenticated requests in test mode
+- `DISABLE_AUTH_FOR_TESTS` – set to `1` to bypass auth if supported
+
+## Thresholds & SLAs
+
+The k6 scenarios include default thresholds for request failure rate and latency. Adjust them in the scripts or JavaScript files as needed.
+
