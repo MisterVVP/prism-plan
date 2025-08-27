@@ -25,6 +25,7 @@ bash tests/scripts/run-perf-sse.sh
 ## Environment variables
 
 - `API_BASE` – base URL for API requests (default `http://localhost`)
+- `HEALTH_ENDPOINT` – endpoint to use as healthcheck (default `/`)
 - `STREAM_URL` – SSE endpoint for streaming tests (default `http://localhost/stream`)
 - `TEST_BEARER` – bearer token for authenticated requests in test mode
 - `DISABLE_AUTH_FOR_TESTS` – set to `1` to bypass auth if supported

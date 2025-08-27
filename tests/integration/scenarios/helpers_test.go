@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/yaml.v3"
 	integration "prismtest"
 	"prismtest/internal/httpclient"
+
+	"gopkg.in/yaml.v3"
 )
 
 type command struct {
@@ -27,7 +28,11 @@ func newClient(t *testing.T) *httpclient.Client {
 	if base == "" {
 		base = "http://localhost"
 	}
-	if _, err := http.Get(base + "/healthz"); err != nil {
+	health := os.Getenv("HEALTH_ENDPOINT")
+	if health == "" {
+		health = "/"
+	}
+	if _, err := http.Get(base + health); err != nil {
 		t.Skipf("skipping, API not reachable: %v", err)
 	}
 	bearer := os.Getenv("TEST_BEARER")

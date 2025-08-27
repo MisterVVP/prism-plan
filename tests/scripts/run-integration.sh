@@ -9,7 +9,9 @@ COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/dock
 $COMPOSE up -d
 trap "$COMPOSE down -v" EXIT
 
-tests/docker/wait-for.sh http://localhost:${PRISM_API_PORT}/healthz 60
+HEALTH_ENDPOINT="/"
+
+tests/docker/wait-for.sh http://localhost:${PRISM_API_PORT}${HEALTH_ENDPOINT} 60
 
 API_BASE=http://localhost:${PRISM_API_PORT} (cd tests/integration && go test ./...)
 
