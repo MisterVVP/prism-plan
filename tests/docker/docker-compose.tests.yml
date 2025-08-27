@@ -8,8 +8,10 @@ services:
       timeout: 3s
       retries: 5
     depends_on:
-      azurite:
-        condition: service_healthy
+      prism-api:
+        condition: service_started
+      stream-service:
+        condition: service_started
   prism-api:
     environment:
       - APP_ENV=test
@@ -17,6 +19,8 @@ services:
     depends_on:
       azurite:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
   stream-service:
     environment:
       - APP_ENV=test
@@ -29,12 +33,18 @@ services:
     depends_on:
       azurite:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
   read-model-updater:
     environment:
       - APP_ENV=test
     depends_on:
       azurite:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
   storage-init:
     environment:
       - APP_ENV=test
