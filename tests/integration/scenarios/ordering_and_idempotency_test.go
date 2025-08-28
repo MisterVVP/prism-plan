@@ -9,7 +9,7 @@ import (
 )
 
 func TestOrderingAndIdempotency(t *testing.T) {
-	client := newStreamServiceClient(t)
+	client := newPrismApiClient(t)
 
 	taskID := fmt.Sprintf("idempotent-%d", time.Now().UnixNano())
 	title := fmt.Sprintf("title-%d", time.Now().UnixNano())

@@ -54,7 +54,7 @@ func newPrismApiClient(t *testing.T) *httpclient.Client {
 	bearer := getTestBearer(t)
 	base, health := getEnvVars("PRISM_API_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
 	if _, err := http.Get(base + health); err != nil {
-		t.Skipf("skipping, API not reachable: %v", err)
+		t.Fatalf("API not reachable: %v", err)
 	}
 	return httpclient.New(base, bearer)
 }
@@ -63,7 +63,7 @@ func newStreamServiceClient(t *testing.T) *httpclient.Client {
 	bearer := getTestBearer(t)
 	base, health := getEnvVars("STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT")
 	if _, err := http.Get(base + health); err != nil {
-		t.Skipf("skipping, API not reachable: %v", err)
+		t.Fatalf("API not reachable: %v", err)
 	}
 	return httpclient.New(base, bearer)
 }

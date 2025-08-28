@@ -9,11 +9,11 @@ COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/dock
 $COMPOSE up -d
 trap "$COMPOSE down -v" EXIT
 
-AZ_FUNC_HEALTH_ENDPOINT="/"
-
-tests/docker/wait-for.sh http://localhost:${PRISM_API_PORT}${AZ_FUNC_HEALTH_ENDPOINT} 60
-tests/docker/wait-for.sh http://localhost:${STREAM_SERVICE_PORT}${API_HEALTH_ENDPOINT} 60
-
 STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
-PRISM_API_BASE=http://localhost:${PRISM_API_PORT} k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
+PRISM_API_BASE=http://localhost:${PRISM_API_PORT} 
+
+tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
+tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 60
+
+k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
 

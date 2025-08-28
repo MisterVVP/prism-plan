@@ -9,7 +9,7 @@ import (
 )
 
 func TestCreateEditCompleteTask(t *testing.T) {
-	client := newStreamServiceClient(t)
+	client := newPrismApiClient(t)
 
 	taskID := fmt.Sprintf("task-%d", time.Now().UnixNano())
 	title := "task-title-" + taskID

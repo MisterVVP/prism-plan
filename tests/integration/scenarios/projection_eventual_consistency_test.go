@@ -8,7 +8,7 @@ import (
 )
 
 func TestProjectionEventualConsistency(t *testing.T) {
-	client := newStreamServiceClient(t)
+	client := newPrismApiClient(t)
 	sla := projectionSLA(t)
 
 	taskID := fmt.Sprintf("consistency-%d", time.Now().UnixNano())
