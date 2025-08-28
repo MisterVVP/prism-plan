@@ -13,7 +13,7 @@ func TestResilienceBackpressure(t *testing.T) {
 	if os.Getenv("ENABLE_DOCKER_CMDS") != "1" {
 		t.Skip("docker control disabled")
 	}
-	client := newClient(t)
+	client := newStreamServiceClient(t)
 	sla := projectionSLA(t)
 
 	dc := func(args ...string) error {

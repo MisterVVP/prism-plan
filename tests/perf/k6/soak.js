@@ -11,7 +11,7 @@ export const options = {
 };
 
 export default function () {
-  const base = __ENV.API_BASE || 'http://localhost';
+  const base = __ENV.PRISM_API_BASE || 'http://localhost';
   http.get(`${base}/api/tasks`);
 }
 

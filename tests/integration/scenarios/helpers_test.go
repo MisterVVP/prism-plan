@@ -21,23 +21,24 @@ type command struct {
 }
 
 type task struct {
-        ID    string `json:"id"`
-        Title string `json:"title"`
-        Done  bool   `json:"done"`
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Done  bool   `json:"done"`
 }
 
-func newClient(t *testing.T) *httpclient.Client {
-	base := os.Getenv("API_BASE")
+func getEnvVars(baseUrlEnvVarName string, healthEndpointEnvVarName string) (string, string) {
+	base := os.Getenv(baseUrlEnvVarName)
 	if base == "" {
 		base = "http://localhost"
 	}
-	health := os.Getenv("HEALTH_ENDPOINT")
+	health := os.Getenv(healthEndpointEnvVarName)
 	if health == "" {
 		health = "/"
 	}
-	if _, err := http.Get(base + health); err != nil {
-		t.Skipf("skipping, API not reachable: %v", err)
-	}
+	return base, health
+}
+
+func getTestBearer(t *testing.T) string {
 	bearer := os.Getenv("TEST_BEARER")
 	if bearer == "" {
 		tok, err := integration.TestToken("integration-user")
@@ -45,6 +46,24 @@ func newClient(t *testing.T) *httpclient.Client {
 			t.Fatalf("generate token: %v", err)
 		}
 		bearer = tok
+	}
+	return bearer
+}
+
+func newPrismApiClient(t *testing.T) *httpclient.Client {
+	bearer := getTestBearer(t)
+	base, health := getEnvVars("PRISM_API_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
+	if _, err := http.Get(base + health); err != nil {
+		t.Skipf("skipping, API not reachable: %v", err)
+	}
+	return httpclient.New(base, bearer)
+}
+
+func newStreamServiceClient(t *testing.T) *httpclient.Client {
+	bearer := getTestBearer(t)
+	base, health := getEnvVars("STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT")
+	if _, err := http.Get(base + health); err != nil {
+		t.Skipf("skipping, API not reachable: %v", err)
 	}
 	return httpclient.New(base, bearer)
 }

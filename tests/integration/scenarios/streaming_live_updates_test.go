@@ -10,15 +10,15 @@ import (
 )
 
 func TestStreamingLiveUpdates(t *testing.T) {
-	client := newClient(t)
+	prismApiClient := newPrismApiClient(t)
 
 	// Create a task to mutate
 	taskID := fmt.Sprintf("stream-%d", time.Now().UnixNano())
 	title := "stream-title-" + taskID
-	if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]interface{}{"title": title}}}, nil); err != nil {
+	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]interface{}{"title": title}}}, nil); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	pollTasks(t, client, func(ts []task) bool {
+	pollTasks(t, prismApiClient, func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Title == title
@@ -27,15 +27,16 @@ func TestStreamingLiveUpdates(t *testing.T) {
 		return false
 	})
 
-	req, err := http.NewRequest(http.MethodGet, client.BaseURL+"/stream", nil)
+	streamServiceClient := newStreamServiceClient(t)
+	req, err := http.NewRequest(http.MethodGet, streamServiceClient.BaseURL+"/stream", nil)
 	if err != nil {
 		t.Fatalf("stream request: %v", err)
 	}
-	if client.Bearer != "" {
-		req.Header.Set("Authorization", "Bearer "+client.Bearer)
+	if streamServiceClient.Bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+streamServiceClient.Bearer)
 	}
 	req.Header.Set("Accept", "text/event-stream")
-	resp, err := client.HTTP.Do(req)
+	resp, err := streamServiceClient.HTTP.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Skipf("stream unavailable: %v status %v", err, resp.StatusCode)
 	}
@@ -60,7 +61,7 @@ func TestStreamingLiveUpdates(t *testing.T) {
 
 	// mutate the task
 	newTitle := title + "-sse"
-	if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]interface{}{"title": newTitle}}}, nil); err != nil {
+	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]interface{}{"title": newTitle}}}, nil); err != nil {
 		t.Fatalf("edit task: %v", err)
 	}
 
