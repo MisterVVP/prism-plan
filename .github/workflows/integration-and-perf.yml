@@ -27,7 +27,8 @@ jobs:
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
           tests/docker/wait-for.sh http://localhost:${PRISM_API_PORT}${HEALTH_ENDPOINT} 60
           pushd tests/integration
-          API_BASE=http://localhost:${PRISM_API_PORT} go test ./...
+          API_BASE=http://localhost:${PRISM_API_PORT} go test -v -coverprofile=integration.out $(go list ./... | grep -v /internal/)
+          go tool cover -func=integration.out
           popd
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
 
