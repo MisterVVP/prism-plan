@@ -26,18 +26,6 @@ type task struct {
 	Done  bool   `json:"done"`
 }
 
-func getEnvVars(baseUrlEnvVarName string, healthEndpointEnvVarName string) (string, string) {
-	base := os.Getenv(baseUrlEnvVarName)
-	if base == "" {
-		base = "http://localhost"
-	}
-	health := os.Getenv(healthEndpointEnvVarName)
-	if health == "" {
-		health = "/"
-	}
-	return base, health
-}
-
 func getTestBearer(t *testing.T) string {
 	bearer := os.Getenv("TEST_BEARER")
 	if bearer == "" {
@@ -50,22 +38,22 @@ func getTestBearer(t *testing.T) string {
 	return bearer
 }
 
-func newPrismApiClient(t *testing.T) *httpclient.Client {
+func newApiClientInner(t *testing.T, baseUrlEnvVarName string, healthEndpointEnvVarName string) *httpclient.Client {
 	bearer := getTestBearer(t)
-	base, health := getEnvVars("PRISM_API_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
+	base := os.Getenv(baseUrlEnvVarName)
+	health := os.Getenv(healthEndpointEnvVarName)
 	if _, err := http.Get(base + health); err != nil {
 		t.Fatalf("API not reachable: %v", err)
 	}
 	return httpclient.New(base, bearer)
 }
 
+func newPrismApiClient(t *testing.T) *httpclient.Client {
+	return newApiClientInner(t, "PRISM_API_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
+}
+
 func newStreamServiceClient(t *testing.T) *httpclient.Client {
-	bearer := getTestBearer(t)
-	base, health := getEnvVars("STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT")
-	if _, err := http.Get(base + health); err != nil {
-		t.Fatalf("API not reachable: %v", err)
-	}
-	return httpclient.New(base, bearer)
+	return newApiClientInner(t, "STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT")
 }
 
 // pollTasks polls /api/tasks until cond returns true or timeout.

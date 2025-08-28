@@ -25,8 +25,8 @@ jobs:
           ENV_FILE=tests/docker/env.test
           source $ENV_FILE
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
-          PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
-          STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
+          export PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
+          export STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
           tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
           tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 60
           pushd tests/integration
@@ -48,12 +48,12 @@ jobs:
           ENV_FILE=tests/docker/env.test
           source $ENV_FILE
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
-          PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
-          STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
+          export PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
+          export STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
 
           tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
           k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
-          STREAM_URL=${STREAM_SERVICE_BASE}/stream go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
+          export STREAM_URL=${STREAM_SERVICE_BASE}/stream go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
       - uses: actions/upload-artifact@v3
         with:
