@@ -31,7 +31,7 @@ func TestResilienceBackpressure(t *testing.T) {
 
 	taskID := fmt.Sprintf("backpressure-%d", time.Now().UnixNano())
 	title := "backpressure-title-" + taskID
-	resp, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]interface{}{"title": title}}}, nil)
+	resp, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil)
 	if err != nil {
 		t.Fatalf("post command: %v", err)
 	}

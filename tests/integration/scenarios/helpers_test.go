@@ -13,11 +13,11 @@ import (
 )
 
 type command struct {
-	ID         string                 `json:"id,omitempty"`
-	EntityID   string                 `json:"entityId,omitempty"`
-	EntityType string                 `json:"entityType"`
-	Type       string                 `json:"type"`
-	Data       map[string]interface{} `json:"data,omitempty"`
+	ID         string         `json:"id,omitempty"`
+	EntityID   string         `json:"entityId,omitempty"`
+	EntityType string         `json:"entityType"`
+	Type       string         `json:"type"`
+	Data       map[string]any `json:"data,omitempty"`
 }
 
 type task struct {
@@ -88,7 +88,7 @@ func pollTasks(t *testing.T, client *httpclient.Client, cond func([]task) bool) 
 	}
 }
 
-func projectionSLA(t *testing.T) time.Duration {
+func projectionSLA(_ *testing.T) time.Duration {
 	sla := 10 * time.Second
 	data, err := os.ReadFile("../config.test.yaml")
 	if err != nil {

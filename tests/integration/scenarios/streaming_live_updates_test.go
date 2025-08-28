@@ -15,7 +15,7 @@ func TestStreamingLiveUpdates(t *testing.T) {
 	// Create a task to mutate
 	taskID := fmt.Sprintf("stream-%d", time.Now().UnixNano())
 	title := "stream-title-" + taskID
-	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]interface{}{"title": title}}}, nil); err != nil {
+	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	pollTasks(t, prismApiClient, func(ts []task) bool {
@@ -49,8 +49,8 @@ func TestStreamingLiveUpdates(t *testing.T) {
 			if err != nil {
 				return
 			}
-			if strings.HasPrefix(line, "data:") {
-				data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if after, ok := strings.CutPrefix(line, "data:"); ok {
+				data := strings.TrimSpace(after)
 				if data != "" {
 					eventCh <- data
 					return

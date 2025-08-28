@@ -14,7 +14,7 @@ func TestProjectionEventualConsistency(t *testing.T) {
 	taskID := fmt.Sprintf("consistency-%d", time.Now().UnixNano())
 	title := "consistency-title-" + taskID
 	start := time.Now()
-	resp, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]interface{}{"title": title}}}, nil)
+	resp, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil)
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}

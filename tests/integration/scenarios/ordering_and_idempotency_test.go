@@ -14,7 +14,7 @@ func TestOrderingAndIdempotency(t *testing.T) {
 	taskID := fmt.Sprintf("idempotent-%d", time.Now().UnixNano())
 	title := fmt.Sprintf("title-%d", time.Now().UnixNano())
 	dedupe := fmt.Sprintf("dk-%d", time.Now().UnixNano())
-	payload := map[string]interface{}{"title": title, "dedupeKey": dedupe}
+	payload := map[string]any{"title": title, "dedupeKey": dedupe}
 
 	if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: payload}}, nil); err != nil {
 		t.Fatalf("first create: %v", err)
