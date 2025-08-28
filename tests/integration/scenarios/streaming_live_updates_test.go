@@ -13,16 +13,15 @@ func TestStreamingLiveUpdates(t *testing.T) {
 	client := newClient(t)
 
 	// Create a task to mutate
-	title := fmt.Sprintf("stream-%d", time.Now().UnixNano())
-	if _, err := client.PostJSON("/api/commands", command{Type: "CreateTask", Payload: map[string]interface{}{"title": title}}, nil); err != nil {
+	taskID := fmt.Sprintf("stream-%d", time.Now().UnixNano())
+	title := "stream-title-" + taskID
+	if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]interface{}{"title": title}}}, nil); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	var taskID string
 	pollTasks(t, client, func(ts []task) bool {
 		for _, tk := range ts {
-			if tk.Title == title {
-				taskID = tk.ID
-				return true
+			if tk.ID == taskID {
+				return tk.Title == title
 			}
 		}
 		return false
@@ -61,7 +60,7 @@ func TestStreamingLiveUpdates(t *testing.T) {
 
 	// mutate the task
 	newTitle := title + "-sse"
-	if _, err := client.PostJSON("/api/commands", command{Type: "EditTask", Payload: map[string]interface{}{"id": taskID, "title": newTitle}}, nil); err != nil {
+	if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]interface{}{"title": newTitle}}}, nil); err != nil {
 		t.Fatalf("edit task: %v", err)
 	}
 

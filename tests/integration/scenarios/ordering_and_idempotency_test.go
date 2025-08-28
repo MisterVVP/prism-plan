@@ -11,33 +11,31 @@ import (
 func TestOrderingAndIdempotency(t *testing.T) {
 	client := newClient(t)
 
-	title := fmt.Sprintf("idempotent-%d", time.Now().UnixNano())
+	taskID := fmt.Sprintf("idempotent-%d", time.Now().UnixNano())
+	title := fmt.Sprintf("title-%d", time.Now().UnixNano())
 	dedupe := fmt.Sprintf("dk-%d", time.Now().UnixNano())
 	payload := map[string]interface{}{"title": title, "dedupeKey": dedupe}
 
-	if _, err := client.PostJSON("/api/commands", command{Type: "CreateTask", Payload: payload}, nil); err != nil {
+	if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: payload}}, nil); err != nil {
 		t.Fatalf("first create: %v", err)
 	}
-	if _, err := client.PostJSON("/api/commands", command{Type: "CreateTask", Payload: payload}, nil); err != nil {
+	if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: payload}}, nil); err != nil {
 		t.Fatalf("second create: %v", err)
 	}
 
 	tasks := pollTasks(t, client, func(ts []task) bool {
-		count := 0
 		for _, tk := range ts {
-			if tk.Title == title {
-				count++
+			if tk.ID == taskID {
+				return tk.Title == title
 			}
 		}
-		return count > 0
+		return false
 	})
 
 	count := 0
-	var taskID string
 	for _, tk := range tasks {
-		if tk.Title == title {
+		if tk.ID == taskID {
 			count++
-			taskID = tk.ID
 		}
 	}
 	if count != 1 {
@@ -46,7 +44,7 @@ func TestOrderingAndIdempotency(t *testing.T) {
 
 	titles := []string{title + "-a", title + "-b", title + "-c"}
 	for _, tt := range titles {
-		if _, err := client.PostJSON("/api/commands", command{Type: "EditTask", Payload: map[string]interface{}{"id": taskID, "title": tt}}, nil); err != nil {
+		if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]interface{}{"title": tt}}}, nil); err != nil {
 			t.Fatalf("edit: %v", err)
 		}
 	}

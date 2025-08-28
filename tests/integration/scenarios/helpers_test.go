@@ -13,14 +13,17 @@ import (
 )
 
 type command struct {
-	Type    string                 `json:"type"`
-	Payload map[string]interface{} `json:"payload"`
+	ID         string                 `json:"id,omitempty"`
+	EntityID   string                 `json:"entityId,omitempty"`
+	EntityType string                 `json:"entityType"`
+	Type       string                 `json:"type"`
+	Data       map[string]interface{} `json:"data,omitempty"`
 }
 
 type task struct {
-	ID     string `json:"id"`
-	Title  string `json:"title"`
-	Status string `json:"status"`
+        ID    string `json:"id"`
+        Title string `json:"title"`
+        Done  bool   `json:"done"`
 }
 
 func newClient(t *testing.T) *httpclient.Client {
