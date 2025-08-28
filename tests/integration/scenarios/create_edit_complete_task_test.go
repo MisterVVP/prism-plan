@@ -49,22 +49,22 @@ func TestCreateEditCompleteTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("complete task: %v", err)
 	}
-	tasks := pollTasks(t, client, func(ts []task) bool {
-		for _, tk := range ts {
-			if tk.ID == taskID {
-				return tk.Status == "Completed" && tk.Title == newTitle
-			}
-		}
-		return false
-	})
+        tasks := pollTasks(t, client, func(ts []task) bool {
+                for _, tk := range ts {
+                        if tk.ID == taskID {
+                                return tk.Done && tk.Title == newTitle
+                        }
+                }
+                return false
+        })
 
-	var final task
-	for _, tk := range tasks {
-		if tk.ID == taskID {
-			final = tk
-			break
-		}
-	}
-	assertx.Equal(t, newTitle, final.Title)
-	assertx.Equal(t, "Completed", final.Status)
+        var final task
+        for _, tk := range tasks {
+                if tk.ID == taskID {
+                        final = tk
+                        break
+                }
+        }
+        assertx.Equal(t, newTitle, final.Title)
+        assertx.Equal(t, true, final.Done)
 }
