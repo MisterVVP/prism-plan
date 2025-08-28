@@ -38,7 +38,7 @@ func TestStreamingLiveUpdates(t *testing.T) {
 	req.Header.Set("Accept", "text/event-stream")
 	resp, err := streamServiceClient.HTTP.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Skipf("stream unavailable: %v status %v", err, resp.StatusCode)
+		t.Fatalf("stream unavailable: %v status %v", err, resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	reader := bufio.NewReader(resp.Body)
