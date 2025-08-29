@@ -27,6 +27,18 @@ func Register(e *echo.Echo, rc *redis.Client, auth Authenticator, taskChannel, s
 	go domain.SubscribeUpdates(context.Background(), e.Logger, rc, taskChannel, broadcast)
 	go domain.SubscribeUpdates(context.Background(), e.Logger, rc, settingsChannel, broadcast)
 	e.GET("/stream", stream(rc, auth))
+	e.GET("/healthz", healthz(rc))
+}
+
+func healthz(rc *redis.Client) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		redisResp := rc.Ping(c.Request().Context())
+		if redisErr := redisResp.Err(); redisErr != nil {
+			c.Logger().Errorf("Service unhealthy - redis is unavailable: %v", redisErr)
+			return c.String(http.StatusInternalServerError, "Service unavailable")
+		}
+		return c.NoContent(http.StatusOK)
+	}
 }
 
 func addClient(userID string, ch chan []byte) {

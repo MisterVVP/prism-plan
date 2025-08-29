@@ -47,6 +47,10 @@ Use the following variables to configure storage resources:
 
 Fetch tasks from `/api/tasks` and post commands to `/api/commands`.
 
+## Testing
+
+See [tests/README.md](tests/README.md) for running integration and performance tests.
+
 ## ☁️ Deploying to Azure (free tiers)
 1. Build the static site:
    ```bash

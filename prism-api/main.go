@@ -18,29 +18,35 @@ func main() {
 	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
 		log.SetLevel(log.DebugLevel)
 	}
-        connStr := os.Getenv("STORAGE_CONNECTION_STRING")
-        tasksTableName := os.Getenv("TASKS_TABLE")
-        settingsTableName := os.Getenv("SETTINGS_TABLE")
-        commandQueueName := os.Getenv("COMMAND_QUEUE")
-        if connStr == "" || tasksTableName == "" || settingsTableName == "" || commandQueueName == "" {
-                log.Fatal("missing storage config")
-        }
-        store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName)
+	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
+	tasksTableName := os.Getenv("TASKS_TABLE")
+	settingsTableName := os.Getenv("SETTINGS_TABLE")
+	commandQueueName := os.Getenv("COMMAND_QUEUE")
+	if connStr == "" || tasksTableName == "" || settingsTableName == "" || commandQueueName == "" {
+		log.Fatal("missing storage config")
+	}
+	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}
 
-	jwtAudience := os.Getenv("AUTH0_AUDIENCE")
-	domain := os.Getenv("AUTH0_DOMAIN")
-	if jwtAudience == "" || domain == "" {
-		log.Fatal("missing Auth0 config")
+	testMode := os.Getenv("AUTH0_TEST_MODE") == "1"
+	var auth *api.Auth
+	if testMode {
+		auth = api.NewAuth(nil, "", "")
+	} else {
+		jwtAudience := os.Getenv("AUTH0_AUDIENCE")
+		domain := os.Getenv("AUTH0_DOMAIN")
+		if jwtAudience == "" || domain == "" {
+			log.Fatal("missing Auth0 config")
+		}
+		jwksURL := fmt.Sprintf("https://%s/.well-known/jwks.json", domain)
+		jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{})
+		if err != nil {
+			log.Fatalf("jwks: %v", err)
+		}
+		auth = api.NewAuth(jwks, jwtAudience, "https://"+domain+"/")
 	}
-	jwksURL := fmt.Sprintf("https://%s/.well-known/jwks.json", domain)
-	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{})
-	if err != nil {
-		log.Fatalf("jwks: %v", err)
-	}
-	auth := api.NewAuth(jwks, jwtAudience, "https://"+domain+"/")
 
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{

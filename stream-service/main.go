@@ -44,23 +44,29 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
-        taskUpdatesChannel := os.Getenv("TASK_UPDATES_CHANNEL")
-        settingsUpdatesChannel := os.Getenv("SETTINGS_UPDATES_CHANNEL")
-        if taskUpdatesChannel == "" || settingsUpdatesChannel == "" {
-                log.Fatal("missing redis channel config")
-        }
+	taskUpdatesChannel := os.Getenv("TASK_UPDATES_CHANNEL")
+	settingsUpdatesChannel := os.Getenv("SETTINGS_UPDATES_CHANNEL")
+	if taskUpdatesChannel == "" || settingsUpdatesChannel == "" {
+		log.Fatal("missing redis channel config")
+	}
 
-	jwtAudience := os.Getenv("AUTH0_AUDIENCE")
-	domain := os.Getenv("AUTH0_DOMAIN")
-	if jwtAudience == "" || domain == "" {
-		log.Fatal("missing Auth0 config")
+	testMode := os.Getenv("AUTH0_TEST_MODE") == "1"
+	var auth *api.Auth
+	if testMode {
+		auth = api.NewAuth(nil, "", "")
+	} else {
+		jwtAudience := os.Getenv("AUTH0_AUDIENCE")
+		domain := os.Getenv("AUTH0_DOMAIN")
+		if jwtAudience == "" || domain == "" {
+			log.Fatal("missing Auth0 config")
+		}
+		jwksURL := fmt.Sprintf("https://%s/.well-known/jwks.json", domain)
+		jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{})
+		if err != nil {
+			log.Fatalf("jwks: %v", err)
+		}
+		auth = api.NewAuth(jwks, jwtAudience, "https://"+domain+"/")
 	}
-	jwksURL := fmt.Sprintf("https://%s/.well-known/jwks.json", domain)
-	jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{})
-	if err != nil {
-		log.Fatalf("jwks: %v", err)
-	}
-	auth := api.NewAuth(jwks, jwtAudience, "https://"+domain+"/")
 
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -68,7 +74,7 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-        api.Register(e, rc, auth, taskUpdatesChannel, settingsUpdatesChannel)
+	api.Register(e, rc, auth, taskUpdatesChannel, settingsUpdatesChannel)
 
 	listenAddr := ":9000"
 	if val, ok := os.LookupEnv("STREAM_SERVICE_PORT"); ok {

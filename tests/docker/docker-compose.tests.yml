@@ -1,0 +1,68 @@
+services:
+  web:
+    environment:
+      - APP_ENV=test
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      prism-api:
+        condition: service_started
+      stream-service:
+        condition: service_started
+  prism-api:
+    environment:
+      - APP_ENV=test
+      - AUTH0_TEST_MODE=1
+      - TEST_JWT_SECRET=${TEST_JWT_SECRET}
+    depends_on:
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+  stream-service:
+    environment:
+      - APP_ENV=test
+      - AUTH0_TEST_MODE=1
+      - TEST_JWT_SECRET=${TEST_JWT_SECRET}
+    depends_on:
+      azurite:
+        condition: service_healthy
+  domain-service:
+    environment:
+      - APP_ENV=test
+    depends_on:
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+  read-model-updater:
+    environment:
+      - APP_ENV=test
+    depends_on:
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+  storage-init:
+    environment:
+      - APP_ENV=test
+    depends_on:
+      azurite:
+        condition: service_healthy
+  redis:
+    environment:
+      - APP_ENV=test
+    depends_on:
+      azurite:
+        condition: service_healthy
+  azurite:
+    volumes:
+      - azurite_data_test:/data
+
+volumes:
+  azurite_data_test:
