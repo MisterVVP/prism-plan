@@ -25,7 +25,7 @@ func NewAuth(jwks *keyfunc.JWKS, audience, issuer string) *Auth {
 	if os.Getenv("AUTH0_TEST_MODE") == "1" {
 		secret := os.Getenv("TEST_JWT_SECRET")
 		if secret == "" {
-			secret = "testsecret"
+			panic("TEST_JWT_SECRET must be set when AUTH0_TEST_MODE=1")
 		}
 		a.TestMode = true
 		a.TestSecret = []byte(secret)

@@ -5,7 +5,9 @@ cd "$ROOT_DIR"/..
 
 
 ENV_FILE=tests/docker/env.test
+set -a
 source $ENV_FILE
+set +a
 COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
 $COMPOSE up -d
 trap "$COMPOSE down -v" EXIT
