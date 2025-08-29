@@ -24,6 +24,7 @@ services:
   stream-service:
     environment:
       - APP_ENV=test
+      - AUTH0_TEST_MODE=1
     depends_on:
       azurite:
         condition: service_healthy
