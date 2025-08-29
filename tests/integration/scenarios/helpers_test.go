@@ -8,8 +8,6 @@ import (
 
 	integration "prismtest"
 	"prismtest/internal/httpclient"
-
-	"gopkg.in/yaml.v3"
 )
 
 type command struct {
@@ -24,6 +22,21 @@ type task struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	Done  bool   `json:"done"`
+}
+
+func getPollTimeout(t *testing.T) time.Duration {
+	var err error
+	var timeout time.Duration
+	envTimeout := os.Getenv("TEST_POLL_TIMEOUT")
+	if envTimeout != "" {
+		timeout, err = time.ParseDuration(envTimeout)
+		if err != nil {
+			t.Fatalf("Unable to parse test poll timeout, check TEST_POLL_TIMEOUT variable, error: %v", err)
+		}
+	} else {
+		timeout = 10 * time.Second
+	}
+	return timeout
 }
 
 func getTestBearer(t *testing.T) string {
@@ -58,7 +71,7 @@ func newStreamServiceClient(t *testing.T) *httpclient.Client {
 
 // pollTasks polls /api/tasks until cond returns true or timeout.
 func pollTasks(t *testing.T, client *httpclient.Client, cond func([]task) bool) []task {
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(getPollTimeout(t))
 	backoff := 200 * time.Millisecond
 	for {
 		var tasks []task
@@ -74,19 +87,4 @@ func pollTasks(t *testing.T, client *httpclient.Client, cond func([]task) bool) 
 			backoff *= 2
 		}
 	}
-}
-
-func projectionSLA(_ *testing.T) time.Duration {
-	sla := 10 * time.Second
-	data, err := os.ReadFile("../config.test.yaml")
-	if err != nil {
-		return sla
-	}
-	var cfg struct {
-		ProjectionSLAMs int `yaml:"projection_visibility_sla_ms"`
-	}
-	if err := yaml.Unmarshal(data, &cfg); err == nil && cfg.ProjectionSLAMs > 0 {
-		sla = time.Duration(cfg.ProjectionSLAMs) * time.Millisecond
-	}
-	return sla
 }

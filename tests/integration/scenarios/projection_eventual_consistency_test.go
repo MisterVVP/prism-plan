@@ -9,7 +9,7 @@ import (
 
 func TestProjectionEventualConsistency(t *testing.T) {
 	client := newPrismApiClient(t)
-	sla := projectionSLA(t)
+	timeout := getPollTimeout(t)
 
 	taskID := fmt.Sprintf("consistency-%d", time.Now().UnixNano())
 	title := "consistency-title-" + taskID
@@ -31,7 +31,7 @@ func TestProjectionEventualConsistency(t *testing.T) {
 		return false
 	})
 	dur := time.Since(start)
-	if dur > sla {
-		t.Fatalf("projection took %v, exceeds SLA %v", dur, sla)
+	if dur > timeout {
+		t.Fatalf("projection took %v, exceeds timeout %v", dur, timeout)
 	}
 }

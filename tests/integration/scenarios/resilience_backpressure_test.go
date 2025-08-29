@@ -14,7 +14,7 @@ func TestResilienceBackpressure(t *testing.T) {
 		t.Skip("docker control disabled")
 	}
 	client := newPrismApiClient(t)
-	sla := projectionSLA(t)
+	timeout := getPollTimeout(t)
 
 	dc := func(args ...string) error {
 		baseArgs := []string{"compose", "-f", "../../../docker-compose.yml", "-f", "../../docker/docker-compose.tests.yml"}
@@ -52,7 +52,7 @@ func TestResilienceBackpressure(t *testing.T) {
 		return false
 	})
 	dur := time.Since(start)
-	if dur > sla {
-		t.Fatalf("queue drained in %v, exceeds SLA %v", dur, sla)
+	if dur > timeout {
+		t.Fatalf("queue drained in %v, exceeds timeout %v", dur, timeout)
 	}
 }
