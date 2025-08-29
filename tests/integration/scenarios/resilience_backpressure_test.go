@@ -17,7 +17,7 @@ func TestResilienceBackpressure(t *testing.T) {
 	sla := projectionSLA(t)
 
 	dc := func(args ...string) error {
-		baseArgs := []string{"compose", "-f", "../../docker-compose.yml", "-f", "../docker/docker-compose.tests.yml"}
+		baseArgs := []string{"compose", "-f", "../../../docker-compose.yml", "-f", "../../docker/docker-compose.tests.yml"}
 		cmd := exec.Command("docker", append(baseArgs, args...)...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
