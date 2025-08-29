@@ -16,6 +16,13 @@ func TestResilienceBackpressure(t *testing.T) {
 	client := newPrismApiClient(t)
 	sla := projectionSLA(t)
 
+	cmd := exec.Command("source", "../../docker/env.test")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Unable to set variables from ../../docker/env.test, error: %v", err)
+	}
+
 	dc := func(args ...string) error {
 		baseArgs := []string{"compose", "-f", "../../../docker-compose.yml", "-f", "../../docker/docker-compose.tests.yml"}
 		cmd := exec.Command("docker", append(baseArgs, args...)...)
