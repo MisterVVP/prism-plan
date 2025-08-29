@@ -23,7 +23,9 @@ jobs:
           go-version: '1.24'
       - run: |
           ENV_FILE=tests/docker/env.test
+          set -a
           source $ENV_FILE
+          set +a
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
           export PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
           export STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
@@ -47,7 +49,9 @@ jobs:
       - uses: grafana/setup-k6-action@v1
       - run: |
           ENV_FILE=tests/docker/env.test
+          set -a
           source $ENV_FILE
+          set +a
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
           export PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
           export STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
