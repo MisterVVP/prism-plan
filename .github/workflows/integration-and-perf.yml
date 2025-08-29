@@ -25,11 +25,10 @@ jobs:
           ENV_FILE=tests/docker/env.test
           set -a
           source $ENV_FILE
-          set +a
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
-          export PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
-          export STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
-          export ENABLE_DOCKER_CMDS=1
+          PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
+          STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
+          ENABLE_DOCKER_CMDS=1
           tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
           tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 60
           pushd tests/integration
@@ -37,6 +36,7 @@ jobs:
           go tool cover -func=integration.out
           popd
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
+          set +a
 
   perf:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_performance == 'true' || github.event_name == 'schedule'
@@ -51,15 +51,15 @@ jobs:
           ENV_FILE=tests/docker/env.test
           set -a
           source $ENV_FILE
-          set +a
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
-          export PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
-          export STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
-          export ENABLE_DOCKER_CMDS=1
+          PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
+          STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
+          ENABLE_DOCKER_CMDS=1
           tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
           k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
-          export STREAM_URL=${STREAM_SERVICE_BASE}/stream go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
+          STREAM_URL=${STREAM_SERVICE_BASE}/stream go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
+          set +a
       - uses: actions/upload-artifact@v3
         with:
           name: k6-summary
