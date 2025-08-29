@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"errors"
 	"os"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 func TestToken(userID string) (string, error) {
 	secret := os.Getenv("TEST_JWT_SECRET")
 	if secret == "" {
-		secret = "testsecret"
+		return "", errors.New("TEST_JWT_SECRET must be set")
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": userID,
