@@ -95,3 +95,4 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
    - Improve web UX on mobile devices
    - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
 7. Add some basic features to utilise event sourcing (e.g. undo/redo)
+8. Handle rare cases where multiple events share the same timestamp

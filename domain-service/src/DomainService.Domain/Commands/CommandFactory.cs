@@ -18,9 +18,9 @@ namespace DomainService.Domain.Commands
                 {
                     EntityTypes.Task => envelope.Command.Type switch
                     {
-                        CommandTypes.CreateTask => new CreateTaskCommand(envelope.Command.EntityId, envelope.Command.Data, envelope.UserId),
-                        CommandTypes.UpdateTask => new UpdateTaskCommand(envelope.Command.EntityId, envelope.Command.Data, envelope.UserId),
-                        CommandTypes.CompleteTask => new CompleteTaskCommand(envelope.Command.EntityId, envelope.UserId),
+                        CommandTypes.CreateTask => new CreateTaskCommand(envelope.Command.EntityId, envelope.Command.Data, envelope.UserId, envelope.Command.Timestamp),
+                        CommandTypes.UpdateTask => new UpdateTaskCommand(envelope.Command.EntityId, envelope.Command.Data, envelope.UserId, envelope.Command.Timestamp),
+                        CommandTypes.CompleteTask => new CompleteTaskCommand(envelope.Command.EntityId, envelope.UserId, envelope.Command.Timestamp),
                         _ => throw new ArgumentException("Unknown command type!", nameof(queueMessage))
                     },
                     EntityTypes.User => envelope.Command.Type switch
@@ -28,13 +28,14 @@ namespace DomainService.Domain.Commands
                         CommandTypes.LoginUser => new LoginUserCommand(
                             envelope.Command.EntityId,
                             envelope.Command.Data?.GetProperty("name").GetString() ?? string.Empty,
-                            envelope.Command.Data?.GetProperty("email").GetString() ?? string.Empty),
-                        CommandTypes.LogoutUser => new LogoutUserCommand(envelope.Command.EntityId),
+                            envelope.Command.Data?.GetProperty("email").GetString() ?? string.Empty,
+                            envelope.Command.Timestamp),
+                        CommandTypes.LogoutUser => new LogoutUserCommand(envelope.Command.EntityId, envelope.Command.Timestamp),
                         _ => throw new ArgumentException("Unknown Command.Type!", nameof(queueMessage))
                     },
                     EntityTypes.UserSettings => envelope.Command.Type switch
                     {
-                        CommandTypes.UpdateUserSettings => new UpdateUserSettingsCommand(envelope.Command.Data, envelope.UserId),
+                        CommandTypes.UpdateUserSettings => new UpdateUserSettingsCommand(envelope.Command.Data, envelope.UserId, envelope.Command.Timestamp),
                         _ => throw new ArgumentException("Unknown Command.Type!", nameof(queueMessage))
                     },
                     _ => throw new ArgumentException("Unknown Command.EntityType!", nameof(queueMessage))

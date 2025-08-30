@@ -17,7 +17,7 @@ internal sealed class UpdateTask(ITaskEventRepository taskRepo, IEventQueue even
         var state = TaskStateBuilder.From(events);
         if (state.Title == null) return Unit.Value;
 
-        var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Updated, request.Data, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), request.UserId);
+        var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Updated, request.Data, request.Timestamp, request.UserId);
         await _taskRepo.Add(ev, ct);
         await _eventQueue.Add(ev, ct);
 
@@ -31,7 +31,7 @@ internal sealed class UpdateTask(ITaskEventRepository taskRepo, IEventQueue even
                 EntityTypes.Task,
                 TaskEventTypes.Updated,
                 JsonSerializer.SerializeToElement(new TaskStatusData(false)),
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                request.Timestamp,
                 request.UserId);
             await _taskRepo.Add(reopen, ct);
             await _eventQueue.Add(reopen, ct);

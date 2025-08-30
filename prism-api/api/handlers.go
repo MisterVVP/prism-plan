@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -70,6 +71,9 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 		var cmds []domain.Command
 		if err := c.Bind(&cmds); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
+		}
+		for i := range cmds {
+			cmds[i].Timestamp = time.Now().UnixNano()
 		}
 		if err := store.EnqueueCommands(ctx, userID, cmds); err != nil {
 			c.Logger().Error(err)

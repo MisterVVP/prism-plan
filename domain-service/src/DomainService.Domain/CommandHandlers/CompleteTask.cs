@@ -15,7 +15,7 @@ internal sealed class CompleteTask(ITaskEventRepository taskRepo, IEventQueue ev
         var state = TaskStateBuilder.From(events);
         if (state.Title == null || state.Done) return Unit.Value;
 
-        var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Completed, null, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), request.UserId);
+        var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Completed, null, request.Timestamp, request.UserId);
         await _taskRepo.Add(ev, ct);
         await _eventQueue.Add(ev, ct);
         return Unit.Value;

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
@@ -13,10 +14,10 @@ import (
 
 // Storage wraps Azure clients used by the service.
 type Storage struct {
-        queue     *azqueue.QueueClient
-        taskTable *aztables.Client
-        userTable *aztables.Client
-        settingsTable *aztables.Client
+	queue         *azqueue.QueueClient
+	taskTable     *aztables.Client
+	userTable     *aztables.Client
+	settingsTable *aztables.Client
 }
 
 // New creates a Storage from connection parameters.
@@ -29,10 +30,10 @@ func New(connStr, eventsQueue, tasksTable, usersTable, settingsTable string) (*S
 	if err != nil {
 		return nil, err
 	}
-        taskClient := svc.NewClient(tasksTable)
-        userClient := svc.NewClient(usersTable)
-        settingsClient := svc.NewClient(settingsTable)
-        return &Storage{queue: queue, taskTable: taskClient, userTable: userClient, settingsTable: settingsClient}, nil
+	taskClient := svc.NewClient(tasksTable)
+	userClient := svc.NewClient(usersTable)
+	settingsClient := svc.NewClient(settingsTable)
+	return &Storage{queue: queue, taskTable: taskClient, userTable: userClient, settingsTable: settingsClient}, nil
 }
 
 // Dequeue retrieves a single message from the events queue.
@@ -51,6 +52,23 @@ func (s *Storage) Dequeue(ctx context.Context) (*azqueue.DequeuedMessage, error)
 func (s *Storage) Delete(ctx context.Context, id, receipt string) error {
 	_, err := s.queue.DeleteMessage(ctx, id, receipt, nil)
 	return err
+}
+
+// GetTask retrieves a task entity if present.
+func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntity, error) {
+	ent, err := s.taskTable.GetEntity(ctx, pk, rk, nil)
+	if err != nil {
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == 404 {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var task domain.TaskEntity
+	if err := json.Unmarshal(ent.Value, &task); err != nil {
+		return nil, err
+	}
+	return &task, nil
 }
 
 // UpsertTask creates or replaces a task entity.
@@ -91,26 +109,43 @@ func (s *Storage) SetTaskDone(ctx context.Context, pk, rk string) error {
 
 // UpsertUser creates or replaces a user entity.
 func (s *Storage) UpsertUser(ctx context.Context, ent domain.UserEntity) error {
-        payload, err := json.Marshal(ent)
-        if err == nil {
-                _, err = s.userTable.UpsertEntity(ctx, payload, nil)
-        }
-        return err
+	payload, err := json.Marshal(ent)
+	if err == nil {
+		_, err = s.userTable.UpsertEntity(ctx, payload, nil)
+	}
+	return err
+}
+
+// GetUserSettings retrieves user settings if present.
+func (s *Storage) GetUserSettings(ctx context.Context, id string) (*domain.UserSettingsEntity, error) {
+	ent, err := s.settingsTable.GetEntity(ctx, id, id, nil)
+	if err != nil {
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == 404 {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var sEnt domain.UserSettingsEntity
+	if err := json.Unmarshal(ent.Value, &sEnt); err != nil {
+		return nil, err
+	}
+	return &sEnt, nil
 }
 
 func (s *Storage) UpsertUserSettings(ctx context.Context, ent domain.UserSettingsEntity) error {
-        payload, err := json.Marshal(ent)
-        if err == nil {
-                _, err = s.settingsTable.UpsertEntity(ctx, payload, nil)
-        }
-        return err
+	payload, err := json.Marshal(ent)
+	if err == nil {
+		_, err = s.settingsTable.UpsertEntity(ctx, payload, nil)
+	}
+	return err
 }
 
 func (s *Storage) UpdateUserSettings(ctx context.Context, ent domain.UserSettingsUpdate) error {
-        payload, err := json.Marshal(ent)
-        if err == nil {
-                et := azcore.ETagAny
-                _, err = s.settingsTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
-        }
-        return err
+	payload, err := json.Marshal(ent)
+	if err == nil {
+		et := azcore.ETagAny
+		_, err = s.settingsTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
+	}
+	return err
 }
