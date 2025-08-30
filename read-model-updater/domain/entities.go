@@ -9,51 +9,60 @@ type Entity struct {
 const (
 	EdmInt32   = "Edm.Int32"
 	EdmBoolean = "Edm.Boolean"
+	EdmInt64   = "Edm.Int64"
 )
 
 // TaskEntity represents a task stored in the read model.
 type TaskEntity struct {
 	Entity
-	Title     string `json:"Title,omitempty"`
-	Notes     string `json:"Notes,omitempty"`
-	Category  string `json:"Category,omitempty"`
-	Order     int    `json:"Order"`
-	OrderType string `json:"Order@odata.type"`
-	Done      bool   `json:"Done"`
-	DoneType  string `json:"Done@odata.type"`
+	Title         string `json:"Title,omitempty"`
+	Notes         string `json:"Notes,omitempty"`
+	Category      string `json:"Category,omitempty"`
+	Order         int    `json:"Order"`
+	OrderType     string `json:"Order@odata.type"`
+	Done          bool   `json:"Done"`
+	DoneType      string `json:"Done@odata.type"`
+	Timestamp     int64  `json:"Timestamp"`
+	TimestampType string `json:"Timestamp@odata.type"`
 }
 
 // TaskUpdate carries partial updates for a task.
 type TaskUpdate struct {
 	Entity
-	Title     *string `json:"Title,omitempty"`
-	Notes     *string `json:"Notes,omitempty"`
-	Category  *string `json:"Category,omitempty"`
-	Order     *int    `json:"Order,omitempty"`
-	OrderType *string `json:"Order@odata.type,omitempty"`
-	Done      *bool   `json:"Done,omitempty"`
-	DoneType  *string `json:"Done@odata.type,omitempty"`
+	Title         *string `json:"Title,omitempty"`
+	Notes         *string `json:"Notes,omitempty"`
+	Category      *string `json:"Category,omitempty"`
+	Order         *int    `json:"Order,omitempty"`
+	OrderType     *string `json:"Order@odata.type,omitempty"`
+	Done          *bool   `json:"Done,omitempty"`
+	DoneType      *string `json:"Done@odata.type,omitempty"`
+	Timestamp     *int64  `json:"Timestamp,omitempty"`
+	TimestampType *string `json:"Timestamp@odata.type,omitempty"`
 }
 
 // UserEntity represents a user stored in the read model.
 type UserEntity struct {
-        Entity
-        Name  string `json:"Name,omitempty"`
-        Email string `json:"Email,omitempty"`
+	Entity
+	Name  string `json:"Name,omitempty"`
+	Email string `json:"Email,omitempty"`
 }
 
 type UserSettingsEntity struct {
-        Entity
-        TasksPerCategory     int    `json:"TasksPerCategory"`
-        TasksPerCategoryType string `json:"TasksPerCategory@odata.type"`
-        ShowDoneTasks        bool   `json:"ShowDoneTasks"`
-        ShowDoneTasksType    string `json:"ShowDoneTasks@odata.type"`
+	Entity
+	TasksPerCategory     int    `json:"TasksPerCategory"`
+	TasksPerCategoryType string `json:"TasksPerCategory@odata.type"`
+	ShowDoneTasks        bool   `json:"ShowDoneTasks"`
+	ShowDoneTasksType    string `json:"ShowDoneTasks@odata.type"`
+	Timestamp            int64  `json:"Timestamp"`
+	TimestampType        string `json:"Timestamp@odata.type"`
 }
 
 type UserSettingsUpdate struct {
-        Entity
-        TasksPerCategory     *int    `json:"TasksPerCategory,omitempty"`
-        TasksPerCategoryType *string `json:"TasksPerCategory@odata.type,omitempty"`
-        ShowDoneTasks        *bool   `json:"ShowDoneTasks,omitempty"`
-        ShowDoneTasksType    *string `json:"ShowDoneTasks@odata.type,omitempty"`
+	Entity
+	TasksPerCategory     *int    `json:"TasksPerCategory,omitempty"`
+	TasksPerCategoryType *string `json:"TasksPerCategory@odata.type,omitempty"`
+	ShowDoneTasks        *bool   `json:"ShowDoneTasks,omitempty"`
+	ShowDoneTasksType    *string `json:"ShowDoneTasks@odata.type,omitempty"`
+	Timestamp            *int64  `json:"Timestamp,omitempty"`
+	TimestampType        *string `json:"Timestamp@odata.type,omitempty"`
 }

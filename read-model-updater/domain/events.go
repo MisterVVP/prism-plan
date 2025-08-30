@@ -20,7 +20,7 @@ type Event struct {
 	EntityType string          `json:"EntityType"`
 	Type       string          `json:"Type"`
 	Data       json.RawMessage `json:"Data"`
-	Time       int64           `json:"Time"`
+	Timestamp  int64           `json:"Timestamp"`
 	UserID     string          `json:"UserId"`
 }
 

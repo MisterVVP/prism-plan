@@ -9,6 +9,6 @@ public interface IEvent
     string EntityType { get; }
     string Type { get; }
     JsonElement? Data { get; }
-    long Time { get; }
+    long Timestamp { get; }
     string UserId { get; }
 }

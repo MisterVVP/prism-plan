@@ -26,7 +26,7 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
             EntityTypes.User,
             type,
             data,
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            request.Timestamp,
             request.UserId);
         await _userRepo.Add(ev, ct);
         await _eventQueue.Add(ev, ct);
@@ -39,7 +39,7 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
                 EntityTypes.UserSettings,
                 UserEventTypes.SettingsCreated,
                 settingsData,
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                request.Timestamp,
                 request.UserId);
             await _userRepo.Add(settingsEv, ct);
             await _eventQueue.Add(settingsEv, ct);
