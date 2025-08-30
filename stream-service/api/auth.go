@@ -49,7 +49,7 @@ func (a *Auth) UserIDFromAuthHeader(h string) (string, error) {
 	}
 
 	if a.TestMode {
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("invalid signing method")
 			}

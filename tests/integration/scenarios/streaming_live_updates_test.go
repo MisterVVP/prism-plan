@@ -61,7 +61,7 @@ func TestStreamingLiveUpdates(t *testing.T) {
 
 	// mutate the task
 	newTitle := title + "-sse"
-	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]interface{}{"title": newTitle}}}, nil); err != nil {
+	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": newTitle}}}, nil); err != nil {
 		t.Fatalf("edit task: %v", err)
 	}
 

@@ -19,7 +19,7 @@ func New(baseURL, bearer string) *Client {
 }
 
 // GetJSON issues a GET request and decodes the JSON response.
-func (c *Client) GetJSON(path string, out interface{}) (*http.Response, error) {
+func (c *Client) GetJSON(path string, out any) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, c.BaseURL+path, nil)
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func (c *Client) GetJSON(path string, out interface{}) (*http.Response, error) {
 }
 
 // PostJSON issues a POST request with a JSON body and decodes the response.
-func (c *Client) PostJSON(path string, body, out interface{}) (*http.Response, error) {
+func (c *Client) PostJSON(path string, body, out any) (*http.Response, error) {
 	buf := new(bytes.Buffer)
 	if body != nil {
 		if err := json.NewEncoder(buf).Encode(body); err != nil {

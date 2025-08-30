@@ -44,19 +44,11 @@ func TestOrderingAndIdempotency(t *testing.T) {
 
 	titles := []string{title + "-a", title + "-b", title + "-c"}
 	for _, tt := range titles {
-		if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]interface{}{"title": tt}}}, nil); err != nil {
+		if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": tt}}}, nil); err != nil {
 			t.Fatalf("edit: %v", err)
 		}
 	}
 	finalTitle := titles[len(titles)-1]
-	pollTasks(t, client, func(ts []task) bool {
-		for _, tk := range ts {
-			if tk.ID == taskID {
-				return tk.Title == finalTitle
-			}
-		}
-		return false
-	})
 	tasks = pollTasks(t, client, func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
