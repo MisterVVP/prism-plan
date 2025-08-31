@@ -105,6 +105,21 @@ func TestApplyTaskCompleted(t *testing.T) {
 	}
 }
 
+func TestApplyTaskCompletedIgnoresOldEvent(t *testing.T) {
+	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
+		Entity:    Entity{PartitionKey: "u1", RowKey: "t1"},
+		Done:      false,
+		DoneType:  EdmBoolean,
+		Timestamp: 5,
+	}}}
+	ev := Event{Type: TaskCompleted, UserID: "u1", EntityID: "t1", Timestamp: 3}
+	Apply(context.Background(), fs, ev)
+	ent := fs.tasks["t1"]
+	if ent.Done || ent.Timestamp != 5 {
+		t.Fatalf("unexpected task entity: %#v", ent)
+	}
+}
+
 func TestApplyUserCreated(t *testing.T) {
 	fs := &fakeStore{}
 	data := struct {
@@ -116,6 +131,28 @@ func TestApplyUserCreated(t *testing.T) {
 	Apply(context.Background(), fs, ev)
 	if fs.upsertUser.PartitionKey != "u1" || fs.upsertUser.Name != "Alice" {
 		t.Fatalf("unexpected upsertUser: %#v", fs.upsertUser)
+	}
+}
+
+func TestApplyUserSettingsUpdatedIgnoresOldEvent(t *testing.T) {
+	fs := &fakeStore{settings: map[string]UserSettingsEntity{"u1": {
+		Entity:               Entity{PartitionKey: "u1", RowKey: "u1"},
+		TasksPerCategory:     10,
+		TasksPerCategoryType: EdmInt32,
+		ShowDoneTasks:        true,
+		ShowDoneTasksType:    EdmBoolean,
+		Timestamp:            5,
+		TimestampType:        EdmInt64,
+	}}}
+	tpc := 3
+	sdt := false
+	data := UserSettingsUpdatedEventData{TasksPerCategory: &tpc, ShowDoneTasks: &sdt}
+	payload, _ := json.Marshal(data)
+	ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 2}
+	Apply(context.Background(), fs, ev)
+	ent := fs.settings["u1"]
+	if ent.TasksPerCategory != 10 || !ent.ShowDoneTasks || ent.Timestamp != 5 {
+		t.Fatalf("unexpected settings entity: %#v", ent)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
@@ -18,6 +19,20 @@ type Storage struct {
 	taskTable     *aztables.Client
 	userTable     *aztables.Client
 	settingsTable *aztables.Client
+}
+
+func parseTimestamp(raw json.RawMessage) int64 {
+	var i int64
+	if err := json.Unmarshal(raw, &i); err == nil {
+		return i
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		if t, err2 := time.Parse(time.RFC3339, s); err2 == nil {
+			return t.UnixNano()
+		}
+	}
+	return 0
 }
 
 // New creates a Storage from connection parameters.
@@ -64,9 +79,33 @@ func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntit
 		}
 		return nil, err
 	}
-	var task domain.TaskEntity
-	if err := json.Unmarshal(ent.Value, &task); err != nil {
+	var raw struct {
+		PartitionKey  string          `json:"PartitionKey"`
+		RowKey        string          `json:"RowKey"`
+		Title         string          `json:"Title,omitempty"`
+		Notes         string          `json:"Notes,omitempty"`
+		Category      string          `json:"Category,omitempty"`
+		Order         int             `json:"Order"`
+		OrderType     string          `json:"Order@odata.type"`
+		Done          bool            `json:"Done"`
+		DoneType      string          `json:"Done@odata.type"`
+		Timestamp     json.RawMessage `json:"Timestamp"`
+		TimestampType string          `json:"Timestamp@odata.type"`
+	}
+	if err := json.Unmarshal(ent.Value, &raw); err != nil {
 		return nil, err
+	}
+	task := domain.TaskEntity{
+		Entity:        domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
+		Title:         raw.Title,
+		Notes:         raw.Notes,
+		Category:      raw.Category,
+		Order:         raw.Order,
+		OrderType:     raw.OrderType,
+		Done:          raw.Done,
+		DoneType:      raw.DoneType,
+		Timestamp:     parseTimestamp(raw.Timestamp),
+		TimestampType: raw.TimestampType,
 	}
 	return &task, nil
 }
@@ -126,9 +165,27 @@ func (s *Storage) GetUserSettings(ctx context.Context, id string) (*domain.UserS
 		}
 		return nil, err
 	}
-	var sEnt domain.UserSettingsEntity
-	if err := json.Unmarshal(ent.Value, &sEnt); err != nil {
+	var raw struct {
+		PartitionKey       string          `json:"PartitionKey"`
+		RowKey             string          `json:"RowKey"`
+		TasksPerCategory   int             `json:"TasksPerCategory"`
+		TasksPerCategoryTy string          `json:"TasksPerCategory@odata.type"`
+		ShowDoneTasks      bool            `json:"ShowDoneTasks"`
+		ShowDoneTasksType  string          `json:"ShowDoneTasks@odata.type"`
+		Timestamp          json.RawMessage `json:"Timestamp"`
+		TimestampType      string          `json:"Timestamp@odata.type"`
+	}
+	if err := json.Unmarshal(ent.Value, &raw); err != nil {
 		return nil, err
+	}
+	sEnt := domain.UserSettingsEntity{
+		Entity:               domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
+		TasksPerCategory:     raw.TasksPerCategory,
+		TasksPerCategoryType: raw.TasksPerCategoryTy,
+		ShowDoneTasks:        raw.ShowDoneTasks,
+		ShowDoneTasksType:    raw.ShowDoneTasksType,
+		Timestamp:            parseTimestamp(raw.Timestamp),
+		TimestampType:        raw.TimestampType,
 	}
 	return &sEnt, nil
 }
