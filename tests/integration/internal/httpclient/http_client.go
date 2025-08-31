@@ -3,6 +3,7 @@ package httpclient
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 )
 
@@ -31,11 +32,13 @@ func (c *Client) GetJSON(path string, out any) (*http.Response, error) {
 	if err != nil {
 		return resp, err
 	}
+	defer resp.Body.Close()
 	if out != nil {
-		defer resp.Body.Close()
 		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 			return resp, err
 		}
+	} else {
+		_, _ = io.Copy(io.Discard, resp.Body)
 	}
 	return resp, nil
 }
@@ -60,11 +63,13 @@ func (c *Client) PostJSON(path string, body, out any) (*http.Response, error) {
 	if err != nil {
 		return resp, err
 	}
+	defer resp.Body.Close()
 	if out != nil {
-		defer resp.Body.Close()
 		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 			return resp, err
 		}
+	} else {
+		_, _ = io.Copy(io.Discard, resp.Body)
 	}
 	return resp, nil
 }
