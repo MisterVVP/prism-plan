@@ -165,9 +165,6 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			ent.DoneType = EdmBoolean
 			ent.Timestamp = ev.Timestamp
 			ent.TimestampType = EdmInt64
-		} else if !ent.Done {
-			ent.Done = true
-			ent.DoneType = EdmBoolean
 		}
 		return st.UpsertTask(ctx, *ent)
 	case UserCreated:
@@ -216,15 +213,6 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			ent.ShowDoneTasksType = EdmBoolean
 			ent.Timestamp = ev.Timestamp
 			ent.TimestampType = EdmInt64
-		} else {
-			if ent.TasksPerCategory == 0 {
-				ent.TasksPerCategory = s.TasksPerCategory
-				ent.TasksPerCategoryType = EdmInt32
-			}
-			if !ent.ShowDoneTasks {
-				ent.ShowDoneTasks = s.ShowDoneTasks
-				ent.ShowDoneTasksType = EdmBoolean
-			}
 		}
 		return st.UpsertUserSettings(ctx, *ent)
 	case UserSettingsUpdated:
@@ -262,15 +250,6 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			}
 			ent.Timestamp = ev.Timestamp
 			ent.TimestampType = EdmInt64
-		} else {
-			if s.TasksPerCategory != nil && ent.TasksPerCategory == 0 {
-				ent.TasksPerCategory = *s.TasksPerCategory
-				ent.TasksPerCategoryType = EdmInt32
-			}
-			if s.ShowDoneTasks != nil && !ent.ShowDoneTasks {
-				ent.ShowDoneTasks = *s.ShowDoneTasks
-				ent.ShowDoneTasksType = EdmBoolean
-			}
 		}
 		return st.UpsertUserSettings(ctx, *ent)
 	}
