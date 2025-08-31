@@ -28,7 +28,7 @@ func parseTimestamp(raw json.RawMessage) int64 {
 	}
 	var s string
 	if err := json.Unmarshal(raw, &s); err == nil {
-		if t, err2 := time.Parse(time.RFC3339, s); err2 == nil {
+		if t, err2 := time.Parse(time.RFC3339Nano, s); err2 == nil {
 			return t.UnixNano()
 		}
 	}
