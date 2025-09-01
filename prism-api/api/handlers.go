@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,7 +32,23 @@ func Register(e *echo.Echo, store Storage, auth Authenticator) {
 	e.POST("/api/commands", postCommands(store, auth))
 }
 
-var processed sync.Map
+var (
+	processed     sync.Map
+	lastTimestamp int64
+)
+
+func nextTimestamp() int64 {
+	for {
+		now := time.Now().UnixNano()
+		last := atomic.LoadInt64(&lastTimestamp)
+		if now <= last {
+			now = last + 1
+		}
+		if atomic.CompareAndSwapInt64(&lastTimestamp, last, now) {
+			return now
+		}
+	}
+}
 
 func getTasks(store Storage, auth Authenticator) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -76,7 +93,6 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 		if err := c.Bind(&cmds); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
-		now := time.Now().UnixNano()
 		filtered := make([]domain.Command, 0, len(cmds))
 		for i := range cmds {
 			if cmds[i].IdempotencyKey == "" {
@@ -90,7 +106,7 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 			if cmds[i].EntityID == "" {
 				cmds[i].EntityID = uuid.NewString()
 			}
-			cmds[i].Timestamp = now + int64(len(filtered))
+			cmds[i].Timestamp = nextTimestamp()
 			filtered = append(filtered, cmds[i])
 		}
 		if len(filtered) == 0 {
