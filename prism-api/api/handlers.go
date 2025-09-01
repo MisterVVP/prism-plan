@@ -1,13 +1,14 @@
 package api
 
 import (
-	"context"
-	"net/http"
-	"time"
+        "context"
+        "net/http"
+        "time"
 
-	"github.com/labstack/echo/v4"
+        "github.com/google/uuid"
+        "github.com/labstack/echo/v4"
 
-	"prism-api/domain"
+        "prism-api/domain"
 )
 
 // Storage abstracts persistence for handlers.
@@ -68,17 +69,22 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}
-		var cmds []domain.Command
-		if err := c.Bind(&cmds); err != nil {
-			return c.String(http.StatusBadRequest, "invalid body")
-		}
-		for i := range cmds {
-			cmds[i].Timestamp = time.Now().UnixNano()
-		}
-		if err := store.EnqueueCommands(ctx, userID, cmds); err != nil {
-			c.Logger().Error(err)
-			return c.String(http.StatusInternalServerError, err.Error())
-		}
-		return c.JSON(http.StatusOK, map[string]bool{"ok": true})
-	}
+                var cmds []domain.Command
+                if err := c.Bind(&cmds); err != nil {
+                        return c.String(http.StatusBadRequest, "invalid body")
+                }
+                now := time.Now().UnixNano()
+                for i := range cmds {
+                        cmds[i].ID = uuid.NewString()
+                        if cmds[i].EntityID == "" {
+                                cmds[i].EntityID = uuid.NewString()
+                        }
+                        cmds[i].Timestamp = now + int64(i)
+                }
+                if err := store.EnqueueCommands(ctx, userID, cmds); err != nil {
+                        c.Logger().Error(err)
+                        return c.String(http.StatusInternalServerError, err.Error())
+                }
+                return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+        }
 }

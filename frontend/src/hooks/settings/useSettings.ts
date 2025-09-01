@@ -1,6 +1,5 @@
 import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { v4 as uuid } from "uuid";
 import type { Settings } from "../../types";
 import { settingsReducer, settingsInitialState } from "../../reducers";
 
@@ -147,12 +146,7 @@ export function useSettings() {
 
   function updateSettings(changes: Partial<Settings>) {
     if (!user?.sub) return;
-    dispatch({
-      type: "update-settings",
-      commandId: uuid(),
-      userId: user.sub,
-      settings: changes,
-    });
+    dispatch({ type: "update-settings", userId: user.sub, settings: changes });
   }
 
   return { settings, updateSettings };

@@ -14,7 +14,6 @@ type SetSettingsAction = { type: "set-settings"; settings: Settings };
 type MergeSettingsAction = { type: "merge-settings"; settings: Partial<Settings> };
 type UpdateSettingsAction = {
   type: "update-settings";
-  commandId: string;
   userId: string;
   settings: Partial<Settings>;
 };
@@ -34,7 +33,7 @@ export function settingsReducer(state: State = initialState, action: Action): St
       return { ...state, settings: { ...state.settings, ...action.settings } };
     case "update-settings": {
       const cmd: Command = {
-        id: action.commandId,
+        id: "",
         entityId: action.userId,
         entityType: "user-settings",
         type: "update-user-settings",

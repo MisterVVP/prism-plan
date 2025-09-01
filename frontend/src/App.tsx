@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { v4 as uuid } from 'uuid';
 import Board from './components/Board';
 import TaskModal from './components/TaskModal';
 import { useTasks, useLoginUser, useSettings } from './hooks';
@@ -31,7 +30,7 @@ export default function App() {
           },
         });
         const command = {
-          id: uuid(),
+          id: '',
           entityId: user.sub,
           entityType: 'user',
           type: 'logout-user',

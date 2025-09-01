@@ -16,22 +16,18 @@ const initialState: State = {
 
 type AddTaskAction = {
   type: "add-task";
-  taskId: string;
-  commandId: string;
   partial: Omit<Task, "id" | "order" | "done">;
 };
 
 type UpdateTaskAction = {
   type: "update-task";
   id: string;
-  commandId: string;
   changes: Partial<Task>;
 };
 
 type CompleteTaskAction = {
   type: "complete-task";
   id: string;
-  commandId: string;
 };
 
 type SetTasksAction = { type: "set-tasks"; tasks: Task[] };
@@ -91,18 +87,17 @@ export function tasksReducer(state: State = initialState, action: Action): State
       };
     }
     case "add-task": {
-      const { taskId, commandId, partial } = action;
+      const { partial } = action;
       const order = state.nextOrder[partial.category];
-      const task: Task = { id: taskId, ...partial, order, done: false };
       const cmd: Command = {
-        id: commandId,
-        entityId: taskId,
+        id: "",
+        entityId: "",
         entityType: "task",
         type: "create-task",
         data: { ...partial, order },
       };
       return {
-        tasks: [...state.tasks, task],
+        tasks: state.tasks,
         commands: [...state.commands, cmd],
         nextOrder: {
           ...state.nextOrder,
@@ -111,10 +106,10 @@ export function tasksReducer(state: State = initialState, action: Action): State
       };
     }
     case "update-task": {
-      const { id, commandId, changes } = action;
+      const { id, changes } = action;
       const tasks = state.tasks.map((t) => (t.id === id ? { ...t, ...changes } : t));
       const cmd: Command = {
-        id: commandId,
+        id: "",
         entityId: id,
         entityType: "task",
         type: "update-task",
@@ -123,10 +118,10 @@ export function tasksReducer(state: State = initialState, action: Action): State
       return { tasks, commands: [...state.commands, cmd], nextOrder: state.nextOrder };
     }
     case "complete-task": {
-      const { id, commandId } = action;
+      const { id } = action;
       const tasks = state.tasks.map((t) => (t.id === id ? { ...t, done: true } : t));
       const cmd: Command = {
-        id: commandId,
+        id: "",
         entityId: id,
         entityType: "task",
         type: "complete-task",
