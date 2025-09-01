@@ -23,7 +23,7 @@ func TestOrderingAndIdempotency(t *testing.T) {
 		t.Fatalf("second create: %v", err)
 	}
 
-	tasks := pollTasks(t, client, func(ts []task) bool {
+	tasks := pollTasks(t, client, fmt.Sprintf("task %s to be created with title %s", taskID, title), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Title == title
@@ -49,7 +49,7 @@ func TestOrderingAndIdempotency(t *testing.T) {
 		}
 	}
 	finalTitle := titles[len(titles)-1]
-	tasks = pollTasks(t, client, func(ts []task) bool {
+	tasks = pollTasks(t, client, fmt.Sprintf("task %s to have final title %s", taskID, finalTitle), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Title == finalTitle

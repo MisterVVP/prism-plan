@@ -18,7 +18,7 @@ func TestStreamingLiveUpdates(t *testing.T) {
 	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	pollTasks(t, prismApiClient, func(ts []task) bool {
+	pollTasks(t, prismApiClient, fmt.Sprintf("task %s to be created with title %s", taskID, title), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Title == title

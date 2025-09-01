@@ -22,7 +22,7 @@ func TestProjectionEventualConsistency(t *testing.T) {
 		t.Fatalf("unexpected status %d", resp.StatusCode)
 	}
 
-	pollTasks(t, client, func(ts []task) bool {
+	pollTasks(t, client, fmt.Sprintf("task %s to be created with title %s", taskID, title), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Title == title

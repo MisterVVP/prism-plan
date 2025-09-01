@@ -20,7 +20,7 @@ func TestCreateEditCompleteTask(t *testing.T) {
 	}
 
 	// Wait for task to appear
-	pollTasks(t, client, func(ts []task) bool {
+	pollTasks(t, client, fmt.Sprintf("task %s to be created with title %s", taskID, title), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Title == title
@@ -35,7 +35,7 @@ func TestCreateEditCompleteTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("edit task: %v", err)
 	}
-	pollTasks(t, client, func(ts []task) bool {
+	pollTasks(t, client, fmt.Sprintf("task %s to have updated title %s", taskID, newTitle), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Title == newTitle
@@ -49,7 +49,7 @@ func TestCreateEditCompleteTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("complete task: %v", err)
 	}
-	tasks := pollTasks(t, client, func(ts []task) bool {
+	tasks := pollTasks(t, client, fmt.Sprintf("task %s to be completed with title %s", taskID, newTitle), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Done && tk.Title == newTitle

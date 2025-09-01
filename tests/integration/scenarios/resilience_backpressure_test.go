@@ -43,7 +43,7 @@ func TestResilienceBackpressure(t *testing.T) {
 		t.Fatalf("restart domain-service: %v", err)
 	}
 	start := time.Now()
-	pollTasks(t, client, func(ts []task) bool {
+	pollTasks(t, client, fmt.Sprintf("task %s to appear with title %s after restart", taskID, title), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Title == title
