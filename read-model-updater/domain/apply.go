@@ -108,46 +108,56 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 		if ev.Timestamp == ent.Timestamp {
 			log.Warnf("task %s received event with identical timestamp", rk)
 		}
+		upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
 		if ev.Timestamp >= ent.Timestamp {
 			if eventData.Title != nil {
-				ent.Title = *eventData.Title
+				upd.Title = eventData.Title
 			}
 			if eventData.Notes != nil {
-				ent.Notes = *eventData.Notes
+				upd.Notes = eventData.Notes
 			}
 			if eventData.Category != nil {
-				ent.Category = *eventData.Category
+				upd.Category = eventData.Category
 			}
 			if eventData.Order != nil {
-				ent.Order = *eventData.Order
-				ent.OrderType = EdmInt32
+				upd.Order = eventData.Order
+				t := EdmInt32
+				upd.OrderType = &t
 			}
 			if eventData.Done != nil {
-				ent.Done = *eventData.Done
-				ent.DoneType = EdmBoolean
+				upd.Done = eventData.Done
+				t := EdmBoolean
+				upd.DoneType = &t
 			}
-			ent.Timestamp = ev.Timestamp
-			ent.TimestampType = EdmInt64
+			upd.Timestamp = &ev.Timestamp
+			t := EdmInt64
+			upd.TimestampType = &t
 		} else {
 			if eventData.Title != nil && ent.Title == "" {
-				ent.Title = *eventData.Title
+				upd.Title = eventData.Title
 			}
 			if eventData.Notes != nil && ent.Notes == "" {
-				ent.Notes = *eventData.Notes
+				upd.Notes = eventData.Notes
 			}
 			if eventData.Category != nil && ent.Category == "" {
-				ent.Category = *eventData.Category
+				upd.Category = eventData.Category
 			}
 			if eventData.Order != nil && ent.Order == 0 {
-				ent.Order = *eventData.Order
-				ent.OrderType = EdmInt32
+				upd.Order = eventData.Order
+				t := EdmInt32
+				upd.OrderType = &t
 			}
 			if eventData.Done != nil && !ent.Done {
-				ent.Done = *eventData.Done
-				ent.DoneType = EdmBoolean
+				upd.Done = eventData.Done
+				t := EdmBoolean
+				upd.DoneType = &t
 			}
 		}
-		return st.UpsertTask(ctx, *ent)
+		// Only attempt an update if there's something to change.
+		if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil || upd.Done != nil || upd.Timestamp != nil {
+			return st.UpdateTask(ctx, upd)
+		}
+		return nil
 	case TaskCompleted:
 		ent, err := st.GetTask(ctx, pk, rk)
 		if err != nil {
