@@ -113,3 +113,38 @@ func TestPostCommandsIdempotency(t *testing.T) {
 		t.Fatalf("expected 1 command, got %d", len(store.cmds))
 	}
 }
+
+func TestPostCommandsMultipleCommands(t *testing.T) {
+        e := echo.New()
+        store := &mockStore{}
+        handler := postCommands(store, mockAuth{})
+
+        bodies := []string{
+                `[{"id":"","idempotencyKey":"k4","entityId":"t1","entityType":"task","type":"create-task"}]`,
+                `[{"id":"","idempotencyKey":"k5","entityId":"t1","entityType":"task","type":"update-task","data":{"title":"t"}}]`,
+                `[{"id":"","idempotencyKey":"k6","entityId":"t1","entityType":"task","type":"complete-task"}]`,
+        }
+
+        for i, body := range bodies {
+                req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+                req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+                req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+                rec := httptest.NewRecorder()
+                c := e.NewContext(req, rec)
+                if err := handler(c); err != nil {
+                        t.Fatalf("post %d: %v", i, err)
+                }
+        }
+
+        if len(store.cmds) != 3 {
+                t.Fatalf("expected 3 commands, got %d", len(store.cmds))
+        }
+
+        if store.cmds[0].IdempotencyKey != "k4" || store.cmds[1].IdempotencyKey != "k5" || store.cmds[2].IdempotencyKey != "k6" {
+                t.Fatalf("unexpected idempotency keys: %#v", store.cmds)
+        }
+
+        if store.cmds[1].Type != "update-task" || store.cmds[2].Type != "complete-task" {
+                t.Fatalf("unexpected command types: %#v", store.cmds)
+        }
+}
