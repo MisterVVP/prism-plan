@@ -34,6 +34,7 @@ export function settingsReducer(state: State = initialState, action: Action): St
     case "update-settings": {
       const cmd: Command = {
         id: "",
+        idempotencyKey: crypto.randomUUID(),
         entityId: action.userId,
         entityType: "user-settings",
         type: "update-user-settings",

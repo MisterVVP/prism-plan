@@ -31,6 +31,7 @@ export default function App() {
         });
         const command = {
           id: '',
+          idempotencyKey: crypto.randomUUID(),
           entityId: user.sub,
           entityType: 'user',
           type: 'logout-user',

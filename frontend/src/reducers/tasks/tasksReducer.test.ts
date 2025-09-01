@@ -34,6 +34,21 @@ describe("tasksReducer", () => {
     expect((s1.commands[0].data as any).order).toBe(0);
   });
 
+  it("assigns idempotency keys to commands", () => {
+    const s1 = tasksReducer(initialState, {
+      type: "add-task",
+      partial: { title: "a", notes: "", category: "normal" },
+    });
+    const s2 = tasksReducer(initialState, {
+      type: "add-task",
+      partial: { title: "b", notes: "", category: "normal" },
+    });
+    expect(s1.commands[0].idempotencyKey).not.toBe("");
+    expect(s1.commands[0].idempotencyKey).not.toBe(
+      s2.commands[0].idempotencyKey
+    );
+  });
+
   it("keeps order after remote reset", () => {
     const s1 = tasksReducer(initialState, {
       type: "add-task",

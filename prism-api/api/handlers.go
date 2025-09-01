@@ -1,14 +1,15 @@
 package api
 
 import (
-        "context"
-        "net/http"
-        "time"
+	"context"
+	"net/http"
+	"sync"
+	"time"
 
-        "github.com/google/uuid"
-        "github.com/labstack/echo/v4"
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 
-        "prism-api/domain"
+	"prism-api/domain"
 )
 
 // Storage abstracts persistence for handlers.
@@ -29,6 +30,8 @@ func Register(e *echo.Echo, store Storage, auth Authenticator) {
 	e.GET("/api/settings", getSettings(store, auth))
 	e.POST("/api/commands", postCommands(store, auth))
 }
+
+var processed sync.Map
 
 func getTasks(store Storage, auth Authenticator) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -69,22 +72,34 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}
-                var cmds []domain.Command
-                if err := c.Bind(&cmds); err != nil {
-                        return c.String(http.StatusBadRequest, "invalid body")
-                }
-                now := time.Now().UnixNano()
-                for i := range cmds {
-                        cmds[i].ID = uuid.NewString()
-                        if cmds[i].EntityID == "" {
-                                cmds[i].EntityID = uuid.NewString()
-                        }
-                        cmds[i].Timestamp = now + int64(i)
-                }
-                if err := store.EnqueueCommands(ctx, userID, cmds); err != nil {
-                        c.Logger().Error(err)
-                        return c.String(http.StatusInternalServerError, err.Error())
-                }
-                return c.JSON(http.StatusOK, map[string]bool{"ok": true})
-        }
+		var cmds []domain.Command
+		if err := c.Bind(&cmds); err != nil {
+			return c.String(http.StatusBadRequest, "invalid body")
+		}
+		now := time.Now().UnixNano()
+		filtered := make([]domain.Command, 0, len(cmds))
+		for i := range cmds {
+			if cmds[i].IdempotencyKey == "" {
+				cmds[i].IdempotencyKey = uuid.NewString()
+			}
+			key := userID + ":" + cmds[i].IdempotencyKey
+			if _, exists := processed.LoadOrStore(key, struct{}{}); exists {
+				continue
+			}
+			cmds[i].ID = uuid.NewString()
+			if cmds[i].EntityID == "" {
+				cmds[i].EntityID = uuid.NewString()
+			}
+			cmds[i].Timestamp = now + int64(len(filtered))
+			filtered = append(filtered, cmds[i])
+		}
+		if len(filtered) == 0 {
+			return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+		}
+		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
+			c.Logger().Error(err)
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+	}
 }

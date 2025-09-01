@@ -43,6 +43,7 @@ export function useLoginUser() {
         const expiresIn: number = tokenResponse.expires_in || 0;
         const command = {
           id: "",
+          idempotencyKey: crypto.randomUUID(),
           entityId: user.sub,
           entityType: "user",
           type: "login-user",

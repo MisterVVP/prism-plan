@@ -91,6 +91,7 @@ export function tasksReducer(state: State = initialState, action: Action): State
       const order = state.nextOrder[partial.category];
       const cmd: Command = {
         id: "",
+        idempotencyKey: crypto.randomUUID(),
         entityId: "",
         entityType: "task",
         type: "create-task",
@@ -110,6 +111,7 @@ export function tasksReducer(state: State = initialState, action: Action): State
       const tasks = state.tasks.map((t) => (t.id === id ? { ...t, ...changes } : t));
       const cmd: Command = {
         id: "",
+        idempotencyKey: crypto.randomUUID(),
         entityId: id,
         entityType: "task",
         type: "update-task",
@@ -122,6 +124,7 @@ export function tasksReducer(state: State = initialState, action: Action): State
       const tasks = state.tasks.map((t) => (t.id === id ? { ...t, done: true } : t));
       const cmd: Command = {
         id: "",
+        idempotencyKey: crypto.randomUUID(),
         entityId: id,
         entityType: "task",
         type: "complete-task",

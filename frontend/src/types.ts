@@ -11,6 +11,7 @@ export interface Task {
 
 export interface Command {
   id: string;
+  idempotencyKey: string;
   entityId: string;
   entityType: string;
   type: string;
