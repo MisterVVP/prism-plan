@@ -15,7 +15,7 @@ func TestStreamingLiveUpdates(t *testing.T) {
 	// Create a task to mutate
 	taskID := fmt.Sprintf("stream-%d", time.Now().UnixNano())
 	title := "stream-title-" + taskID
-	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil); err != nil {
+	if _, err := prismApiClient.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-create-%s", taskID), EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	pollTasks(t, prismApiClient, fmt.Sprintf("task %s to be created with title %s", taskID, title), func(ts []task) bool {
@@ -61,7 +61,7 @@ func TestStreamingLiveUpdates(t *testing.T) {
 
 	// mutate the task
 	newTitle := title + "-sse"
-	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": newTitle}}}, nil); err != nil {
+	if _, err := prismApiClient.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-update-%s", taskID), EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": newTitle}}}, nil); err != nil {
 		t.Fatalf("edit task: %v", err)
 	}
 
