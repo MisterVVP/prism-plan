@@ -80,32 +80,32 @@ func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntit
 		return nil, err
 	}
 	var raw struct {
-		PartitionKey  string          `json:"PartitionKey"`
-		RowKey        string          `json:"RowKey"`
-		Title         string          `json:"Title,omitempty"`
-		Notes         string          `json:"Notes,omitempty"`
-		Category      string          `json:"Category,omitempty"`
-		Order         int             `json:"Order"`
-		OrderType     string          `json:"Order@odata.type"`
-		Done          bool            `json:"Done"`
-		DoneType      string          `json:"Done@odata.type"`
-		Timestamp     json.RawMessage `json:"Timestamp"`
-		TimestampType string          `json:"Timestamp@odata.type"`
+		PartitionKey       string          `json:"PartitionKey"`
+		RowKey             string          `json:"RowKey"`
+		Title              string          `json:"Title,omitempty"`
+		Notes              string          `json:"Notes,omitempty"`
+		Category           string          `json:"Category,omitempty"`
+		Order              int             `json:"Order"`
+		OrderType          string          `json:"Order@odata.type"`
+		Done               bool            `json:"Done"`
+		DoneType           string          `json:"Done@odata.type"`
+		EventTimestamp     json.RawMessage `json:"EventTimestamp"`
+		EventTimestampType string          `json:"EventTimestamp@odata.type"`
 	}
 	if err := json.Unmarshal(ent.Value, &raw); err != nil {
 		return nil, err
 	}
 	task := domain.TaskEntity{
-		Entity:        domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
-		Title:         raw.Title,
-		Notes:         raw.Notes,
-		Category:      raw.Category,
-		Order:         raw.Order,
-		OrderType:     raw.OrderType,
-		Done:          raw.Done,
-		DoneType:      raw.DoneType,
-		Timestamp:     parseTimestamp(raw.Timestamp),
-		TimestampType: raw.TimestampType,
+		Entity:             domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
+		Title:              raw.Title,
+		Notes:              raw.Notes,
+		Category:           raw.Category,
+		Order:              raw.Order,
+		OrderType:          raw.OrderType,
+		Done:               raw.Done,
+		DoneType:           raw.DoneType,
+		EventTimestamp:     parseTimestamp(raw.EventTimestamp),
+		EventTimestampType: raw.EventTimestampType,
 	}
 	return &task, nil
 }
@@ -172,8 +172,8 @@ func (s *Storage) GetUserSettings(ctx context.Context, id string) (*domain.UserS
 		TasksPerCategoryTy string          `json:"TasksPerCategory@odata.type"`
 		ShowDoneTasks      bool            `json:"ShowDoneTasks"`
 		ShowDoneTasksType  string          `json:"ShowDoneTasks@odata.type"`
-		Timestamp          json.RawMessage `json:"Timestamp"`
-		TimestampType      string          `json:"Timestamp@odata.type"`
+		EventTimestamp     json.RawMessage `json:"EventTimestamp"`
+		EventTimestampType string          `json:"EventTimestamp@odata.type"`
 	}
 	if err := json.Unmarshal(ent.Value, &raw); err != nil {
 		return nil, err
@@ -184,8 +184,8 @@ func (s *Storage) GetUserSettings(ctx context.Context, id string) (*domain.UserS
 		TasksPerCategoryType: raw.TasksPerCategoryTy,
 		ShowDoneTasks:        raw.ShowDoneTasks,
 		ShowDoneTasksType:    raw.ShowDoneTasksType,
-		Timestamp:            parseTimestamp(raw.Timestamp),
-		TimestampType:        raw.TimestampType,
+		EventTimestamp:       parseTimestamp(raw.EventTimestamp),
+		EventTimestampType:   raw.EventTimestampType,
 	}
 	return &sEnt, nil
 }
