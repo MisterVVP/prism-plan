@@ -14,7 +14,7 @@ func TestCreateEditCompleteTask(t *testing.T) {
 	taskID := fmt.Sprintf("task-%d", time.Now().UnixNano())
 	title := "task-title-" + taskID
 	// Create task
-	_, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil)
+	_, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-create-%s", taskID), EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil)
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestCreateEditCompleteTask(t *testing.T) {
 
 	// Edit task title
 	newTitle := title + " updated"
-	_, err = client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": newTitle}}}, nil)
+	_, err = client.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-update-%s", taskID), EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": newTitle}}}, nil)
 	if err != nil {
 		t.Fatalf("edit task: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestCreateEditCompleteTask(t *testing.T) {
 	})
 
 	// Complete task
-	_, err = client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "complete-task"}}, nil)
+	_, err = client.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-complete-%s", taskID), EntityType: "task", EntityID: taskID, Type: "complete-task"}}, nil)
 	if err != nil {
 		t.Fatalf("complete task: %v", err)
 	}

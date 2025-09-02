@@ -3,8 +3,11 @@ package api
 import (
 	"context"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
 	"prism-api/domain"
@@ -24,9 +27,35 @@ type Authenticator interface {
 
 // Register wires up all API routes on the provided Echo instance.
 func Register(e *echo.Echo, store Storage, auth Authenticator) {
-	e.GET("/api/tasks", getTasks(store, auth))
-	e.GET("/api/settings", getSettings(store, auth))
-	e.POST("/api/commands", postCommands(store, auth))
+       e.GET("/healthz", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+       e.GET("/api/tasks", getTasks(store, auth))
+       e.GET("/api/settings", getSettings(store, auth))
+       e.POST("/api/commands", postCommands(store, auth))
+}
+
+type processedKey struct {
+	userID   string
+	key      string
+	entityID string
+	typ      string
+}
+
+var (
+	processed     sync.Map
+	lastTimestamp int64
+)
+
+func nextTimestamp() int64 {
+	for {
+		now := time.Now().UnixNano()
+		last := atomic.LoadInt64(&lastTimestamp)
+		if now <= last {
+			now = last + 1
+		}
+		if atomic.CompareAndSwapInt64(&lastTimestamp, last, now) {
+			return now
+		}
+	}
 }
 
 func getTasks(store Storage, auth Authenticator) echo.HandlerFunc {
@@ -72,10 +101,25 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 		if err := c.Bind(&cmds); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
+		filtered := make([]domain.Command, 0, len(cmds))
 		for i := range cmds {
-			cmds[i].Timestamp = time.Now().UnixNano()
+			if cmds[i].IdempotencyKey == "" {
+				cmds[i].IdempotencyKey = uuid.NewString()
+			}
+			pk := processedKey{userID: userID, key: cmds[i].IdempotencyKey, entityID: cmds[i].EntityID, typ: cmds[i].Type}
+			if _, exists := processed.LoadOrStore(pk, struct{}{}); exists {
+				continue
+			}
+			if cmds[i].EntityID == "" {
+				cmds[i].EntityID = uuid.NewString()
+			}
+			cmds[i].Timestamp = nextTimestamp()
+			filtered = append(filtered, cmds[i])
 		}
-		if err := store.EnqueueCommands(ctx, userID, cmds); err != nil {
+		if len(filtered) == 0 {
+			return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+		}
+		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
 			c.Logger().Error(err)
 			return c.String(http.StatusInternalServerError, err.Error())
 		}

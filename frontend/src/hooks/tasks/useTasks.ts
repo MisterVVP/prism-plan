@@ -1,6 +1,5 @@
 import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { v4 as uuid } from "uuid";
 import type { Task } from "../../types";
 import { tasksReducer, initialState } from "../../reducers";
 import { parseTasks } from "./parseTasks";
@@ -8,7 +7,7 @@ import { parseTasks } from "./parseTasks";
 export function useTasks() {
   const [state, dispatch] = useReducer(tasksReducer, initialState);
   const { tasks, commands } = state;
-  const { isAuthenticated, getAccessTokenSilently, loginWithRedirect, user } =
+  const { isAuthenticated, getAccessTokenSilently, loginWithRedirect } =
     useAuth0();
   const apiBaseUrl =
     (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
@@ -144,29 +143,15 @@ export function useTasks() {
   ]);
 
   function addTask(partial: Omit<Task, "id" | "order" | "done">) {
-    dispatch({
-      type: "add-task",
-      taskId: uuid(),
-      commandId: uuid(),
-      partial,
-    });
+    dispatch({ type: "add-task", partial });
   }
 
   function updateTask(id: string, changes: Partial<Task>) {
-    dispatch({
-      type: "update-task",
-      id,
-      commandId: uuid(),
-      changes,
-    });
+    dispatch({ type: "update-task", id, changes });
   }
 
   function completeTask(id: string) {
-    dispatch({
-      type: "complete-task",
-      id,
-      commandId: uuid(),
-    });
+    dispatch({ type: "complete-task", id });
   }
 
   return { tasks, addTask, updateTask, completeTask };

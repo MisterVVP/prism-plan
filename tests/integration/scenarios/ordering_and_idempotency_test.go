@@ -13,13 +13,13 @@ func TestOrderingAndIdempotency(t *testing.T) {
 
 	taskID := fmt.Sprintf("idempotent-%d", time.Now().UnixNano())
 	title := fmt.Sprintf("title-%d", time.Now().UnixNano())
-	dedupe := fmt.Sprintf("dk-%d", time.Now().UnixNano())
-	payload := map[string]any{"title": title, "dedupeKey": dedupe}
+	dedupe := fmt.Sprintf("ik-create-%d", time.Now().UnixNano())
+	payload := map[string]any{"title": title}
 
-	if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: payload}}, nil); err != nil {
+	if _, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: dedupe, EntityType: "task", EntityID: taskID, Type: "create-task", Data: payload}}, nil); err != nil {
 		t.Fatalf("first create: %v", err)
 	}
-	if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: payload}}, nil); err != nil {
+	if _, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: dedupe, EntityType: "task", EntityID: taskID, Type: "create-task", Data: payload}}, nil); err != nil {
 		t.Fatalf("second create: %v", err)
 	}
 
@@ -43,8 +43,9 @@ func TestOrderingAndIdempotency(t *testing.T) {
 	}
 
 	titles := []string{title + "-a", title + "-b", title + "-c"}
-	for _, tt := range titles {
-		if _, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": tt}}}, nil); err != nil {
+	for i, tt := range titles {
+		key := fmt.Sprintf("ik-update-%d", i)
+		if _, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: key, EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": tt}}}, nil); err != nil {
 			t.Fatalf("edit: %v", err)
 		}
 	}
