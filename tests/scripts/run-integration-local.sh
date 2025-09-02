@@ -30,6 +30,11 @@ export TEST_JWT_SECRET=${TEST_JWT_SECRET:-testsecret}
 export TEST_POLL_TIMEOUT="15s"
 export PRISM_API_BASE="http://localhost:${PRISM_API_PORT}"
 export STREAM_SERVICE_BASE="http://localhost:${STREAM_SERVICE_PORT}"
+export AzureWebJobsStorage="${STORAGE_CONNECTION_STRING}"
+export AzureWebJobsScriptRoot="/home/site/wwwroot"
+export AzureFunctionsJobHost__Logging__Console__IsEnabled="true"
+export FUNCTIONS_WORKER_RUNTIME="custom"
+export ASPNETCORE_URLS="http://+:${PRISM_API_PORT}"
 
 # Start Azurite
 npx azurite -l ./azurite-data --blobHost 127.0.0.1 --queueHost 127.0.0.1 --tableHost 127.0.0.1 &
