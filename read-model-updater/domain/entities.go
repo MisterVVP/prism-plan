@@ -15,29 +15,29 @@ const (
 // TaskEntity represents a task stored in the read model.
 type TaskEntity struct {
 	Entity
-	Title         string `json:"Title,omitempty"`
-	Notes         string `json:"Notes,omitempty"`
-	Category      string `json:"Category,omitempty"`
-	Order         int    `json:"Order"`
-	OrderType     string `json:"Order@odata.type"`
-	Done          bool   `json:"Done"`
-	DoneType      string `json:"Done@odata.type"`
-	Timestamp     int64  `json:"Timestamp"`
-	TimestampType string `json:"Timestamp@odata.type"`
+	Title              string `json:"Title,omitempty"`
+	Notes              string `json:"Notes,omitempty"`
+	Category           string `json:"Category,omitempty"`
+	Order              int    `json:"Order"`
+	OrderType          string `json:"Order@odata.type"`
+	Done               bool   `json:"Done"`
+	DoneType           string `json:"Done@odata.type"`
+	EventTimestamp     int64  `json:"EventTimestamp"`
+	EventTimestampType string `json:"EventTimestamp@odata.type"`
 }
 
 // TaskUpdate carries partial updates for a task.
 type TaskUpdate struct {
 	Entity
-	Title         *string `json:"Title,omitempty"`
-	Notes         *string `json:"Notes,omitempty"`
-	Category      *string `json:"Category,omitempty"`
-	Order         *int    `json:"Order,omitempty"`
-	OrderType     *string `json:"Order@odata.type,omitempty"`
-	Done          *bool   `json:"Done,omitempty"`
-	DoneType      *string `json:"Done@odata.type,omitempty"`
-	Timestamp     *int64  `json:"Timestamp,omitempty"`
-	TimestampType *string `json:"Timestamp@odata.type,omitempty"`
+	Title              *string `json:"Title,omitempty"`
+	Notes              *string `json:"Notes,omitempty"`
+	Category           *string `json:"Category,omitempty"`
+	Order              *int    `json:"Order,omitempty"`
+	OrderType          *string `json:"Order@odata.type,omitempty"`
+	Done               *bool   `json:"Done,omitempty"`
+	DoneType           *string `json:"Done@odata.type,omitempty"`
+	EventTimestamp     *int64  `json:"EventTimestamp,omitempty"`
+	EventTimestampType *string `json:"EventTimestamp@odata.type,omitempty"`
 }
 
 // UserEntity represents a user stored in the read model.
@@ -53,8 +53,8 @@ type UserSettingsEntity struct {
 	TasksPerCategoryType string `json:"TasksPerCategory@odata.type"`
 	ShowDoneTasks        bool   `json:"ShowDoneTasks"`
 	ShowDoneTasksType    string `json:"ShowDoneTasks@odata.type"`
-	Timestamp            int64  `json:"Timestamp"`
-	TimestampType        string `json:"Timestamp@odata.type"`
+	EventTimestamp       int64  `json:"EventTimestamp"`
+	EventTimestampType   string `json:"EventTimestamp@odata.type"`
 }
 
 type UserSettingsUpdate struct {
@@ -63,6 +63,6 @@ type UserSettingsUpdate struct {
 	TasksPerCategoryType *string `json:"TasksPerCategory@odata.type,omitempty"`
 	ShowDoneTasks        *bool   `json:"ShowDoneTasks,omitempty"`
 	ShowDoneTasksType    *string `json:"ShowDoneTasks@odata.type,omitempty"`
-	Timestamp            *int64  `json:"Timestamp,omitempty"`
-	TimestampType        *string `json:"Timestamp@odata.type,omitempty"`
+	EventTimestamp       *int64  `json:"EventTimestamp,omitempty"`
+	EventTimestampType   *string `json:"EventTimestamp@odata.type,omitempty"`
 }
