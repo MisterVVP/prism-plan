@@ -12,7 +12,7 @@ import (
 )
 
 func TestStaleUpdateMergesFields(t *testing.T) {
-	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
+	connStr := os.Getenv("STORAGE_CONNECTION_STRING_LOCAL")
 	qName := os.Getenv("DOMAIN_EVENTS_QUEUE")
 	queue, err := azqueue.NewQueueClientFromConnectionString(connStr, qName, nil)
 	if err != nil {
