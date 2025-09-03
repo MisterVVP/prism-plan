@@ -35,12 +35,8 @@ export AzureFunctionsJobHost__Logging__Console__IsEnabled="true"
 export FUNCTIONS_WORKER_RUNTIME="custom"
 
 # Start Azurite
-npx azurite -l ./azurite-data --blobHost 127.0.0.1 --queueHost 127.0.0.1 --tableHost 127.0.0.1 &
+npx azurite -s -l --skipApiVersionCheck ./azurite-data --blobHost 127.0.0.1 --queueHost 127.0.0.1 --tableHost 127.0.0.1 &
 AZURITE_PID=$!
-
-# Start Redis
-redis-server --save "" --appendonly no &
-REDIS_PID=$!
 
 # Give services time to start
 sleep 2
@@ -89,6 +85,6 @@ cd ../..
 # Cleanup
 kill $API_PID $STREAM_PID $RMU_PID >/dev/null 2>&1 || true
 if [ -n "$DOMAIN_PID" ]; then kill $DOMAIN_PID >/dev/null 2>&1 || true; fi
-kill $REDIS_PID $AZURITE_PID >/dev/null 2>&1 || true
+kill $AZURITE_PID >/dev/null 2>&1 || true
 
 exit $TEST_STATUS
