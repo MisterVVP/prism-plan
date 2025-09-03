@@ -77,7 +77,7 @@ fi
 (
   cd read-model-updater/az-funcs && \
   cp ../host.json . && \
-  FUNCTIONS_CUSTOMHANDLER_PORT=8080 func start --port 7072 >/tmp/read-model-updater.log 2>&1
+  func start --port 7072 >/tmp/read-model-updater.log 2>&1
 ) &
 RMU_PID=$!
 
