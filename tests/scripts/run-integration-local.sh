@@ -31,18 +31,12 @@ export TEST_POLL_TIMEOUT="15s"
 export PRISM_API_BASE="http://localhost:${PRISM_API_PORT}"
 export STREAM_SERVICE_BASE="http://localhost:${STREAM_SERVICE_PORT}"
 export AzureWebJobsStorage="${STORAGE_CONNECTION_STRING}"
-export AzureWebJobsScriptRoot="/home/site/wwwroot"
 export AzureFunctionsJobHost__Logging__Console__IsEnabled="true"
 export FUNCTIONS_WORKER_RUNTIME="custom"
-export ASPNETCORE_URLS="http://+:${PRISM_API_PORT}"
 
 # Start Azurite
-npx azurite -l ./azurite-data --blobHost 127.0.0.1 --queueHost 127.0.0.1 --tableHost 127.0.0.1 &
+npx azurite -s -l --skipApiVersionCheck ./azurite-data --blobHost 127.0.0.1 --queueHost 127.0.0.1 --tableHost 127.0.0.1 &
 AZURITE_PID=$!
-
-# Start Redis
-redis-server --save "" --appendonly no &
-REDIS_PID=$!
 
 # Give services time to start
 sleep 2
@@ -51,16 +45,23 @@ sleep 2
 ( cd storage-init && go run . >/tmp/storage-init.log 2>&1 )
 
 # Start domain service
-if command -v dotnet >/dev/null 2>&1; then
-  dotnet run --project domain-service/src/DomainService.FunctionApp &
+if command -v func >/dev/null 2>&1; then
+  (
+    cd domain-service/src/DomainService.FunctionApp && \
+    FUNCTIONS_WORKER_RUNTIME=dotnet-isolated func start --port 7071 >/tmp/domain-service.log 2>&1
+  ) &
   DOMAIN_PID=$!
 else
-  echo "dotnet not installed; skipping domain-service" >&2
+  echo "func not installed; skipping domain-service" >&2
   DOMAIN_PID=""
 fi
 
 # Start read-model-updater
-( cd read-model-updater && FUNCTIONS_CUSTOMHANDLER_PORT=${READ_MODEL_UPDATER_PORT} go run . >/tmp/read-model-updater.log 2>&1 ) &
+(
+  cd read-model-updater/az-funcs && \
+  cp ../host.json . && \
+  FUNCTIONS_CUSTOMHANDLER_PORT=${READ_MODEL_UPDATER_PORT} func start --port 7072 >/tmp/read-model-updater.log 2>&1
+) &
 RMU_PID=$!
 
 # Start stream service
@@ -84,6 +85,6 @@ cd ../..
 # Cleanup
 kill $API_PID $STREAM_PID $RMU_PID >/dev/null 2>&1 || true
 if [ -n "$DOMAIN_PID" ]; then kill $DOMAIN_PID >/dev/null 2>&1 || true; fi
-kill $REDIS_PID $AZURITE_PID >/dev/null 2>&1 || true
+kill $AZURITE_PID >/dev/null 2>&1 || true
 
 exit $TEST_STATUS

@@ -76,7 +76,7 @@ func TestApplyTaskCreated(t *testing.T) {
 	payload, _ := json.Marshal(data)
 	ev := Event{Type: TaskCreated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 1}
 	Apply(context.Background(), fs, ev)
-	if fs.upsertTask.PartitionKey != "u1" || fs.upsertTask.RowKey != "t1" || fs.upsertTask.Title != "title1" || fs.upsertTask.Order != 1 || fs.upsertTask.Timestamp != 1 {
+	if fs.upsertTask.PartitionKey != "u1" || fs.upsertTask.RowKey != "t1" || fs.upsertTask.Title != "title1" || fs.upsertTask.Order != 1 || fs.upsertTask.EventTimestamp != 1 {
 		t.Fatalf("unexpected upsertTask: %#v", fs.upsertTask)
 	}
 }
@@ -91,7 +91,7 @@ func TestApplyTaskUpdated(t *testing.T) {
 	payload, _ := json.Marshal(data)
 	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 1}
 	Apply(context.Background(), fs, ev)
-	if fs.upsertTask.RowKey != "t1" || fs.upsertTask.Title != "new" || fs.upsertTask.Order != 5 || fs.upsertTask.Timestamp != 1 {
+	if fs.upsertTask.RowKey != "t1" || fs.upsertTask.Title != "new" || fs.upsertTask.Order != 5 || fs.upsertTask.EventTimestamp != 1 {
 		t.Fatalf("unexpected upsertTask: %#v", fs.upsertTask)
 	}
 }
@@ -100,22 +100,22 @@ func TestApplyTaskCompleted(t *testing.T) {
 	fs := &fakeStore{}
 	ev := Event{Type: TaskCompleted, UserID: "u1", EntityID: "t1", Timestamp: 1}
 	Apply(context.Background(), fs, ev)
-	if fs.upsertTask.RowKey != "t1" || !fs.upsertTask.Done || fs.upsertTask.Timestamp != 1 {
+	if fs.upsertTask.RowKey != "t1" || !fs.upsertTask.Done || fs.upsertTask.EventTimestamp != 1 {
 		t.Fatalf("unexpected upsertTask: %#v", fs.upsertTask)
 	}
 }
 
 func TestApplyTaskCompletedIgnoresOldEvent(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
-		Entity:    Entity{PartitionKey: "u1", RowKey: "t1"},
-		Done:      false,
-		DoneType:  EdmBoolean,
-		Timestamp: 5,
+		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
+		Done:           false,
+		DoneType:       EdmBoolean,
+		EventTimestamp: 5,
 	}}}
 	ev := Event{Type: TaskCompleted, UserID: "u1", EntityID: "t1", Timestamp: 3}
 	Apply(context.Background(), fs, ev)
 	ent := fs.tasks["t1"]
-	if ent.Done || ent.Timestamp != 5 {
+	if ent.Done || ent.EventTimestamp != 5 {
 		t.Fatalf("unexpected task entity: %#v", ent)
 	}
 }
@@ -141,8 +141,8 @@ func TestApplyUserSettingsUpdatedIgnoresOldEvent(t *testing.T) {
 		TasksPerCategoryType: EdmInt32,
 		ShowDoneTasks:        true,
 		ShowDoneTasksType:    EdmBoolean,
-		Timestamp:            5,
-		TimestampType:        EdmInt64,
+		EventTimestamp:       5,
+		EventTimestampType:   EdmInt64,
 	}}}
 	tpc := 3
 	sdt := false
@@ -151,7 +151,7 @@ func TestApplyUserSettingsUpdatedIgnoresOldEvent(t *testing.T) {
 	ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 2}
 	Apply(context.Background(), fs, ev)
 	ent := fs.settings["u1"]
-	if ent.TasksPerCategory != 10 || !ent.ShowDoneTasks || ent.Timestamp != 5 {
+	if ent.TasksPerCategory != 10 || !ent.ShowDoneTasks || ent.EventTimestamp != 5 {
 		t.Fatalf("unexpected settings entity: %#v", ent)
 	}
 }

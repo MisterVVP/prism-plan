@@ -150,3 +150,11 @@ domain-service/obj/
 # Local SSL certificates
 certs/
 ca/
+
+# Azurite
+azurite-data
+__queuestorage__
+__tablestorage__
+__blobstorage__
+AzuriteConfig
+__azurite_db_*
