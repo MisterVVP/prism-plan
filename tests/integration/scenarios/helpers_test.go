@@ -70,6 +70,21 @@ func newStreamServiceClient(t *testing.T) *httpclient.Client {
 	return newApiClientInner(t, "STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT")
 }
 
+func newReadModelUpdaterClient(t *testing.T) *httpclient.Client {
+	bearer := getTestBearer(t)
+	base := os.Getenv("READ_MODEL_UPDATER_BASE")
+	if base == "" {
+		if port := os.Getenv("READ_MODEL_UPDATER_PORT"); port != "" {
+			base = "http://localhost:" + port
+		}
+	}
+	health := os.Getenv("AZ_FUNC_HEALTH_ENDPOINT")
+	if _, err := http.Get(base + health); err != nil {
+		t.Fatalf("API not reachable: %v", err)
+	}
+	return httpclient.New(base, bearer)
+}
+
 // pollTasks polls /api/tasks until cond returns true or timeout. desc is used to
 // identify the condition being waited on so failures are easier to diagnose.
 func pollTasks(t *testing.T, client *httpclient.Client, desc string, cond func([]task) bool) []task {

@@ -9,7 +9,8 @@ import (
 )
 
 func TestStaleUpdateMergesFields(t *testing.T) {
-	client := newPrismApiClient(t)
+	rmuClient := newReadModelUpdaterClient(t)
+	apiClient := newPrismApiClient(t)
 
 	taskID := fmt.Sprintf("stale-%d", time.Now().UnixNano())
 	userID := "integration-user"
@@ -17,7 +18,7 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 	send := func(ev map[string]any) {
 		b, _ := json.Marshal(ev)
 		payload := map[string]any{"Data": map[string]any{"event": string(b)}}
-		resp, err := client.PostJSON("/domain-events", payload, nil)
+		resp, err := rmuClient.PostJSON("/domain-events", payload, nil)
 		if err != nil {
 			t.Fatalf("post event: %v", err)
 		}
@@ -54,7 +55,7 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 		"Data":       map[string]any{"notes": "note"},
 	})
 
-	pollTasks(t, client, fmt.Sprintf("task %s to have merged notes", taskID), func(ts []task) bool {
+	pollTasks(t, apiClient, fmt.Sprintf("task %s to have merged notes", taskID), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Done && tk.Notes == "note"
