@@ -39,7 +39,7 @@ export TASK_UPDATES_CHANNEL=task-updates
 export SETTINGS_UPDATES_CHANNEL=settings-updates
 export PRISM_API_PORT=8080
 export STREAM_SERVICE_PORT=8090
-export READ_MODEL_UPDATER_PORT=8091
+export READ_MODEL_UPDATER_PORT=8070
 export CORS_ALLOWED_ORIGINS=".*"
 export AZ_FUNC_HEALTH_ENDPOINT="/"
 export API_HEALTH_ENDPOINT="/healthz"
@@ -48,6 +48,7 @@ export TEST_JWT_SECRET=${TEST_JWT_SECRET:-testsecret}
 export TEST_POLL_TIMEOUT="15s"
 export PRISM_API_BASE="http://localhost:${PRISM_API_PORT}"
 export STREAM_SERVICE_BASE="http://localhost:${STREAM_SERVICE_PORT}"
+export READ_MODEL_UPDATER_BASE="http://localhost:${READ_MODEL_UPDATER_PORT}"
 export AzureWebJobsStorage="${STORAGE_CONNECTION_STRING}"
 export AzureFunctionsJobHost__Logging__Console__IsEnabled="true"
 export FUNCTIONS_WORKER_RUNTIME="custom"
@@ -91,8 +92,9 @@ STREAM_PID=$!
 API_PID=$!
 
 # Wait for APIs to be reachable
-./tests/docker/wait-for.sh http://localhost:${PRISM_API_PORT}${API_HEALTH_ENDPOINT} 60
-./tests/docker/wait-for.sh http://localhost:${STREAM_SERVICE_PORT}${API_HEALTH_ENDPOINT} 60
+./tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
+./tests/docker/wait-for.sh ${READ_MODEL_UPDATER_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
+./tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 60
 
 # Run integration tests
 cd tests/integration

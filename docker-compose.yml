@@ -93,6 +93,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
+    ports:
+      - "${READ_MODEL_UPDATER_PORT}:${READ_MODEL_UPDATER_PORT}"
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     healthcheck:
