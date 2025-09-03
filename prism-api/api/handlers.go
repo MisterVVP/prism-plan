@@ -27,10 +27,10 @@ type Authenticator interface {
 
 // Register wires up all API routes on the provided Echo instance.
 func Register(e *echo.Echo, store Storage, auth Authenticator) {
-       e.GET("/healthz", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
-       e.GET("/api/tasks", getTasks(store, auth))
-       e.GET("/api/settings", getSettings(store, auth))
-       e.POST("/api/commands", postCommands(store, auth))
+	e.GET("/healthz", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+	e.GET("/api/tasks", getTasks(store, auth))
+	e.GET("/api/settings", getSettings(store, auth))
+	e.POST("/api/commands", postCommands(store, auth))
 }
 
 type processedKey struct {
@@ -102,6 +102,7 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
 		filtered := make([]domain.Command, 0, len(cmds))
+		added := make([]processedKey, 0, len(cmds))
 		for i := range cmds {
 			if cmds[i].IdempotencyKey == "" {
 				cmds[i].IdempotencyKey = uuid.NewString()
@@ -110,6 +111,7 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 			if _, exists := processed.LoadOrStore(pk, struct{}{}); exists {
 				continue
 			}
+			added = append(added, pk)
 			if cmds[i].EntityID == "" {
 				cmds[i].EntityID = uuid.NewString()
 			}
@@ -120,6 +122,9 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 			return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 		}
 		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
+			for _, pk := range added {
+				processed.Delete(pk)
+			}
 			c.Logger().Error(err)
 			return c.String(http.StatusInternalServerError, err.Error())
 		}

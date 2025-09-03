@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -83,6 +85,7 @@ func TestGetSettings(t *testing.T) {
 }
 
 func TestPostCommandsIdempotency(t *testing.T) {
+	processed = sync.Map{}
 	e := echo.New()
 	store := &mockStore{}
 	handler := postCommands(store, mockAuth{})
@@ -110,5 +113,51 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	}
 	if len(store.cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(store.cmds))
+	}
+}
+
+type errStore struct {
+	mockStore
+	fail bool
+}
+
+func (e *errStore) EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error {
+	if e.fail {
+		return errors.New("enqueue failed")
+	}
+	return e.mockStore.EnqueueCommands(ctx, userID, cmds)
+}
+
+func TestPostCommandsRetryOnError(t *testing.T) {
+	processed = sync.Map{}
+	e := echo.New()
+	store := &errStore{fail: true}
+	handler := postCommands(store, mockAuth{})
+	body := `[{"idempotencyKey":"k1","entityId":"","entityType":"task","type":"create-task"}]`
+	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := handler(c); err != nil {
+		t.Fatalf("first post: %v", err)
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 got %d", rec.Code)
+	}
+	if len(store.cmds) != 0 {
+		t.Fatalf("expected no commands, got %d", len(store.cmds))
+	}
+	store.fail = false
+	req2 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req2.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec2 := httptest.NewRecorder()
+	c2 := e.NewContext(req2, rec2)
+	if err := handler(c2); err != nil {
+		t.Fatalf("retry post: %v", err)
+	}
+	if len(store.cmds) != 1 {
+		t.Fatalf("expected 1 command after retry, got %d", len(store.cmds))
 	}
 }

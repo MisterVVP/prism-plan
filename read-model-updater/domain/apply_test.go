@@ -120,6 +120,28 @@ func TestApplyTaskCompletedIgnoresOldEvent(t *testing.T) {
 	}
 }
 
+func TestApplyTaskUpdatedIgnoresOldEvent(t *testing.T) {
+	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
+		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
+		Title:          "a",
+		Order:          10,
+		OrderType:      EdmInt32,
+		Done:           true,
+		DoneType:       EdmBoolean,
+		EventTimestamp: 5,
+	}}}
+	done := false
+	order := 0
+	data := TaskUpdatedEventData{Done: &done, Order: &order}
+	payload, _ := json.Marshal(data)
+	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 3}
+	Apply(context.Background(), fs, ev)
+	ent := fs.tasks["t1"]
+	if !ent.Done || ent.Order != 10 || ent.EventTimestamp != 5 {
+		t.Fatalf("unexpected task entity: %#v", ent)
+	}
+}
+
 func TestApplyUserCreated(t *testing.T) {
 	fs := &fakeStore{}
 	data := struct {
