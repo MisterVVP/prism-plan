@@ -70,10 +70,6 @@ func newStreamServiceClient(t *testing.T) *httpclient.Client {
 	return newApiClientInner(t, "STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT")
 }
 
-func newReadModelUpdaterClient(t *testing.T) *httpclient.Client {
-	return newApiClientInner(t, "READ_MODEL_UPDATER_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
-}
-
 // pollTasks polls /api/tasks until cond returns true or timeout. desc is used to
 // identify the condition being waited on so failures are easier to diagnose.
 func pollTasks(t *testing.T, client *httpclient.Client, desc string, cond func([]task) bool) []task {

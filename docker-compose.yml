@@ -86,7 +86,6 @@ services:
       - AzureWebJobsScriptRoot=/home/site/wwwroot
       - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
       - FUNCTIONS_WORKER_RUNTIME=custom
-      - ASPNETCORE_URLS=http://+:${READ_MODEL_UPDATER_PORT}
     depends_on:
       azurite:
         condition: service_healthy
@@ -94,8 +93,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
-    ports:
-      - "${READ_MODEL_UPDATER_PORT}:${READ_MODEL_UPDATER_PORT}"
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     healthcheck:

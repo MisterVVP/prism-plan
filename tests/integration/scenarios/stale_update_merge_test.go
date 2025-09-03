@@ -1,15 +1,23 @@
 package scenarios
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"os"
 	"testing"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
 )
 
 func TestStaleUpdateMergesFields(t *testing.T) {
-	rmuClient := newReadModelUpdaterClient(t)
+	connStr := os.Getenv("STORAGE_CONNECTION_STRING")
+	qName := os.Getenv("DOMAIN_EVENTS_QUEUE")
+	queue, err := azqueue.NewQueueClientFromConnectionString(connStr, qName, nil)
+	if err != nil {
+		t.Fatalf("queue client: %v", err)
+	}
 	apiClient := newPrismApiClient(t)
 
 	taskID := fmt.Sprintf("stale-%d", time.Now().UnixNano())
@@ -18,13 +26,11 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 	send := func(ev map[string]any) {
 		b, _ := json.Marshal(ev)
 		payload := map[string]any{"Data": map[string]any{"event": string(b)}}
-		resp, err := rmuClient.PostJSON("/domain-events", payload, nil)
-		if err != nil {
-			t.Fatalf("post event: %v", err)
+		msg, _ := json.Marshal(payload)
+		if _, err := queue.EnqueueMessage(context.Background(), string(msg), nil); err != nil {
+			t.Fatalf("enqueue event: %v", err)
 		}
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("unexpected status %d", resp.StatusCode)
-		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	send(map[string]any{
