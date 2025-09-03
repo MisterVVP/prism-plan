@@ -171,12 +171,20 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			log.Warnf("task %s received event with identical timestamp", rk)
 		}
 		if ev.Timestamp >= ent.EventTimestamp {
-			ent.Done = true
-			ent.DoneType = EdmBoolean
-			ent.EventTimestamp = ev.Timestamp
-			ent.EventTimestampType = EdmInt64
+			done := true
+			dt := EdmBoolean
+			ts := ev.Timestamp
+			tp := EdmInt64
+			upd := TaskUpdate{
+				Entity:             Entity{PartitionKey: pk, RowKey: rk},
+				Done:               &done,
+				DoneType:           &dt,
+				EventTimestamp:     &ts,
+				EventTimestampType: &tp,
+			}
+			return st.UpdateTask(ctx, upd)
 		}
-		return st.UpsertTask(ctx, *ent)
+		return nil
 	case UserCreated:
 		var user UserEventData
 		if err := json.Unmarshal(ev.Data, &user); err != nil {
