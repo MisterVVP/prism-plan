@@ -21,6 +21,7 @@ type command struct {
 type task struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+	Notes string `json:"notes"`
 	Done  bool   `json:"done"`
 }
 

@@ -108,31 +108,8 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 		if ev.Timestamp == ent.EventTimestamp {
 			log.Warnf("task %s received event with identical timestamp", rk)
 		}
-		upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
-		if ev.Timestamp >= ent.EventTimestamp {
-			if eventData.Title != nil {
-				upd.Title = eventData.Title
-			}
-			if eventData.Notes != nil {
-				upd.Notes = eventData.Notes
-			}
-			if eventData.Category != nil {
-				upd.Category = eventData.Category
-			}
-			if eventData.Order != nil {
-				upd.Order = eventData.Order
-				t := EdmInt32
-				upd.OrderType = &t
-			}
-			if eventData.Done != nil {
-				upd.Done = eventData.Done
-				t := EdmBoolean
-				upd.DoneType = &t
-			}
-			upd.EventTimestamp = &ev.Timestamp
-			t := EdmInt64
-			upd.EventTimestampType = &t
-		} else {
+		if ev.Timestamp < ent.EventTimestamp {
+			upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
 			if eventData.Title != nil && ent.Title == "" {
 				upd.Title = eventData.Title
 			}
@@ -147,12 +124,35 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 				t := EdmInt32
 				upd.OrderType = &t
 			}
-			if eventData.Done != nil && !ent.Done {
-				upd.Done = eventData.Done
-				t := EdmBoolean
-				upd.DoneType = &t
+			// Only attempt an update if there's something to change.
+			if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil {
+				return st.UpdateTask(ctx, upd)
 			}
+			return nil
 		}
+		upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
+		if eventData.Title != nil {
+			upd.Title = eventData.Title
+		}
+		if eventData.Notes != nil {
+			upd.Notes = eventData.Notes
+		}
+		if eventData.Category != nil {
+			upd.Category = eventData.Category
+		}
+		if eventData.Order != nil {
+			upd.Order = eventData.Order
+			t := EdmInt32
+			upd.OrderType = &t
+		}
+		if eventData.Done != nil {
+			upd.Done = eventData.Done
+			t := EdmBoolean
+			upd.DoneType = &t
+		}
+		upd.EventTimestamp = &ev.Timestamp
+		t := EdmInt64
+		upd.EventTimestampType = &t
 		// Only attempt an update if there's something to change.
 		if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil || upd.Done != nil || upd.EventTimestamp != nil {
 			return st.UpdateTask(ctx, upd)

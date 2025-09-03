@@ -1,0 +1,71 @@
+package scenarios
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
+)
+
+func TestStaleUpdateMergesFields(t *testing.T) {
+	connStr := os.Getenv("STORAGE_CONNECTION_STRING_LOCAL")
+	qName := os.Getenv("DOMAIN_EVENTS_QUEUE")
+	queue, err := azqueue.NewQueueClientFromConnectionString(connStr, qName, nil)
+	if err != nil {
+		t.Fatalf("queue client: %v", err)
+	}
+	apiClient := newPrismApiClient(t)
+
+	taskID := fmt.Sprintf("stale-%d", time.Now().UnixNano())
+	userID := "integration-user"
+
+	send := func(ev map[string]any) {
+		b, _ := json.Marshal(ev)
+		if _, err := queue.EnqueueMessage(context.Background(), string(b), nil); err != nil {
+			t.Fatalf("enqueue event: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	base := time.Now().UnixNano()
+	send(map[string]any{
+		"Id":         "1",
+		"EntityId":   taskID,
+		"EntityType": "task",
+		"Type":       "task-created",
+		"Timestamp":  base,
+		"UserId":     userID,
+		"Data":       map[string]any{"title": "t"},
+	})
+	send(map[string]any{
+		"Id":         "2",
+		"EntityId":   taskID,
+		"EntityType": "task",
+		"Type":       "task-updated",
+		"Timestamp":  base + 2,
+		"UserId":     userID,
+		"Data":       map[string]any{"done": true},
+	})
+	send(map[string]any{
+		"Id":         "3",
+		"EntityId":   taskID,
+		"EntityType": "task",
+		"Type":       "task-updated",
+		"Timestamp":  base + 1,
+		"UserId":     userID,
+		"Data":       map[string]any{"notes": "note"},
+	})
+
+	pollTasks(t, apiClient, fmt.Sprintf("task %s to have merged notes", taskID), func(ts []task) bool {
+		for _, tk := range ts {
+			if tk.ID == taskID {
+				return tk.Done && tk.Notes == "note"
+			}
+		}
+		return false
+	})
+}
