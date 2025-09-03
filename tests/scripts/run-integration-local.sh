@@ -27,6 +27,7 @@ export VITE_AUTH0_CLIENT_ID=client
 export VITE_AUTH0_AUDIENCE="https://api.example.com"
 export VITE_STREAM_URL="http://localhost/stream"
 export STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"
+export STORAGE_CONNECTION_STRING_LOCAL="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://localhost:10000/devstoreaccount1;QueueEndpoint=http://localhost:10001/devstoreaccount1;TableEndpoint=http://localhost:10002/devstoreaccount1;"
 export TASK_EVENTS_TABLE=TaskEvents
 export USER_EVENTS_TABLE=UserEvents
 export TASKS_TABLE=Tasks
@@ -39,7 +40,6 @@ export TASK_UPDATES_CHANNEL=task-updates
 export SETTINGS_UPDATES_CHANNEL=settings-updates
 export PRISM_API_PORT=8080
 export STREAM_SERVICE_PORT=8090
-export READ_MODEL_UPDATER_PORT=8070
 export CORS_ALLOWED_ORIGINS=".*"
 export AZ_FUNC_HEALTH_ENDPOINT="/"
 export API_HEALTH_ENDPOINT="/healthz"
@@ -48,7 +48,6 @@ export TEST_JWT_SECRET=${TEST_JWT_SECRET:-testsecret}
 export TEST_POLL_TIMEOUT="15s"
 export PRISM_API_BASE="http://localhost:${PRISM_API_PORT}"
 export STREAM_SERVICE_BASE="http://localhost:${STREAM_SERVICE_PORT}"
-export READ_MODEL_UPDATER_BASE="http://localhost:${READ_MODEL_UPDATER_PORT}"
 export AzureWebJobsStorage="${STORAGE_CONNECTION_STRING}"
 export AzureFunctionsJobHost__Logging__Console__IsEnabled="true"
 export FUNCTIONS_WORKER_RUNTIME="custom"
@@ -79,7 +78,7 @@ fi
 (
   cd read-model-updater/az-funcs && \
   cp ../host.json . && \
-  FUNCTIONS_CUSTOMHANDLER_PORT=${READ_MODEL_UPDATER_PORT} func start --port ${READ_MODEL_UPDATER_PORT} >/tmp/read-model-updater.log 2>&1
+  func start --port 7072 >/tmp/read-model-updater.log 2>&1
 ) &
 RMU_PID=$!
 
@@ -93,7 +92,6 @@ API_PID=$!
 
 # Wait for APIs to be reachable
 ./tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
-./tests/docker/wait-for.sh ${READ_MODEL_UPDATER_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
 ./tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 60
 
 # Run integration tests
