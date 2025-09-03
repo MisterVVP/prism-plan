@@ -1,5 +1,23 @@
 #!/bin/bash
 set -euo pipefail
+
+AZURITE_PID=""
+DOMAIN_PID=""
+RMU_PID=""
+STREAM_PID=""
+API_PID=""
+
+cleanup() {
+  local status=$?
+  for pid in "$API_PID" "$STREAM_PID" "$RMU_PID" "$DOMAIN_PID" "$AZURITE_PID"; do
+    if [ -n "$pid" ]; then
+      kill "$pid" >/dev/null 2>&1 || true
+    fi
+  done
+  exit $status
+}
+trap cleanup EXIT
+
 ROOT_DIR=$(dirname "$0")/..
 cd "$ROOT_DIR"/..
 
@@ -79,12 +97,3 @@ API_PID=$!
 # Run integration tests
 cd tests/integration
 GO111MODULE=on go test ./...
-TEST_STATUS=$?
-cd ../..
-
-# Cleanup
-kill $API_PID $STREAM_PID $RMU_PID >/dev/null 2>&1 || true
-if [ -n "$DOMAIN_PID" ]; then kill $DOMAIN_PID >/dev/null 2>&1 || true; fi
-kill $AZURITE_PID >/dev/null 2>&1 || true
-
-exit $TEST_STATUS
