@@ -25,9 +25,7 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 
 	send := func(ev map[string]any) {
 		b, _ := json.Marshal(ev)
-		payload := map[string]any{"Data": map[string]any{"event": string(b)}}
-		msg, _ := json.Marshal(payload)
-		if _, err := queue.EnqueueMessage(context.Background(), string(msg), nil); err != nil {
+		if _, err := queue.EnqueueMessage(context.Background(), string(b), nil); err != nil {
 			t.Fatalf("enqueue event: %v", err)
 		}
 		time.Sleep(10 * time.Millisecond)
