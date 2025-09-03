@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -30,6 +31,9 @@ func parseTimestamp(raw json.RawMessage) int64 {
 	if err := json.Unmarshal(raw, &s); err == nil {
 		if t, err2 := time.Parse(time.RFC3339Nano, s); err2 == nil {
 			return t.UnixNano()
+		}
+		if i, err2 := strconv.ParseInt(s, 10, 64); err2 == nil {
+			return i
 		}
 	}
 	return 0

@@ -31,7 +31,6 @@ export TEST_POLL_TIMEOUT="15s"
 export PRISM_API_BASE="http://localhost:${PRISM_API_PORT}"
 export STREAM_SERVICE_BASE="http://localhost:${STREAM_SERVICE_PORT}"
 export AzureWebJobsStorage="${STORAGE_CONNECTION_STRING}"
-export AzureWebJobsScriptRoot="/home/site/wwwroot"
 export AzureFunctionsJobHost__Logging__Console__IsEnabled="true"
 export FUNCTIONS_WORKER_RUNTIME="custom"
 
@@ -63,7 +62,8 @@ fi
 
 # Start read-model-updater
 (
-  cd read-model-updater && \
+  cd read-model-updater/az-funcs && \
+  cp ../host.json . && \
   FUNCTIONS_CUSTOMHANDLER_PORT=${READ_MODEL_UPDATER_PORT} func start --port 7072 >/tmp/read-model-updater.log 2>&1
 ) &
 RMU_PID=$!
