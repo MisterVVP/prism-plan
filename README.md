@@ -97,3 +97,4 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 7. Add some basic features to utilise event sourcing (e.g. undo/redo)
 8. Handle rare cases where multiple events share the same timestamp
 9. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
+10. TODO: fix & refactor local test scripts

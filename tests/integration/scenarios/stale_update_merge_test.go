@@ -33,12 +33,13 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
+	base := time.Now().UnixNano()
 	send(map[string]any{
 		"Id":         "1",
 		"EntityId":   taskID,
 		"EntityType": "task",
 		"Type":       "task-created",
-		"Timestamp":  1,
+		"Timestamp":  base,
 		"UserId":     userID,
 		"Data":       map[string]any{"title": "t"},
 	})
@@ -47,7 +48,7 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 		"EntityId":   taskID,
 		"EntityType": "task",
 		"Type":       "task-updated",
-		"Timestamp":  3,
+		"Timestamp":  base + 2,
 		"UserId":     userID,
 		"Data":       map[string]any{"done": true},
 	})
@@ -56,7 +57,7 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 		"EntityId":   taskID,
 		"EntityType": "task",
 		"Type":       "task-updated",
-		"Timestamp":  2,
+		"Timestamp":  base + 1,
 		"UserId":     userID,
 		"Data":       map[string]any{"notes": "note"},
 	})
