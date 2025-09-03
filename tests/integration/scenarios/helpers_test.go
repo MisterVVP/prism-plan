@@ -21,6 +21,7 @@ type command struct {
 type task struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+	Notes string `json:"notes"`
 	Done  bool   `json:"done"`
 }
 
@@ -67,6 +68,10 @@ func newPrismApiClient(t *testing.T) *httpclient.Client {
 
 func newStreamServiceClient(t *testing.T) *httpclient.Client {
 	return newApiClientInner(t, "STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT")
+}
+
+func newReadModelUpdaterClient(t *testing.T) *httpclient.Client {
+	return newApiClientInner(t, "READ_MODEL_UPDATER_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
 }
 
 // pollTasks polls /api/tasks until cond returns true or timeout. desc is used to

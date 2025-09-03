@@ -34,7 +34,44 @@ func (f *fakeStore) UpsertTask(ctx context.Context, ent TaskEntity) error {
 	return nil
 }
 
-func (f *fakeStore) UpdateTask(ctx context.Context, ent TaskUpdate) error { return nil }
+func (f *fakeStore) UpdateTask(ctx context.Context, upd TaskUpdate) error {
+	if f.tasks == nil {
+		f.tasks = map[string]TaskEntity{}
+	}
+	ent, ok := f.tasks[upd.RowKey]
+	if !ok {
+		ent = TaskEntity{Entity: Entity{PartitionKey: upd.PartitionKey, RowKey: upd.RowKey}}
+	}
+	if upd.Title != nil {
+		ent.Title = *upd.Title
+	}
+	if upd.Notes != nil {
+		ent.Notes = *upd.Notes
+	}
+	if upd.Category != nil {
+		ent.Category = *upd.Category
+	}
+	if upd.Order != nil {
+		ent.Order = *upd.Order
+		if upd.OrderType != nil {
+			ent.OrderType = *upd.OrderType
+		}
+	}
+	if upd.Done != nil {
+		ent.Done = *upd.Done
+		if upd.DoneType != nil {
+			ent.DoneType = *upd.DoneType
+		}
+	}
+	if upd.EventTimestamp != nil {
+		ent.EventTimestamp = *upd.EventTimestamp
+		if upd.EventTimestampType != nil {
+			ent.EventTimestampType = *upd.EventTimestampType
+		}
+	}
+	f.tasks[upd.RowKey] = ent
+	return nil
+}
 
 func (f *fakeStore) SetTaskDone(ctx context.Context, pk, rk string) error { return nil }
 
@@ -120,7 +157,7 @@ func TestApplyTaskCompletedIgnoresOldEvent(t *testing.T) {
 	}
 }
 
-func TestApplyTaskUpdatedIgnoresOldEvent(t *testing.T) {
+func TestApplyTaskUpdatedStaleEventDoesNotOverride(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
 		Title:          "a",
@@ -138,6 +175,27 @@ func TestApplyTaskUpdatedIgnoresOldEvent(t *testing.T) {
 	Apply(context.Background(), fs, ev)
 	ent := fs.tasks["t1"]
 	if !ent.Done || ent.Order != 10 || ent.EventTimestamp != 5 {
+		t.Fatalf("unexpected task entity: %#v", ent)
+	}
+}
+
+func TestApplyTaskUpdatedMergesStaleFields(t *testing.T) {
+	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
+		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
+		Title:          "a",
+		Order:          10,
+		OrderType:      EdmInt32,
+		Done:           true,
+		DoneType:       EdmBoolean,
+		EventTimestamp: 5,
+	}}}
+	notes := "note"
+	data := TaskUpdatedEventData{Notes: &notes}
+	payload, _ := json.Marshal(data)
+	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 3}
+	Apply(context.Background(), fs, ev)
+	ent := fs.tasks["t1"]
+	if ent.Notes != "note" || ent.EventTimestamp != 5 {
 		t.Fatalf("unexpected task entity: %#v", ent)
 	}
 }
