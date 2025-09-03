@@ -17,6 +17,11 @@ services:
       - APP_ENV=test
       - AUTH0_TEST_MODE=1
       - TEST_JWT_SECRET=${TEST_JWT_SECRET}
+      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
+      - AzureWebJobsScriptRoot=/home/site/wwwroot
+      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+      - FUNCTIONS_WORKER_RUNTIME=custom
+      - ASPNETCORE_URLS=http://+:${PRISM_API_PORT}
     depends_on:
       azurite:
         condition: service_healthy
@@ -33,6 +38,7 @@ services:
   domain-service:
     environment:
       - APP_ENV=test
+      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
     depends_on:
       azurite:
         condition: service_healthy
@@ -51,6 +57,11 @@ services:
   storage-init:
     environment:
       - APP_ENV=test
+      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
+      - AzureWebJobsScriptRoot=/home/site/wwwroot
+      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+      - FUNCTIONS_WORKER_RUNTIME=custom
+      - ASPNETCORE_URLS=http://+:${READ_MODEL_UPDATER_PORT}
     depends_on:
       azurite:
         condition: service_healthy
