@@ -87,12 +87,7 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			return err
 		}
 		if ent == nil {
-			ent = &TaskEntity{Entity: Entity{PartitionKey: pk, RowKey: rk}, OrderType: EdmInt32, DoneType: EdmBoolean}
-		}
-		if ev.Timestamp == ent.EventTimestamp {
-			log.Warnf("task %s received event with identical timestamp", rk)
-		}
-		if ev.Timestamp >= ent.EventTimestamp {
+			ent = &TaskEntity{Entity: Entity{PartitionKey: pk, RowKey: rk}, OrderType: EdmInt32, DoneType: EdmBoolean, EventTimestamp: ev.Timestamp, EventTimestampType: EdmInt64}
 			if eventData.Title != nil {
 				ent.Title = *eventData.Title
 			}
@@ -104,34 +99,70 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			}
 			if eventData.Order != nil {
 				ent.Order = *eventData.Order
-				ent.OrderType = EdmInt32
 			}
 			if eventData.Done != nil {
 				ent.Done = *eventData.Done
-				ent.DoneType = EdmBoolean
 			}
-			ent.EventTimestamp = ev.Timestamp
-			ent.EventTimestampType = EdmInt64
-		} else {
+			return st.UpsertTask(ctx, *ent)
+		}
+		if ev.Timestamp == ent.EventTimestamp {
+			log.Warnf("task %s received event with identical timestamp", rk)
+		}
+		if ev.Timestamp < ent.EventTimestamp {
+			upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
 			if eventData.Title != nil && ent.Title == "" {
-				ent.Title = *eventData.Title
+				upd.Title = eventData.Title
 			}
 			if eventData.Notes != nil && ent.Notes == "" {
-				ent.Notes = *eventData.Notes
+				upd.Notes = eventData.Notes
 			}
 			if eventData.Category != nil && ent.Category == "" {
-				ent.Category = *eventData.Category
+				upd.Category = eventData.Category
 			}
 			if eventData.Order != nil && ent.Order == 0 {
-				ent.Order = *eventData.Order
-				ent.OrderType = EdmInt32
+				upd.Order = eventData.Order
+				t := EdmInt32
+				upd.OrderType = &t
 			}
 			if eventData.Done != nil && !ent.Done {
-				ent.Done = *eventData.Done
-				ent.DoneType = EdmBoolean
+				upd.Done = eventData.Done
+				t := EdmBoolean
+				upd.DoneType = &t
 			}
+			// Only attempt an update if there's something to change.
+			if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil || upd.Done != nil {
+				return st.UpdateTask(ctx, upd)
+			}
+			return nil
 		}
-		return st.UpsertTask(ctx, *ent)
+		upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
+		if eventData.Title != nil {
+			upd.Title = eventData.Title
+		}
+		if eventData.Notes != nil {
+			upd.Notes = eventData.Notes
+		}
+		if eventData.Category != nil {
+			upd.Category = eventData.Category
+		}
+		if eventData.Order != nil {
+			upd.Order = eventData.Order
+			t := EdmInt32
+			upd.OrderType = &t
+		}
+		if eventData.Done != nil {
+			upd.Done = eventData.Done
+			t := EdmBoolean
+			upd.DoneType = &t
+		}
+		upd.EventTimestamp = &ev.Timestamp
+		t := EdmInt64
+		upd.EventTimestampType = &t
+		// Only attempt an update if there's something to change.
+		if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil || upd.Done != nil || upd.EventTimestamp != nil {
+			return st.UpdateTask(ctx, upd)
+		}
+		return nil
 	case TaskCompleted:
 		ent, err := st.GetTask(ctx, pk, rk)
 		if err != nil {

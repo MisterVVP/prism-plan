@@ -24,6 +24,14 @@ type Authenticator interface {
 	UserIDFromAuthHeader(string) (string, error)
 }
 
+// Deduper prevents processing of duplicate commands.
+type Deduper interface {
+	// Add records the idempotency key and returns true if it was newly added.
+	Add(ctx context.Context, userID, key string) (bool, error)
+	// Remove deletes a previously added key, used when downstream processing fails.
+	Remove(ctx context.Context, userID, key string) error
+}
+
 // Register wires up all API routes on the provided Echo instance.
 func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper) {
 	e.GET("/healthz", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
@@ -93,13 +101,12 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
 		filtered := make([]domain.Command, 0, len(cmds))
-		added := make([]processedKey, 0, len(cmds))
+		added := make([]string, 0, len(cmds))
 		for i := range cmds {
 			if cmds[i].IdempotencyKey == "" {
 				cmds[i].IdempotencyKey = uuid.NewString()
 			}
-			pk := processedKey{userID: userID, key: cmds[i].IdempotencyKey, entityID: cmds[i].EntityID, typ: cmds[i].Type}
-			addedNow, err := deduper.Add(ctx, pk)
+			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
 			if err != nil {
 				c.Logger().Error(err)
 				return c.String(http.StatusInternalServerError, err.Error())
@@ -107,7 +114,7 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			if !addedNow {
 				continue
 			}
-			added = append(added, pk)
+			added = append(added, cmds[i].IdempotencyKey)
 			if cmds[i].EntityID == "" {
 				cmds[i].EntityID = uuid.NewString()
 			}
@@ -118,8 +125,8 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 		}
 		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
-			for _, pk := range added {
-				if remErr := deduper.Remove(ctx, pk); remErr != nil {
+			for _, key := range added {
+				if remErr := deduper.Remove(ctx, userID, key); remErr != nil {
 					c.Logger().Error(remErr)
 				}
 			}

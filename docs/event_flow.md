@@ -14,7 +14,7 @@ sequenceDiagram
     participant ES as Event Store
 
     UI->>API: HTTP Command Request
-    API->>RS: Store Idempotency Key
+    API->>RS: Record Idempotency Key
     API->>CQ: Enqueue Command
     CQ->>DS: Deliver Command
     DS->>ES: Append Domain Events

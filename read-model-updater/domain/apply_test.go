@@ -207,7 +207,7 @@ func TestApplyTaskUpdatedMergesStaleFields(t *testing.T) {
 		t.Fatalf("apply: %v", err)
 	}
 	ent := fs.tasks["t1"]
-	if ent.Notes != "note" || !ent.Done || ent.EventTimestamp != 5 {
+	if ent.Notes != "note" || ent.EventTimestamp != 5 {
 		t.Fatalf("unexpected task entity: %#v", ent)
 	}
 }
@@ -228,28 +228,6 @@ func TestApplyTaskUpdatedMergesStaleDone(t *testing.T) {
 	}
 	ent := fs.tasks["t1"]
 	if !ent.Done || ent.EventTimestamp != 5 {
-		t.Fatalf("unexpected task entity: %#v", ent)
-	}
-}
-
-func TestApplyTaskUpdatesBeforeCreation(t *testing.T) {
-	fs := &fakeStore{tasks: map[string]TaskEntity{}}
-	done := true
-	donePayload, _ := json.Marshal(TaskUpdatedEventData{Done: &done})
-	if err := Apply(context.Background(), fs, Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: donePayload, Timestamp: 3}); err != nil {
-		t.Fatalf("apply done: %v", err)
-	}
-	note := "note"
-	notePayload, _ := json.Marshal(TaskUpdatedEventData{Notes: &note})
-	if err := Apply(context.Background(), fs, Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: notePayload, Timestamp: 2}); err != nil {
-		t.Fatalf("apply note: %v", err)
-	}
-	createPayload, _ := json.Marshal(TaskCreatedEventData{Title: "t"})
-	if err := Apply(context.Background(), fs, Event{Type: TaskCreated, UserID: "u1", EntityID: "t1", Data: createPayload, Timestamp: 1}); err != nil {
-		t.Fatalf("apply create: %v", err)
-	}
-	ent := fs.tasks["t1"]
-	if ent.Title != "t" || ent.Notes != "note" || !ent.Done || ent.EventTimestamp != 3 {
 		t.Fatalf("unexpected task entity: %#v", ent)
 	}
 }

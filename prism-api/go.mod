@@ -12,7 +12,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v4 v4.11.4
-	github.com/redis/go-redis/v9 v9.12.1
+	github.com/redis/go-redis/v9 v9.13.0
 	github.com/sirupsen/logrus v1.9.3
 )
 

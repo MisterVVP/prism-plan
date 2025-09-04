@@ -105,12 +105,7 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	e := echo.New()
 	store := &mockStore{}
 	handler := postCommands(store, mockAuth{}, deduper)
-	body := `[{
-                "idempotencyKey":"k1",
-                "entityId":"",
-                "entityType":"task",
-                "type":"create-task"
-        }]`
+	body := `[{"idempotencyKey":"k1","entityId":"","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
