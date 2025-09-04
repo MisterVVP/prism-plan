@@ -11,4 +11,5 @@ public interface IEvent
     JsonElement? Data { get; }
     long Timestamp { get; }
     string UserId { get; }
+    string IdempotencyKey { get; }
 }

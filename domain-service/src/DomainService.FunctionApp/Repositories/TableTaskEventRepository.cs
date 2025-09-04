@@ -28,8 +28,19 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
         var entity = new TableEntity(ev.EntityId, ev.Id)
         {
             {"UserId", ev.UserId},
-            {"Data", JsonSerializer.Serialize(ev)}
+            {"Data", JsonSerializer.Serialize(ev)},
+            {"IdempotencyKey", ev.IdempotencyKey}
         };
         await _table.AddEntityAsync(entity, ct);
+    }
+
+    public async Task<bool> Exists(string idempotencyKey, CancellationToken ct)
+    {
+        var filter = $"IdempotencyKey eq '{idempotencyKey}'";
+        await foreach (var _ in _table.QueryAsync<TableEntity>(filter: filter, maxPerPage: 1, cancellationToken: ct))
+        {
+            return true;
+        }
+        return false;
     }
 }

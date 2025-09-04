@@ -11,7 +11,7 @@ internal sealed class LogoutUser(IUserEventRepository userRepo, IEventQueue even
 
     public async Task<Unit> Handle(LogoutUserCommand request, CancellationToken ct)
     {
-        var ev = new Event(Guid.NewGuid().ToString(), request.UserId, EntityTypes.User, UserEventTypes.Logout, null, request.Timestamp, request.UserId);
+        var ev = new Event(Guid.NewGuid().ToString(), request.UserId, EntityTypes.User, UserEventTypes.Logout, null, request.Timestamp, request.UserId, request.IdempotencyKey);
         await _userRepo.Add(ev, ct);
         await _eventQueue.Add(ev, ct);
         return Unit.Value;

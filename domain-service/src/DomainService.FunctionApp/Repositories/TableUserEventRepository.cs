@@ -23,7 +23,8 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
         var entity = new TableEntity(ev.EntityId, ev.Id)
         {
             {"UserId", ev.UserId},
-            {"Data", JsonSerializer.Serialize(ev)}
+            {"Data", JsonSerializer.Serialize(ev)},
+            {"IdempotencyKey", ev.IdempotencyKey}
         };
         await _table.AddEntityAsync(entity, ct);
     }

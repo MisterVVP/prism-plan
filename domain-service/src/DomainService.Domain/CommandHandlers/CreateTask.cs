@@ -11,8 +11,10 @@ internal sealed class CreateTask(ITaskEventRepository taskRepo, IEventQueue even
 
     public async Task<Unit> Handle(CreateTaskCommand request, CancellationToken ct)
     {
+        if (await _taskRepo.Exists(request.IdempotencyKey, ct)) return Unit.Value;
+
         var taskId = Guid.NewGuid().ToString();
-        var ev = new Event(Guid.NewGuid().ToString(), taskId, EntityTypes.Task, TaskEventTypes.Created, request.Data, request.Timestamp, request.UserId);
+        var ev = new Event(Guid.NewGuid().ToString(), taskId, EntityTypes.Task, TaskEventTypes.Created, request.Data, request.Timestamp, request.UserId, request.IdempotencyKey);
         await _taskRepo.Add(ev, ct);
         await _eventQueue.Add(ev, ct);
         return Unit.Value;
