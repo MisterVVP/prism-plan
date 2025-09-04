@@ -109,29 +109,31 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			log.Warnf("task %s received event with identical timestamp", rk)
 		}
 		if ev.Timestamp < ent.EventTimestamp {
-			upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
+			changed := false
 			if eventData.Title != nil && ent.Title == "" {
-				upd.Title = eventData.Title
+				ent.Title = *eventData.Title
+				changed = true
 			}
 			if eventData.Notes != nil && ent.Notes == "" {
-				upd.Notes = eventData.Notes
+				ent.Notes = *eventData.Notes
+				changed = true
 			}
 			if eventData.Category != nil && ent.Category == "" {
-				upd.Category = eventData.Category
+				ent.Category = *eventData.Category
+				changed = true
 			}
 			if eventData.Order != nil && ent.Order == 0 {
-				upd.Order = eventData.Order
-				t := EdmInt32
-				upd.OrderType = &t
+				ent.Order = *eventData.Order
+				ent.OrderType = EdmInt32
+				changed = true
 			}
 			if eventData.Done != nil && !ent.Done {
-				upd.Done = eventData.Done
-				t := EdmBoolean
-				upd.DoneType = &t
+				ent.Done = *eventData.Done
+				ent.DoneType = EdmBoolean
+				changed = true
 			}
-			// Only attempt an update if there's something to change.
-			if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil || upd.Done != nil {
-				return st.UpdateTask(ctx, upd)
+			if changed {
+				return st.UpsertTask(ctx, *ent)
 			}
 			return nil
 		}

@@ -207,7 +207,7 @@ func TestApplyTaskUpdatedMergesStaleFields(t *testing.T) {
 		t.Fatalf("apply: %v", err)
 	}
 	ent := fs.tasks["t1"]
-	if ent.Notes != "note" || ent.EventTimestamp != 5 {
+	if ent.Notes != "note" || !ent.Done || ent.EventTimestamp != 5 {
 		t.Fatalf("unexpected task entity: %#v", ent)
 	}
 }
