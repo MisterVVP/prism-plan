@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"net/http"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -25,23 +24,23 @@ type Authenticator interface {
 	UserIDFromAuthHeader(string) (string, error)
 }
 
+// Deduper prevents processing of duplicate commands.
+type Deduper interface {
+	// Add records the idempotency key and returns true if it was newly added.
+	Add(ctx context.Context, userID, key string) (bool, error)
+	// Remove deletes a previously added key, used when downstream processing fails.
+	Remove(ctx context.Context, userID, key string) error
+}
+
 // Register wires up all API routes on the provided Echo instance.
-func Register(e *echo.Echo, store Storage, auth Authenticator) {
+func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper) {
 	e.GET("/healthz", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
 	e.GET("/api/tasks", getTasks(store, auth))
 	e.GET("/api/settings", getSettings(store, auth))
-	e.POST("/api/commands", postCommands(store, auth))
-}
-
-type processedKey struct {
-	userID   string
-	key      string
-	entityID string
-	typ      string
+	e.POST("/api/commands", postCommands(store, auth, deduper))
 }
 
 var (
-	processed     sync.Map
 	lastTimestamp int64
 )
 
@@ -90,7 +89,7 @@ func getSettings(store Storage, auth Authenticator) echo.HandlerFunc {
 	}
 }
 
-func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
+func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
@@ -102,16 +101,20 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
 		filtered := make([]domain.Command, 0, len(cmds))
-		added := make([]processedKey, 0, len(cmds))
+		added := make([]string, 0, len(cmds))
 		for i := range cmds {
 			if cmds[i].IdempotencyKey == "" {
 				cmds[i].IdempotencyKey = uuid.NewString()
 			}
-			pk := processedKey{userID: userID, key: cmds[i].IdempotencyKey, entityID: cmds[i].EntityID, typ: cmds[i].Type}
-			if _, exists := processed.LoadOrStore(pk, struct{}{}); exists {
+			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
+			if err != nil {
+				c.Logger().Error(err)
+				return c.String(http.StatusInternalServerError, err.Error())
+			}
+			if !addedNow {
 				continue
 			}
-			added = append(added, pk)
+			added = append(added, cmds[i].IdempotencyKey)
 			if cmds[i].EntityID == "" {
 				cmds[i].EntityID = uuid.NewString()
 			}
@@ -122,8 +125,10 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 			return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 		}
 		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
-			for _, pk := range added {
-				processed.Delete(pk)
+			for _, key := range added {
+				if remErr := deduper.Remove(ctx, userID, key); remErr != nil {
+					c.Logger().Error(remErr)
+				}
 			}
 			c.Logger().Error(err)
 			return c.String(http.StatusInternalServerError, err.Error())

@@ -90,7 +90,7 @@ flowchart LR
 
 ## Operational Notes
 
-* **Idempotency**: Domain Service keeps a *processed‑command* hash per aggregate to drop duplicates.
+* **Idempotency**: API stores command idempotency keys in Redis so all instances skip duplicates; Domain Service also keeps a per‑aggregate hash to drop any that slip through.
 * **Schema evolution**: version events, keep up‑casters in Domain Service; read‑models are rebuildable.
 * **Local Dev**: run Azure Storage emulator in Docker (`Azurite`) for queues and table storage.
 * **Observability**: correlate `commandId` ↔ `eventId` across logs for easy tracing.
