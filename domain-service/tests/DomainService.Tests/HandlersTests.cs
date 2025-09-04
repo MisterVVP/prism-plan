@@ -12,11 +12,12 @@ public class HandlersTests
         var repo = new InMemoryTaskRepo();
         var queue = new InMemoryQueue();
         ICommandHandler<CreateTaskCommand> handler = new CreateTask(repo, queue);
-        var cmd = new CreateTaskCommand("t1", JsonDocument.Parse("{\"title\":\"t\",\"notes\":\"n\",\"category\":\"c\"}").RootElement, "u1", 1);
+        var cmd = new CreateTaskCommand(JsonDocument.Parse("{\"title\":\"t\",\"notes\":\"n\",\"category\":\"c\"}").RootElement, "u1", 1);
         await handler.Handle(cmd, CancellationToken.None);
         Assert.Single(repo.Events);
         Assert.Single(queue.Events);
         Assert.Equal("task-created", repo.Events[0].Type);
+        Assert.False(string.IsNullOrWhiteSpace(repo.Events[0].EntityId));
     }
 
     [Fact]

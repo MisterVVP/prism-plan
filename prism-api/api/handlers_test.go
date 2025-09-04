@@ -105,7 +105,7 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	e := echo.New()
 	store := &mockStore{}
 	handler := postCommands(store, mockAuth{}, deduper)
-	body := `[{"idempotencyKey":"k1","entityId":"","entityType":"task","type":"create-task"}]`
+	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -125,6 +125,13 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	if len(store.cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(store.cmds))
 	}
+        var resp map[string][]string
+        if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+                t.Fatalf("invalid json: %v", err)
+        }
+        if len(resp["idempotencyKeys"]) != 1 || resp["idempotencyKeys"][0] != "k1" {
+                t.Fatalf("unexpected idempotency keys: %#v", resp)
+        }
 }
 
 type errStore struct {
@@ -145,7 +152,7 @@ func TestPostCommandsRetryOnError(t *testing.T) {
 	e := echo.New()
 	store := &errStore{fail: true}
 	handler := postCommands(store, mockAuth{}, deduper)
-	body := `[{"idempotencyKey":"k1","entityId":"","entityType":"task","type":"create-task"}]`
+	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

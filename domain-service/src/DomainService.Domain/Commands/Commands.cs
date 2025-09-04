@@ -6,7 +6,7 @@ namespace DomainService.Domain.Commands
 {
     public sealed record CompleteTaskCommand(string TaskId, string UserId, long Timestamp) : ICommand<Unit>;
 
-    public sealed record CreateTaskCommand(string TaskId, JsonElement? Data, string UserId, long Timestamp) : ICommand<Unit>;
+    public sealed record CreateTaskCommand(JsonElement? Data, string UserId, long Timestamp) : ICommand<Unit>;
 
     public sealed record LoginUserCommand(string UserId, string Name, string Email, long Timestamp) : ICommand<Unit>;
 

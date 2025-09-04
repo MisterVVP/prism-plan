@@ -10,10 +10,10 @@ export interface Task {
 }
 
 export interface Command {
-  entityId: string;
   entityType: string;
   type: string;
   data?: any;
+  idempotencyKey?: string;
 }
 
 export interface Settings {
