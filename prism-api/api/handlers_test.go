@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
+	"time"
 
+	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 
 	"prism-api/domain"
 )
@@ -84,11 +86,25 @@ func TestGetSettings(t *testing.T) {
 	}
 }
 
+func setupDeduper(t *testing.T) (Deduper, func()) {
+	m, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	rc := redis.NewClient(&redis.Options{Addr: m.Addr()})
+	d := NewRedisDeduper(rc, time.Hour)
+	return d, func() {
+		rc.Close()
+		m.Close()
+	}
+}
+
 func TestPostCommandsIdempotency(t *testing.T) {
-	processed = sync.Map{}
+	deduper, cleanup := setupDeduper(t)
+	defer cleanup()
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{})
+	handler := postCommands(store, mockAuth{}, deduper)
 	body := `[{
                 "idempotencyKey":"k1",
                 "entityId":"",
@@ -129,10 +145,11 @@ func (e *errStore) EnqueueCommands(ctx context.Context, userID string, cmds []do
 }
 
 func TestPostCommandsRetryOnError(t *testing.T) {
-	processed = sync.Map{}
+	deduper, cleanup := setupDeduper(t)
+	defer cleanup()
 	e := echo.New()
 	store := &errStore{fail: true}
-	handler := postCommands(store, mockAuth{})
+	handler := postCommands(store, mockAuth{}, deduper)
 	body := `[{"idempotencyKey":"k1","entityId":"","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")

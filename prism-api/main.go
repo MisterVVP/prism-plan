@@ -1,13 +1,17 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/MicahParks/keyfunc"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 
 	"prism-api/api"
@@ -29,6 +33,32 @@ func main() {
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}
+
+	redisConn := os.Getenv("REDIS_CONNECTION_STRING")
+	if redisConn == "" {
+		log.Fatal("missing redis config")
+	}
+	redisOpts, err := redis.ParseURL(redisConn)
+	if err != nil {
+		parts := strings.Split(redisConn, ",")
+		redisOpts = &redis.Options{Addr: parts[0]}
+		for _, p := range parts[1:] {
+			kv := strings.SplitN(p, "=", 2)
+			if len(kv) != 2 {
+				continue
+			}
+			switch strings.ToLower(kv[0]) {
+			case "password":
+				redisOpts.Password = kv[1]
+			case "ssl":
+				if strings.ToLower(kv[1]) == "true" {
+					redisOpts.TLSConfig = &tls.Config{}
+				}
+			}
+		}
+	}
+	rc := redis.NewClient(redisOpts)
+	deduper := api.NewRedisDeduper(rc, 24*time.Hour)
 
 	testMode := os.Getenv("AUTH0_TEST_MODE") == "1"
 	var auth *api.Auth
@@ -54,7 +84,7 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	api.Register(e, store, auth)
+	api.Register(e, store, auth, deduper)
 
 	listenAddr := ":8080"
 	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {

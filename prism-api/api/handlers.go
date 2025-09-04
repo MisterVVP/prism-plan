@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"net/http"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -26,22 +25,14 @@ type Authenticator interface {
 }
 
 // Register wires up all API routes on the provided Echo instance.
-func Register(e *echo.Echo, store Storage, auth Authenticator) {
+func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper) {
 	e.GET("/healthz", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
 	e.GET("/api/tasks", getTasks(store, auth))
 	e.GET("/api/settings", getSettings(store, auth))
-	e.POST("/api/commands", postCommands(store, auth))
-}
-
-type processedKey struct {
-	userID   string
-	key      string
-	entityID string
-	typ      string
+	e.POST("/api/commands", postCommands(store, auth, deduper))
 }
 
 var (
-	processed     sync.Map
 	lastTimestamp int64
 )
 
@@ -90,7 +81,7 @@ func getSettings(store Storage, auth Authenticator) echo.HandlerFunc {
 	}
 }
 
-func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
+func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
@@ -108,7 +99,12 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 				cmds[i].IdempotencyKey = uuid.NewString()
 			}
 			pk := processedKey{userID: userID, key: cmds[i].IdempotencyKey, entityID: cmds[i].EntityID, typ: cmds[i].Type}
-			if _, exists := processed.LoadOrStore(pk, struct{}{}); exists {
+			addedNow, err := deduper.Add(ctx, pk)
+			if err != nil {
+				c.Logger().Error(err)
+				return c.String(http.StatusInternalServerError, err.Error())
+			}
+			if !addedNow {
 				continue
 			}
 			added = append(added, pk)
@@ -123,7 +119,9 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 		}
 		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
 			for _, pk := range added {
-				processed.Delete(pk)
+				if remErr := deduper.Remove(ctx, pk); remErr != nil {
+					c.Logger().Error(remErr)
+				}
 			}
 			c.Logger().Error(err)
 			return c.String(http.StatusInternalServerError, err.Error())
