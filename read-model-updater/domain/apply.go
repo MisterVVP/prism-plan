@@ -124,8 +124,13 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 				t := EdmInt32
 				upd.OrderType = &t
 			}
+			if eventData.Done != nil && !ent.Done {
+				upd.Done = eventData.Done
+				t := EdmBoolean
+				upd.DoneType = &t
+			}
 			// Only attempt an update if there's something to change.
-			if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil {
+			if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil || upd.Done != nil {
 				return st.UpdateTask(ctx, upd)
 			}
 			return nil
