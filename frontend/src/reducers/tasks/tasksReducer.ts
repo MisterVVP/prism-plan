@@ -130,9 +130,9 @@ export function tasksReducer(state: State = initialState, action: Action): State
     case "set-idempotency-keys": {
       let j = 0;
       const cmds = state.commands.map((c) => {
-        if (c.idempotencyKey) return c;
         const key = action.keys[j++];
-        return key ? { ...c, idempotencyKey: key } : c;
+        if (c.idempotencyKey || !key) return c;
+        return { ...c, idempotencyKey: key };
       });
       return { ...state, commands: cmds };
     }

@@ -113,7 +113,7 @@ describe("tasksReducer", () => {
     });
   });
 
-  it("maps returned idempotency keys only to commands missing them", () => {
+  it("preserves index alignment when applying idempotency keys", () => {
     const s1 = tasksReducer(initialState, {
       type: "add-task",
       partial: { title: "a", notes: "", category: "normal" },
@@ -128,7 +128,7 @@ describe("tasksReducer", () => {
     };
     const s4 = tasksReducer(s3, {
       type: "set-idempotency-keys",
-      keys: ["k2"],
+      keys: ["k1", "k2"],
     });
     expect(s4.commands[0].idempotencyKey).toBe("k1");
     expect(s4.commands[1].idempotencyKey).toBe("k2");
