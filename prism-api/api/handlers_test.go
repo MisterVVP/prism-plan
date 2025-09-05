@@ -125,6 +125,9 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	if len(store.cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(store.cmds))
 	}
+	if store.cmds[0].ID != "k1" {
+		t.Fatalf("command ID %s does not match expected idempotency key", store.cmds[0].ID)
+	}
 	var resp struct {
 		IdempotencyKeys []string `json:"idempotencyKeys"`
 		Error           string   `json:"error"`
@@ -246,5 +249,8 @@ func TestPostCommandsReturnKeysForAll(t *testing.T) {
 	}
 	if store.cmds[0].IdempotencyKey != keys[1] {
 		t.Fatalf("stored command key %s does not match response %s", store.cmds[0].IdempotencyKey, keys[1])
+	}
+	if store.cmds[0].ID != store.cmds[0].IdempotencyKey {
+		t.Fatalf("command ID %s does not match idempotency key %s", store.cmds[0].ID, store.cmds[0].IdempotencyKey)
 	}
 }

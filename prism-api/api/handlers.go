@@ -107,6 +107,7 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			if cmds[i].IdempotencyKey == "" {
 				cmds[i].IdempotencyKey = uuid.NewString()
 			}
+			cmds[i].ID = cmds[i].IdempotencyKey
 			keys[i] = cmds[i].IdempotencyKey
 			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
 			if err != nil {
