@@ -125,13 +125,23 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	if len(store.cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(store.cmds))
 	}
-        var resp map[string][]string
-        if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-                t.Fatalf("invalid json: %v", err)
-        }
-        if len(resp["idempotencyKeys"]) != 1 || resp["idempotencyKeys"][0] != "k1" {
-                t.Fatalf("unexpected idempotency keys: %#v", resp)
-        }
+	var resp struct {
+		IdempotencyKeys []string `json:"idempotencyKeys"`
+		Error           string   `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if len(resp.IdempotencyKeys) != 1 || resp.IdempotencyKeys[0] != "k1" {
+		t.Fatalf("unexpected idempotency keys: %#v", resp)
+	}
+	var resp2 map[string][]string
+	if err := json.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if len(resp2["idempotencyKeys"]) != 1 || resp2["idempotencyKeys"][0] != "k1" {
+		t.Fatalf("unexpected idempotency keys on second post: %#v", resp2)
+	}
 }
 
 type errStore struct {
@@ -167,6 +177,16 @@ func TestPostCommandsRetryOnError(t *testing.T) {
 	if len(store.cmds) != 0 {
 		t.Fatalf("expected no commands, got %d", len(store.cmds))
 	}
+	var resp struct {
+		IdempotencyKeys []string `json:"idempotencyKeys"`
+		Error           string   `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if len(resp.IdempotencyKeys) != 1 || resp.IdempotencyKeys[0] != "k1" {
+		t.Fatalf("unexpected idempotency keys: %#v", resp)
+	}
 	store.fail = false
 	req2 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req2.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -178,5 +198,53 @@ func TestPostCommandsRetryOnError(t *testing.T) {
 	}
 	if len(store.cmds) != 1 {
 		t.Fatalf("expected 1 command after retry, got %d", len(store.cmds))
+	}
+	var resp2 map[string][]string
+	if err := json.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if len(resp2["idempotencyKeys"]) != 1 || resp2["idempotencyKeys"][0] != "k1" {
+		t.Fatalf("unexpected idempotency keys after retry: %#v", resp2)
+	}
+}
+
+func TestPostCommandsReturnKeysForAll(t *testing.T) {
+	deduper, cleanup := setupDeduper(t)
+	defer cleanup()
+	// pre-add a key to simulate duplicate
+	if _, err := deduper.Add(context.Background(), "user", "k1"); err != nil {
+		t.Fatalf("seed deduper: %v", err)
+	}
+	e := echo.New()
+	store := &mockStore{}
+	handler := postCommands(store, mockAuth{}, deduper)
+	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
+	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := handler(c); err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	if len(store.cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(store.cmds))
+	}
+	var resp map[string][]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	keys := resp["idempotencyKeys"]
+	if len(keys) != 2 {
+		t.Fatalf("expected 2 idempotency keys, got %d", len(keys))
+	}
+	if keys[0] != "k1" {
+		t.Fatalf("expected first key k1, got %s", keys[0])
+	}
+	if keys[1] == "" || keys[1] == "k1" {
+		t.Fatalf("invalid second key: %s", keys[1])
+	}
+	if store.cmds[0].IdempotencyKey != keys[1] {
+		t.Fatalf("stored command key %s does not match response %s", store.cmds[0].IdempotencyKey, keys[1])
 	}
 }
