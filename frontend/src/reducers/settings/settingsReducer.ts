@@ -47,10 +47,12 @@ export function settingsReducer(state: State = initialState, action: Action): St
     case "clear-commands":
       return { ...state, commands: [] };
     case "set-idempotency-keys": {
-      const cmds = state.commands.map((c, i) => ({
-        ...c,
-        idempotencyKey: action.keys[i],
-      }));
+      let j = 0;
+      const cmds = state.commands.map((c) => {
+        if (c.idempotencyKey) return c;
+        const key = action.keys[j++];
+        return key ? { ...c, idempotencyKey: key } : c;
+      });
       return { ...state, commands: cmds };
     }
     default:
