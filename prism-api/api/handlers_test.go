@@ -254,3 +254,70 @@ func TestPostCommandsReturnKeysForAll(t *testing.T) {
 		t.Fatalf("command ID %s does not match idempotency key %s", store.cmds[0].ID, store.cmds[0].IdempotencyKey)
 	}
 }
+
+type flakeyDeduper struct {
+	keys   map[string]struct{}
+	failAt int
+	calls  int
+}
+
+func newFlakeyDeduper(failAt int) *flakeyDeduper {
+	return &flakeyDeduper{keys: make(map[string]struct{}), failAt: failAt}
+}
+
+func (d *flakeyDeduper) Add(ctx context.Context, userID, key string) (bool, error) {
+	if d.calls == d.failAt {
+		d.calls++
+		return false, errors.New("add failed")
+	}
+	d.calls++
+	if _, ok := d.keys[key]; ok {
+		return false, nil
+	}
+	d.keys[key] = struct{}{}
+	return true, nil
+}
+
+func (d *flakeyDeduper) Remove(ctx context.Context, userID, key string) error {
+	delete(d.keys, key)
+	return nil
+}
+
+func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
+	d := newFlakeyDeduper(1)
+	e := echo.New()
+	store := &mockStore{}
+	handler := postCommands(store, mockAuth{}, d)
+	body := `[{"entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
+	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := handler(c); err != nil {
+		t.Fatalf("first post: %v", err)
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 got %d", rec.Code)
+	}
+	if len(d.keys) != 0 {
+		t.Fatalf("expected keys cleaned up, got %v", d.keys)
+	}
+
+	// Allow subsequent calls to succeed
+	d.failAt = -1
+	req2 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req2.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec2 := httptest.NewRecorder()
+	c2 := e.NewContext(req2, rec2)
+	if err := handler(c2); err != nil {
+		t.Fatalf("second post: %v", err)
+	}
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected status 200 got %d", rec2.Code)
+	}
+	if len(d.keys) != 2 {
+		t.Fatalf("expected 2 keys added, got %d", len(d.keys))
+	}
+}

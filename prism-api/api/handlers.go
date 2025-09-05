@@ -112,6 +112,16 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
 			if err != nil {
 				c.Logger().Error(err)
+				// Attempt to remove any keys added earlier in the loop
+				for _, key := range added {
+					if remErr := deduper.Remove(ctx, userID, key); remErr != nil {
+						c.Logger().Error(remErr)
+					}
+				}
+				// Also try to remove the current key in case it was stored
+				if remErr := deduper.Remove(ctx, userID, cmds[i].IdempotencyKey); remErr != nil {
+					c.Logger().Error(remErr)
+				}
 				return c.String(http.StatusInternalServerError, err.Error())
 			}
 			if !addedNow {

@@ -112,4 +112,25 @@ describe("tasksReducer", () => {
       data: { id: "t1" },
     });
   });
+
+  it("preserves index alignment when applying idempotency keys", () => {
+    const s1 = tasksReducer(initialState, {
+      type: "add-task",
+      partial: { title: "a", notes: "", category: "normal" },
+    });
+    const s2 = tasksReducer(s1, {
+      type: "add-task",
+      partial: { title: "b", notes: "", category: "normal" },
+    });
+    const s3 = {
+      ...s2,
+      commands: [{ ...s2.commands[0], idempotencyKey: "k1" }, s2.commands[1]],
+    };
+    const s4 = tasksReducer(s3, {
+      type: "set-idempotency-keys",
+      keys: ["k1", "k2"],
+    });
+    expect(s4.commands[0].idempotencyKey).toBe("k1");
+    expect(s4.commands[1].idempotencyKey).toBe("k2");
+  });
 });

@@ -128,10 +128,12 @@ export function tasksReducer(state: State = initialState, action: Action): State
     case "clear-commands":
       return { ...state, commands: [] };
     case "set-idempotency-keys": {
-      const cmds = state.commands.map((c, i) => ({
-        ...c,
-        idempotencyKey: action.keys[i],
-      }));
+      let j = 0;
+      const cmds = state.commands.map((c) => {
+        const key = action.keys[j++];
+        if (c.idempotencyKey || !key) return c;
+        return { ...c, idempotencyKey: key };
+      });
       return { ...state, commands: cmds };
     }
     default:
