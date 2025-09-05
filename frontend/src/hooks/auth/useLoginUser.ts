@@ -42,12 +42,11 @@ export function useLoginUser() {
         const token: string = tokenResponse.access_token || tokenResponse;
         const expiresIn: number = tokenResponse.expires_in || 0;
         const command = {
-          entityId: user.sub,
           entityType: "user",
           type: "login-user",
           data: { name: user.name, email: user.email },
         };
-        await fetch(`${baseUrl}/commands`, {
+        const res = await fetch(`${baseUrl}/commands`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -55,6 +54,7 @@ export function useLoginUser() {
           },
           body: JSON.stringify([command]),
         });
+        await res.json();
         const expiresAt = Date.now() + expiresIn * 1000;
         localStorage.setItem(
           storageKey,

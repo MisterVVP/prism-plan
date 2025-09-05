@@ -11,11 +11,10 @@ import (
 )
 
 type command struct {
-	IdempotencyKey string         `json:"idempotencyKey,omitempty"`
-	EntityID       string         `json:"entityId,omitempty"`
-	EntityType     string         `json:"entityType"`
-	Type           string         `json:"type"`
-	Data           map[string]any `json:"data,omitempty"`
+        IdempotencyKey string         `json:"idempotencyKey,omitempty"`
+        EntityType     string         `json:"entityType"`
+        Type           string         `json:"type"`
+        Data           map[string]any `json:"data,omitempty"`
 }
 
 type task struct {

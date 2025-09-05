@@ -91,7 +91,10 @@ describe("tasksReducer", () => {
       changes: { title: "b" },
     });
     expect(s2.tasks[0].title).toBe("b");
-    expect(s2.commands[0]).toMatchObject({ type: "update-task", entityId: "t1" });
+    expect(s2.commands[0]).toMatchObject({
+      type: "update-task",
+      data: { id: "t1", title: "b" },
+    });
   });
 
   it("completes task and queues command", () => {
@@ -104,6 +107,9 @@ describe("tasksReducer", () => {
       id: "t1",
     });
     expect(s2.tasks[0].done).toBe(true);
-    expect(s2.commands[0]).toMatchObject({ type: "complete-task", entityId: "t1" });
+    expect(s2.commands[0]).toMatchObject({
+      type: "complete-task",
+      data: { id: "t1" },
+    });
   });
 });

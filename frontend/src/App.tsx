@@ -30,11 +30,10 @@ export default function App() {
           },
         });
         const command = {
-          entityId: user.sub,
           entityType: 'user',
           type: 'logout-user',
         };
-        await fetch(`${baseUrl}/commands`, {
+        const res = await fetch(`${baseUrl}/commands`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -42,6 +41,7 @@ export default function App() {
           },
           body: JSON.stringify([command]),
         });
+        await res.json();
       } catch (err) {
         console.error(err);
       }

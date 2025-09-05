@@ -11,26 +11,27 @@ import (
 func TestOrderingAndIdempotency(t *testing.T) {
 	client := newPrismApiClient(t)
 
-	taskID := fmt.Sprintf("idempotent-%d", time.Now().UnixNano())
-	title := fmt.Sprintf("title-%d", time.Now().UnixNano())
-	dedupe := fmt.Sprintf("ik-create-%d", time.Now().UnixNano())
-	payload := map[string]any{"title": title}
+        title := fmt.Sprintf("title-%d", time.Now().UnixNano())
+        dedupe := fmt.Sprintf("ik-create-%d", time.Now().UnixNano())
+        payload := map[string]any{"title": title}
 
-	if resp, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: dedupe, EntityType: "task", EntityID: taskID, Type: "create-task", Data: payload}}, nil); err != nil || resp.StatusCode >= 300 {
-		t.Fatalf("first create: status %d err %v", resp.StatusCode, err)
-	}
-	if resp, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: dedupe, EntityType: "task", EntityID: taskID, Type: "create-task", Data: payload}}, nil); err != nil || resp.StatusCode >= 300 {
-		t.Fatalf("second create: status %d err %v", resp.StatusCode, err)
-	}
+        if resp, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: dedupe, EntityType: "task", Type: "create-task", Data: payload}}, nil); err != nil || resp.StatusCode >= 300 {
+                t.Fatalf("first create: status %d err %v", resp.StatusCode, err)
+        }
+        if resp, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: dedupe, EntityType: "task", Type: "create-task", Data: payload}}, nil); err != nil || resp.StatusCode >= 300 {
+                t.Fatalf("second create: status %d err %v", resp.StatusCode, err)
+        }
 
-	tasks := pollTasks(t, client, fmt.Sprintf("task %s to be created with title %s", taskID, title), func(ts []task) bool {
-		for _, tk := range ts {
-			if tk.ID == taskID {
-				return tk.Title == title
-			}
-		}
-		return false
-	})
+        var taskID string
+        tasks := pollTasks(t, client, fmt.Sprintf("task with title %s to be created", title), func(ts []task) bool {
+                for _, tk := range ts {
+                        if tk.Title == title {
+                                taskID = tk.ID
+                                return true
+                        }
+                }
+                return false
+        })
 
 	count := 0
 	for _, tk := range tasks {
@@ -45,7 +46,7 @@ func TestOrderingAndIdempotency(t *testing.T) {
 	titles := []string{title + "-a", title + "-b", title + "-c"}
 	for i, tt := range titles {
 		key := fmt.Sprintf("ik-update-%d", i)
-		if resp, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: key, EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": tt}}}, nil); err != nil || resp.StatusCode >= 300 {
+                if resp, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: key, EntityType: "task", Type: "update-task", Data: map[string]any{"id": taskID, "title": tt}}}, nil); err != nil || resp.StatusCode >= 300 {
 			t.Fatalf("edit %d: status %d err %v", i, resp.StatusCode, err)
 		}
 		// Ensure each update is observed before issuing the next one

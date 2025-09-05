@@ -107,7 +107,7 @@ export function useSettings() {
             scope: "openid profile email offline_access",
           },
         });
-        await fetch(`${apiBaseUrl}/commands`, {
+        const res = await fetch(`${apiBaseUrl}/commands`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -115,8 +115,12 @@ export function useSettings() {
           },
           body: JSON.stringify(commands),
         });
+        const { idempotencyKeys } = await res.json();
         if (!cancelled) {
-          dispatch({ type: "clear-commands" });
+          dispatch({ type: "set-idempotency-keys", keys: idempotencyKeys });
+          if (res.ok) {
+            dispatch({ type: "clear-commands" });
+          }
         }
       } catch (err) {
         if (

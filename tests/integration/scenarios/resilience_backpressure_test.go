@@ -29,9 +29,8 @@ func TestResilienceBackpressure(t *testing.T) {
 	}
 	t.Cleanup(func() { dc("start", "domain-service") })
 
-	taskID := fmt.Sprintf("backpressure-%d", time.Now().UnixNano())
-	title := "backpressure-title-" + taskID
-	resp, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-create-%s", taskID), EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil)
+	title := fmt.Sprintf("backpressure-title-%d", time.Now().UnixNano())
+	resp, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-create-%s", title), EntityType: "task", Type: "create-task", Data: map[string]any{"title": title}}}, nil)
 	if err != nil {
 		t.Fatalf("post command: %v", err)
 	}
@@ -43,10 +42,10 @@ func TestResilienceBackpressure(t *testing.T) {
 		t.Fatalf("restart domain-service: %v", err)
 	}
 	start := time.Now()
-	pollTasks(t, client, fmt.Sprintf("task %s to appear with title %s after restart", taskID, title), func(ts []task) bool {
+	pollTasks(t, client, fmt.Sprintf("task with title %s to appear after restart", title), func(ts []task) bool {
 		for _, tk := range ts {
-			if tk.ID == taskID {
-				return tk.Title == title
+			if tk.Title == title {
+				return true
 			}
 		}
 		return false

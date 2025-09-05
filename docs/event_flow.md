@@ -16,7 +16,9 @@ sequenceDiagram
     UI->>API: HTTP Command Request
     API->>RS: Record Idempotency Key
     API->>CQ: Enqueue Command
+    API-->>UI: Return Idempotency Key(s)
     CQ->>DS: Deliver Command
+    DS->>DS: Generate Entity ID
     DS->>ES: Append Domain Events
     DS-->>UI: Command Accepted
 ```

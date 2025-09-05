@@ -18,7 +18,8 @@ internal sealed class UpdateUserSettings(IUserEventRepository userRepo, IEventQu
             UserEventTypes.SettingsUpdated,
             request.Data,
             request.Timestamp,
-            request.UserId);
+            request.UserId,
+            request.IdempotencyKey);
         await _userRepo.Add(ev, ct);
         await _eventQueue.Add(ev, ct);
         return Unit.Value;

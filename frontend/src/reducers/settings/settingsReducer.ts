@@ -18,12 +18,14 @@ type UpdateSettingsAction = {
   settings: Partial<Settings>;
 };
 type ClearCommandsAction = { type: "clear-commands" };
+type SetIdempotencyKeysAction = { type: "set-idempotency-keys"; keys: string[] };
 
 type Action =
   | SetSettingsAction
   | MergeSettingsAction
   | UpdateSettingsAction
-  | ClearCommandsAction;
+  | ClearCommandsAction
+  | SetIdempotencyKeysAction;
 
 export function settingsReducer(state: State = initialState, action: Action): State {
   switch (action.type) {
@@ -33,7 +35,6 @@ export function settingsReducer(state: State = initialState, action: Action): St
       return { ...state, settings: { ...state.settings, ...action.settings } };
     case "update-settings": {
       const cmd: Command = {
-        entityId: action.userId,
         entityType: "user-settings",
         type: "update-user-settings",
         data: action.settings,
@@ -45,6 +46,12 @@ export function settingsReducer(state: State = initialState, action: Action): St
     }
     case "clear-commands":
       return { ...state, commands: [] };
+    case "set-idempotency-keys": {
+      const cmds = state.commands.map((c, i) =>
+        c.idempotencyKey ? c : { ...c, idempotencyKey: action.keys[i] }
+      );
+      return { ...state, commands: cmds };
+    }
     default:
       return state;
   }

@@ -69,8 +69,8 @@ flowchart LR
 ## Execution Flow
 
 1. **Command path**
-    - Frontend sends an intent (e.g., *AddItemToCart*) → API publishes command to **Command Queue**.
-    - **Domain Service** consumes the command, loads the aggregate’s past events from **Event Store**, executes business logic, then writes new events back to the store.
+    - Frontend sends an intent (e.g., *AddItemToCart*) → API publishes command to **Command Queue** and returns generated idempotency keys to the caller.
+    - **Domain Service** consumes the command, generates entity identifiers for new aggregates, loads any existing events from **Event Store**, executes business logic, then writes new events back to the store.
     - Same service publishes those events to **Domain Events Queue**.
 2. **Read‑side update**
    **Read‑Model Updater** consumes the event stream, materialises projections in **Read‑Model Store**.

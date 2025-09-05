@@ -27,7 +27,8 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
             type,
             data,
             request.Timestamp,
-            request.UserId);
+            request.UserId,
+            request.IdempotencyKey);
         await _userRepo.Add(ev, ct);
         await _eventQueue.Add(ev, ct);
         if (!exists)
@@ -40,7 +41,8 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
                 UserEventTypes.SettingsCreated,
                 settingsData,
                 request.Timestamp,
-                request.UserId);
+                request.UserId,
+                request.IdempotencyKey);
             await _userRepo.Add(settingsEv, ct);
             await _eventQueue.Add(settingsEv, ct);
         }
