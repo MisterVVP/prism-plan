@@ -203,7 +203,7 @@ func TestApplyTaskUpdatedStaleEventDoesNotOverride(t *testing.T) {
 	}
 }
 
-func TestApplyTaskUpdatedMergesStaleFields(t *testing.T) {
+func TestApplyTaskUpdatedIgnoresStaleFields(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
 		Title:          "a",
@@ -221,12 +221,12 @@ func TestApplyTaskUpdatedMergesStaleFields(t *testing.T) {
 		t.Fatalf("apply: %v", err)
 	}
 	ent := fs.tasks["t1"]
-	if ent.Notes != "note" || ent.EventTimestamp != 5 {
+	if ent.Notes != "" || ent.EventTimestamp != 5 {
 		t.Fatalf("unexpected task entity: %#v", ent)
 	}
 }
 
-func TestApplyTaskUpdatedMergesStaleDone(t *testing.T) {
+func TestApplyTaskUpdatedIgnoresStaleDone(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
 		Done:           false,
@@ -241,7 +241,7 @@ func TestApplyTaskUpdatedMergesStaleDone(t *testing.T) {
 		t.Fatalf("apply: %v", err)
 	}
 	ent := fs.tasks["t1"]
-	if !ent.Done || ent.EventTimestamp != 5 {
+	if ent.Done || ent.EventTimestamp != 5 {
 		t.Fatalf("unexpected task entity: %#v", ent)
 	}
 }
