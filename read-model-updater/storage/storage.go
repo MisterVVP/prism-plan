@@ -114,6 +114,15 @@ func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntit
 	return &task, nil
 }
 
+// InsertTask adds a new task entity if it does not already exist.
+func (s *Storage) InsertTask(ctx context.Context, ent domain.TaskEntity) error {
+	payload, err := json.Marshal(ent)
+	if err == nil {
+		_, err = s.taskTable.AddEntity(ctx, payload, nil)
+	}
+	return err
+}
+
 // UpsertTask creates or replaces a task entity.
 func (s *Storage) UpsertTask(ctx context.Context, ent domain.TaskEntity) error {
 	payload, err := json.Marshal(ent)

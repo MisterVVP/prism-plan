@@ -3,13 +3,16 @@ package domain
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	log "github.com/sirupsen/logrus"
 )
 
 // Storage defines methods required for updating the read model.
 type Storage interface {
 	GetTask(ctx context.Context, pk, rk string) (*TaskEntity, error)
+	InsertTask(ctx context.Context, ent TaskEntity) error
 	UpsertTask(ctx context.Context, ent TaskEntity) error
 	UpdateTask(ctx context.Context, ent TaskUpdate) error
 	SetTaskDone(ctx context.Context, pk, rk string) error
@@ -46,7 +49,19 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 				EventTimestamp:     ev.Timestamp,
 				EventTimestampType: EdmInt64,
 			}
-			return st.UpsertTask(ctx, *ent)
+			if err := st.InsertTask(ctx, *ent); err != nil {
+				var respErr *azcore.ResponseError
+				if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+					ent, err = st.GetTask(ctx, pk, rk)
+					if err != nil {
+						return err
+					}
+				} else {
+					return err
+				}
+			} else {
+				return nil
+			}
 		}
 		if ev.Timestamp == ent.EventTimestamp {
 			log.Warnf("task %s received event with identical timestamp", rk)
@@ -57,8 +72,6 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			ent.Category = eventData.Category
 			ent.Order = eventData.Order
 			ent.OrderType = EdmInt32
-			ent.Done = false
-			ent.DoneType = EdmBoolean
 			ent.EventTimestamp = ev.Timestamp
 			ent.EventTimestampType = EdmInt64
 		} else {

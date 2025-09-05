@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 )
 
@@ -10,6 +11,7 @@ type fakeStore struct {
 	tasks          map[string]TaskEntity
 	settings       map[string]UserSettingsEntity
 	upsertTask     TaskEntity
+	insertTask     TaskEntity
 	upsertUser     UserEntity
 	upsertSettings UserSettingsEntity
 }
@@ -31,6 +33,18 @@ func (f *fakeStore) UpsertTask(ctx context.Context, ent TaskEntity) error {
 	}
 	f.tasks[ent.RowKey] = ent
 	f.upsertTask = ent
+	return nil
+}
+
+func (f *fakeStore) InsertTask(ctx context.Context, ent TaskEntity) error {
+	if f.tasks == nil {
+		f.tasks = map[string]TaskEntity{}
+	}
+	if _, exists := f.tasks[ent.RowKey]; exists {
+		return errors.New("conflict")
+	}
+	f.tasks[ent.RowKey] = ent
+	f.insertTask = ent
 	return nil
 }
 
@@ -115,8 +129,8 @@ func TestApplyTaskCreated(t *testing.T) {
 	if err := Apply(context.Background(), fs, ev); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if fs.upsertTask.PartitionKey != "u1" || fs.upsertTask.RowKey != "t1" || fs.upsertTask.Title != "title1" || fs.upsertTask.Order != 1 || fs.upsertTask.EventTimestamp != 1 {
-		t.Fatalf("unexpected upsertTask: %#v", fs.upsertTask)
+	if fs.insertTask.PartitionKey != "u1" || fs.insertTask.RowKey != "t1" || fs.insertTask.Title != "title1" || fs.insertTask.Order != 1 || fs.insertTask.EventTimestamp != 1 {
+		t.Fatalf("unexpected insertTask: %#v", fs.insertTask)
 	}
 }
 
