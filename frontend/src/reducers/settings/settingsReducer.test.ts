@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { settingsReducer, settingsInitialState } from ".";
 
 describe("settingsReducer", () => {
-  it("maps returned idempotency keys only to commands missing them", () => {
+  it("preserves index alignment when applying idempotency keys", () => {
     const s1 = settingsReducer(settingsInitialState, {
       type: "update-settings",
       userId: "u1",
@@ -19,7 +19,7 @@ describe("settingsReducer", () => {
     };
     const s4 = settingsReducer(s3, {
       type: "set-idempotency-keys",
-      keys: ["k2"],
+      keys: ["k1", "k2"],
     });
     expect(s4.commands[0].idempotencyKey).toBe("k1");
     expect(s4.commands[1].idempotencyKey).toBe("k2");
