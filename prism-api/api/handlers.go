@@ -100,36 +100,38 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 		if err := c.Bind(&cmds); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
-                filtered := make([]domain.Command, 0, len(cmds))
-                added := make([]string, 0, len(cmds))
-                for i := range cmds {
-                        if cmds[i].IdempotencyKey == "" {
-                                cmds[i].IdempotencyKey = uuid.NewString()
-                        }
-                        addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
-                        if err != nil {
-                                c.Logger().Error(err)
-                                return c.String(http.StatusInternalServerError, err.Error())
-                        }
-                        if !addedNow {
-                                continue
-                        }
-                        added = append(added, cmds[i].IdempotencyKey)
-                        cmds[i].Timestamp = nextTimestamp()
-                        filtered = append(filtered, cmds[i])
-                }
-                if len(filtered) == 0 {
-                        return c.JSON(http.StatusOK, map[string][]string{"idempotencyKeys": added})
-                }
-                if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
-                        for _, key := range added {
-                                if remErr := deduper.Remove(ctx, userID, key); remErr != nil {
-                                        c.Logger().Error(remErr)
-                                }
-                        }
-                        c.Logger().Error(err)
-                        return c.JSON(http.StatusInternalServerError, map[string]any{"idempotencyKeys": added, "error": err.Error()})
-                }
-                return c.JSON(http.StatusOK, map[string][]string{"idempotencyKeys": added})
-        }
+		keys := make([]string, len(cmds))
+		filtered := make([]domain.Command, 0, len(cmds))
+		added := make([]string, 0, len(cmds))
+		for i := range cmds {
+			if cmds[i].IdempotencyKey == "" {
+				cmds[i].IdempotencyKey = uuid.NewString()
+			}
+			keys[i] = cmds[i].IdempotencyKey
+			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
+			if err != nil {
+				c.Logger().Error(err)
+				return c.String(http.StatusInternalServerError, err.Error())
+			}
+			if !addedNow {
+				continue
+			}
+			added = append(added, cmds[i].IdempotencyKey)
+			cmds[i].Timestamp = nextTimestamp()
+			filtered = append(filtered, cmds[i])
+		}
+		if len(filtered) == 0 {
+			return c.JSON(http.StatusOK, map[string][]string{"idempotencyKeys": keys})
+		}
+		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
+			for _, key := range added {
+				if remErr := deduper.Remove(ctx, userID, key); remErr != nil {
+					c.Logger().Error(remErr)
+				}
+			}
+			c.Logger().Error(err)
+			return c.JSON(http.StatusInternalServerError, map[string]any{"idempotencyKeys": keys, "error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string][]string{"idempotencyKeys": keys})
+	}
 }
