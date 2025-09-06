@@ -98,3 +98,9 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 8. Handle rare cases where multiple events share the same timestamp
 9. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
 10. TODO: fix & refactor local test scripts
+
+### Accepted risks
+1. Edge case scenario where 2 events contain equal timestamp in nanoseconds is not handled. Probability of such event is extremely low and (for now) it's considered to be out of scope.
+   - If required, the problem could be solved by adding additional checks for other fields, storing more granular timestamps or implementing retry events. Right now the read-model-updater simply returns error.
+2. Relying on the API node’s clock still carries some risk: if two instances drift even slightly, a later command processed by a skewed node could be dropped as “stale.” Given the serverless environment and cloud‑provider NTP sync, you may choose to accept this trade‑off, but it does leave a small window where legitimate updates could be discarded.
+   - Risk is accepted because we trust cloud providers clock sync and planning to run API on serverless compute. If required, this problem can be solved by replacing timestamps with sequences stored in one of our storages or configure all infra to sync with a single NTP, e.g. (AWS one)[https://aws.amazon.com/about-aws/whats-new/2022/11/amazon-time-sync-internet-public-ntp-service/]

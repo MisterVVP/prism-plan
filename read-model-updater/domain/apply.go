@@ -275,7 +275,7 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			return st.UpsertUserSettings(ctx, *ent)
 		}
 		if ev.Timestamp == ent.EventTimestamp {
-			log.Warnf("settings %s received event with identical timestamp", rk)
+			return fmt.Errorf("settings %s received event with identical timestamp", rk)
 		}
 		if ev.Timestamp >= ent.EventTimestamp {
 			if s.TasksPerCategory != nil {
