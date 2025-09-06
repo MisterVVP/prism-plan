@@ -11,17 +11,18 @@ import (
 )
 
 type command struct {
-        IdempotencyKey string         `json:"idempotencyKey,omitempty"`
-        EntityType     string         `json:"entityType"`
-        Type           string         `json:"type"`
-        Data           map[string]any `json:"data,omitempty"`
+	IdempotencyKey string         `json:"idempotencyKey,omitempty"`
+	EntityType     string         `json:"entityType"`
+	Type           string         `json:"type"`
+	Data           map[string]any `json:"data,omitempty"`
 }
 
 type task struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Notes string `json:"notes"`
-	Done  bool   `json:"done"`
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Notes    string `json:"notes"`
+	Done     bool   `json:"done"`
+	Category string `json:"category"`
 }
 
 func getPollTimeout(t *testing.T) time.Duration {

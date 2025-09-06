@@ -134,12 +134,12 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			if eventData.Category != nil && ent.Category == "" {
 				upd.Category = eventData.Category
 			}
-			if eventData.Order != nil && ent.Order == 0 {
+			if eventData.Order != nil && ent.OrderType == "" {
 				upd.Order = eventData.Order
 				t := EdmInt32
 				upd.OrderType = &t
 			}
-			if eventData.Done != nil && !ent.Done {
+			if eventData.Done != nil && ent.DoneType == "" {
 				upd.Done = eventData.Done
 				t := EdmBoolean
 				upd.DoneType = &t
