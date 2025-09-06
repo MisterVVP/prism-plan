@@ -46,7 +46,7 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 		"EntityId":   taskID,
 		"EntityType": "task",
 		"Type":       "task-updated",
-		"Timestamp":  base + 2,
+		"Timestamp":  base + 1000,
 		"UserId":     userID,
 		"Data":       map[string]any{"done": true},
 	})
@@ -55,7 +55,7 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 		"EntityId":   taskID,
 		"EntityType": "task",
 		"Type":       "task-updated",
-		"Timestamp":  base + 1,
+		"Timestamp":  base + 10,
 		"UserId":     userID,
 		"Data":       map[string]any{"notes": "note"},
 	})
@@ -63,7 +63,7 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 	pollTasks(t, apiClient, fmt.Sprintf("task %s to have merged notes", taskID), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
-				return tk.Done && tk.Notes == "note"
+				return tk.Done && tk.Notes == "note" && tk.Title == "t"
 			}
 		}
 		return false

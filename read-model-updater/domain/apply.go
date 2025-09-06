@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	log "github.com/sirupsen/logrus"
@@ -119,8 +120,9 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			return st.UpsertTask(ctx, *ent)
 		}
 		if ev.Timestamp == ent.EventTimestamp {
-			log.Warnf("task %s received event with identical timestamp", rk)
+			return fmt.Errorf("task %s received event with identical timestamp", rk)
 		}
+		// Allow partial merge of data from old events
 		if ev.Timestamp < ent.EventTimestamp {
 			upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
 			if eventData.Title != nil && ent.Title == "" {
