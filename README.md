@@ -82,9 +82,7 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 
 ## TODO
 1. Handle edge-case and error scenarios related to event sourcing and complex design
-   - deduplication
    - connection and other errors (consider circuit breakers, exponential retries, transactional outbox, sagas and other patterns)
-   - partial offline or outage of one of the components
 2. Deploy this project to Azure/GCP or AWS on free tier. Budget infra costs to 10 EUR per month.
 3. Draw overall system design for this project and ensure it can scale to handle millions of simultaneous users
    - Ideally, PoC should be made locally. However system design is enough with relevant enterprise techs.
@@ -95,9 +93,8 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
    - Improve web UX on mobile devices
    - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
 7. Add some basic features to utilise event sourcing (e.g. undo/redo)
-8. Handle rare cases where multiple events share the same timestamp
-9. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
-10. TODO: fix & refactor local test scripts
+8. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
+9. TODO: fix & refactor local test scripts
 
 ### Accepted risks
 1. Edge case scenario where 2 events contain equal timestamp in nanoseconds is not handled. Probability of such event is extremely low and (for now) it's considered to be out of scope.
