@@ -60,7 +60,7 @@ func TestStaleUpdateMergesFields(t *testing.T) {
 		"Data":       map[string]any{"notes": "note"},
 	})
 
-	pollTasks(t, apiClient, fmt.Sprintf("task %s to have merged notes", taskID), func(ts []task) bool {
+	pollTasks(t, apiClient, fmt.Sprintf("task %s to have: notes='note', done='true', title='t' ", taskID), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Done && tk.Notes == "note" && tk.Title == "t"
