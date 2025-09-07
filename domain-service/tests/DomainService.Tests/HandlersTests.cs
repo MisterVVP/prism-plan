@@ -98,6 +98,25 @@ public class HandlersTests
         Assert.Single(repo.Events);
         Assert.Equal("user-settings-updated", repo.Events[0].Type);
     }
+
+    [Fact]
+    public async Task UpdateTask_reopens_when_moved_from_done()
+    {
+        var repo = new InMemoryTaskRepo();
+        var queue = new InMemoryQueue();
+        // seed task created and completed
+        var created = new Event("e1", "t1", "task", "task-created", JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1", "ik-seed1");
+        await repo.Add(created, CancellationToken.None);
+        var completed = new Event("e2", "t1", "task", "task-completed", null, 1, "u1", "ik-seed2");
+        await repo.Add(completed, CancellationToken.None);
+        ICommandHandler<UpdateTaskCommand> handler = new UpdateTask(repo, queue);
+        var cmd = new UpdateTaskCommand("t1", JsonDocument.Parse("{\"category\":\"fun\"}").RootElement, "u1", 2, "ik-update");
+        await handler.Handle(cmd, CancellationToken.None);
+        Assert.Equal(4, repo.Events.Count);
+        Assert.Equal("task-updated", repo.Events[2].Type);
+        Assert.Equal("task-updated", repo.Events[3].Type);
+        Assert.Equal(2, queue.Events.Count);
+    }
 }
 
 class InMemoryQueue : IEventQueue

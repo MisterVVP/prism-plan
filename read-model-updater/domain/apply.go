@@ -270,19 +270,30 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 		if ev.Timestamp == ent.EventTimestamp {
 			return fmt.Errorf("settings %s received event with identical timestamp", rk)
 		}
-		if ev.Timestamp > ent.EventTimestamp {
-			if s.TasksPerCategory != nil {
-				ent.TasksPerCategory = *s.TasksPerCategory
-				ent.TasksPerCategoryType = EdmInt32
-			}
-			if s.ShowDoneTasks != nil {
-				ent.ShowDoneTasks = *s.ShowDoneTasks
-				ent.ShowDoneTasksType = EdmBoolean
-			}
-			ent.EventTimestamp = ev.Timestamp
-			ent.EventTimestampType = EdmInt64
-		}
-		return st.UpsertUserSettings(ctx, *ent)
+                if ev.Timestamp > ent.EventTimestamp {
+                        upd := UserSettingsUpdate{Entity: Entity{PartitionKey: rk, RowKey: rk}}
+                        if s.TasksPerCategory != nil {
+                                upd.TasksPerCategory = s.TasksPerCategory
+                                t := EdmInt32
+                                upd.TasksPerCategoryType = &t
+                                ent.TasksPerCategory = *s.TasksPerCategory
+                                ent.TasksPerCategoryType = EdmInt32
+                        }
+                        if s.ShowDoneTasks != nil {
+                                upd.ShowDoneTasks = s.ShowDoneTasks
+                                t := EdmBoolean
+                                upd.ShowDoneTasksType = &t
+                                ent.ShowDoneTasks = *s.ShowDoneTasks
+                                ent.ShowDoneTasksType = EdmBoolean
+                        }
+                        upd.EventTimestamp = &ev.Timestamp
+                        t := EdmInt64
+                        upd.EventTimestampType = &t
+                        ent.EventTimestamp = ev.Timestamp
+                        ent.EventTimestampType = EdmInt64
+                        return st.UpdateUserSettings(ctx, upd)
+                }
+                return nil
 	}
 	return nil
 }
