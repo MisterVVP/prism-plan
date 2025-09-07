@@ -12,9 +12,9 @@ import (
 
 // Storage provides access to underlying persistence mechanisms.
 type Storage struct {
-        taskTable    *aztables.Client
-        settingsTable *aztables.Client
-        commandQueue *azqueue.QueueClient
+	taskTable     *aztables.Client
+	settingsTable *aztables.Client
+	commandQueue  *azqueue.QueueClient
 }
 
 // New creates a Storage instance from the given connection string.
@@ -23,13 +23,13 @@ func New(connStr, tasksTable, settingsTable, commandQueue string) (*Storage, err
 	if err != nil {
 		return nil, err
 	}
-        tt := svc.NewClient(tasksTable)
-        st := svc.NewClient(settingsTable)
-        cq, err := azqueue.NewQueueClientFromConnectionString(connStr, commandQueue, nil)
+	tt := svc.NewClient(tasksTable)
+	st := svc.NewClient(settingsTable)
+	cq, err := azqueue.NewQueueClientFromConnectionString(connStr, commandQueue, nil)
 	if err != nil {
 		return nil, err
 	}
-        return &Storage{taskTable: tt, settingsTable: st, commandQueue: cq}, nil
+	return &Storage{taskTable: tt, settingsTable: st, commandQueue: cq}, nil
 }
 
 type taskEntity struct {
@@ -69,16 +69,23 @@ func (s *Storage) FetchTasks(ctx context.Context, userID string) ([]domain.Task,
 	return tasks, nil
 }
 
+func decodeSettingsEntity(data []byte) (domain.Settings, error) {
+	var raw struct {
+		TasksPerCategory int  `json:"TasksPerCategory"`
+		ShowDoneTasks    bool `json:"ShowDoneTasks"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return domain.Settings{}, err
+	}
+	return domain.Settings{TasksPerCategory: raw.TasksPerCategory, ShowDoneTasks: raw.ShowDoneTasks}, nil
+}
+
 func (s *Storage) FetchSettings(ctx context.Context, userID string) (domain.Settings, error) {
-        var settings domain.Settings
-        ent, err := s.settingsTable.GetEntity(ctx, userID, userID, nil)
-        if err != nil {
-                return settings, err
-        }
-        if err := json.Unmarshal(ent.Value, &settings); err != nil {
-                return settings, err
-        }
-        return settings, nil
+	ent, err := s.settingsTable.GetEntity(ctx, userID, userID, nil)
+	if err != nil {
+		return domain.Settings{}, err
+	}
+	return decodeSettingsEntity(ent.Value)
 }
 
 // EnqueueCommands sends the given commands to the command queue.

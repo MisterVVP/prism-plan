@@ -64,10 +64,13 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 				return nil
 			}
 		}
-		if ev.Timestamp == ent.EventTimestamp {
-			log.Warnf("task %s received event with identical timestamp", rk)
+		if ev.Timestamp < ent.EventTimestamp {
+			return nil
 		}
-		if ev.Timestamp >= ent.EventTimestamp {
+		if ev.Timestamp == ent.EventTimestamp {
+			return fmt.Errorf("task %s received event with identical timestamp", rk)
+		}
+		if ev.Timestamp > ent.EventTimestamp {
 			ent.Title = eventData.Title
 			ent.Notes = eventData.Notes
 			ent.Category = eventData.Category
@@ -119,36 +122,11 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			}
 			return st.UpsertTask(ctx, *ent)
 		}
+		if ev.Timestamp < ent.EventTimestamp {
+			return nil
+		}
 		if ev.Timestamp == ent.EventTimestamp {
 			return fmt.Errorf("task %s received event with identical timestamp", rk)
-		}
-		// Allow partial merge of data from old events
-		if ev.Timestamp < ent.EventTimestamp {
-			upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
-			if eventData.Title != nil && ent.Title == "" {
-				upd.Title = eventData.Title
-			}
-			if eventData.Notes != nil && ent.Notes == "" {
-				upd.Notes = eventData.Notes
-			}
-			if eventData.Category != nil && ent.Category == "" {
-				upd.Category = eventData.Category
-			}
-			if eventData.Order != nil && ent.Order == 0 {
-				upd.Order = eventData.Order
-				t := EdmInt32
-				upd.OrderType = &t
-			}
-			if eventData.Done != nil && !ent.Done {
-				upd.Done = eventData.Done
-				t := EdmBoolean
-				upd.DoneType = &t
-			}
-			// Only attempt an update if there's something to change.
-			if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil || upd.Done != nil {
-				return st.UpdateTask(ctx, upd)
-			}
-			return nil
 		}
 		upd := TaskUpdate{Entity: Entity{PartitionKey: pk, RowKey: rk}}
 		if eventData.Title != nil {
@@ -187,10 +165,13 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			ent = &TaskEntity{Entity: Entity{PartitionKey: pk, RowKey: rk}, Done: true, DoneType: EdmBoolean, EventTimestamp: ev.Timestamp, EventTimestampType: EdmInt64}
 			return st.UpsertTask(ctx, *ent)
 		}
-		if ev.Timestamp == ent.EventTimestamp {
-			log.Warnf("task %s received event with identical timestamp", rk)
+		if ev.Timestamp < ent.EventTimestamp {
+			return nil
 		}
-		if ev.Timestamp >= ent.EventTimestamp {
+		if ev.Timestamp == ent.EventTimestamp {
+			return fmt.Errorf("task %s received event with identical timestamp", rk)
+		}
+		if ev.Timestamp > ent.EventTimestamp {
 			done := true
 			dt := EdmBoolean
 			ts := ev.Timestamp
@@ -241,8 +222,11 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			}
 			return st.UpsertUserSettings(ctx, *ent)
 		}
+		if ev.Timestamp < ent.EventTimestamp {
+			return nil
+		}
 		if ev.Timestamp == ent.EventTimestamp {
-			log.Warnf("settings %s received event with identical timestamp", rk)
+			return fmt.Errorf("settings %s received event with identical timestamp", rk)
 		}
 		if ev.Timestamp >= ent.EventTimestamp {
 			ent.TasksPerCategory = s.TasksPerCategory
@@ -263,33 +247,53 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			return err
 		}
 		if ent == nil {
-			ent = &UserSettingsEntity{Entity: Entity{PartitionKey: rk, RowKey: rk}, EventTimestamp: ev.Timestamp, EventTimestampType: EdmInt64}
+			ent = &UserSettingsEntity{
+				Entity:               Entity{PartitionKey: rk, RowKey: rk},
+				TasksPerCategory:     0,
+				TasksPerCategoryType: EdmInt32,
+				ShowDoneTasks:        false,
+				ShowDoneTasksType:    EdmBoolean,
+				EventTimestamp:       ev.Timestamp,
+				EventTimestampType:   EdmInt64,
+			}
 			if s.TasksPerCategory != nil {
 				ent.TasksPerCategory = *s.TasksPerCategory
-				ent.TasksPerCategoryType = EdmInt32
 			}
 			if s.ShowDoneTasks != nil {
 				ent.ShowDoneTasks = *s.ShowDoneTasks
-				ent.ShowDoneTasksType = EdmBoolean
 			}
 			return st.UpsertUserSettings(ctx, *ent)
+		}
+		if ev.Timestamp < ent.EventTimestamp {
+			return nil
 		}
 		if ev.Timestamp == ent.EventTimestamp {
 			return fmt.Errorf("settings %s received event with identical timestamp", rk)
 		}
-		if ev.Timestamp >= ent.EventTimestamp {
-			if s.TasksPerCategory != nil {
-				ent.TasksPerCategory = *s.TasksPerCategory
-				ent.TasksPerCategoryType = EdmInt32
-			}
-			if s.ShowDoneTasks != nil {
-				ent.ShowDoneTasks = *s.ShowDoneTasks
-				ent.ShowDoneTasksType = EdmBoolean
-			}
-			ent.EventTimestamp = ev.Timestamp
-			ent.EventTimestampType = EdmInt64
-		}
-		return st.UpsertUserSettings(ctx, *ent)
+                if ev.Timestamp > ent.EventTimestamp {
+                        upd := UserSettingsUpdate{Entity: Entity{PartitionKey: rk, RowKey: rk}}
+                        if s.TasksPerCategory != nil {
+                                upd.TasksPerCategory = s.TasksPerCategory
+                                t := EdmInt32
+                                upd.TasksPerCategoryType = &t
+                                ent.TasksPerCategory = *s.TasksPerCategory
+                                ent.TasksPerCategoryType = EdmInt32
+                        }
+                        if s.ShowDoneTasks != nil {
+                                upd.ShowDoneTasks = s.ShowDoneTasks
+                                t := EdmBoolean
+                                upd.ShowDoneTasksType = &t
+                                ent.ShowDoneTasks = *s.ShowDoneTasks
+                                ent.ShowDoneTasksType = EdmBoolean
+                        }
+                        upd.EventTimestamp = &ev.Timestamp
+                        t := EdmInt64
+                        upd.EventTimestampType = &t
+                        ent.EventTimestamp = ev.Timestamp
+                        ent.EventTimestampType = EdmInt64
+                        return st.UpdateUserSettings(ctx, upd)
+                }
+                return nil
 	}
 	return nil
 }
