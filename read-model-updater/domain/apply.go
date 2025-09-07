@@ -247,14 +247,20 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			return err
 		}
 		if ent == nil {
-			ent = &UserSettingsEntity{Entity: Entity{PartitionKey: rk, RowKey: rk}, EventTimestamp: ev.Timestamp, EventTimestampType: EdmInt64}
+			ent = &UserSettingsEntity{
+				Entity:               Entity{PartitionKey: rk, RowKey: rk},
+				TasksPerCategory:     0,
+				TasksPerCategoryType: EdmInt32,
+				ShowDoneTasks:        false,
+				ShowDoneTasksType:    EdmBoolean,
+				EventTimestamp:       ev.Timestamp,
+				EventTimestampType:   EdmInt64,
+			}
 			if s.TasksPerCategory != nil {
 				ent.TasksPerCategory = *s.TasksPerCategory
-				ent.TasksPerCategoryType = EdmInt32
 			}
 			if s.ShowDoneTasks != nil {
 				ent.ShowDoneTasks = *s.ShowDoneTasks
-				ent.ShowDoneTasksType = EdmBoolean
 			}
 			return st.UpsertUserSettings(ctx, *ent)
 		}
