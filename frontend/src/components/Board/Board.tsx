@@ -6,11 +6,15 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import {
+  arrayMove,
+  SortableContext,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { useState } from 'react';
 import Lane from '../Lane';
 import TaskDetails from '../TaskDetails';
 import type { Category, Task, Settings } from '../../types';
-import { useState } from 'react';
 import { aria } from './aria';
 
 interface Props {
@@ -22,6 +26,62 @@ interface Props {
 
 const categories: Category[] = ['critical', 'fun', 'important', 'normal'];
 
+export function handleDragEnd(
+  ev: DragEndEvent,
+  tasks: Task[],
+  updateTask: (id: string, changes: Partial<Task>) => void,
+  completeTask: (id: string) => void,
+) {
+  const { active, over } = ev;
+  if (!over) {
+    return;
+  }
+
+  const toCat = over.data.current?.category as Category | 'done';
+  const activeTask = tasks.find((t) => t.id === active.id);
+  if (!activeTask) {
+    return;
+  }
+
+  const fromCat = activeTask.category;
+
+  if (toCat === 'done') {
+    if (!activeTask.done) completeTask(active.id as string);
+    return;
+  }
+
+  if (activeTask.done) {
+    const targetLane = tasks.filter((t) => t.category === toCat && !t.done);
+    const newIndex = targetLane.findIndex((t) => t.id === over.id);
+    const order = newIndex === -1 ? targetLane.length : newIndex;
+    updateTask(active.id as string, { category: toCat, order, done: false });
+    return;
+  }
+
+  if (fromCat !== toCat) {
+    // move to another lane; place at end if dropped on lane itself
+    const targetLane = tasks.filter((t) => t.category === toCat && !t.done);
+    const newIndex = targetLane.findIndex((t) => t.id === over.id);
+    const order = newIndex === -1 ? targetLane.length : newIndex;
+    updateTask(active.id as string, { category: toCat, order });
+    return;
+  }
+
+  // reorder within lane
+  const laneTasks = tasks.filter((t) => t.category === fromCat && !t.done);
+  const oldIndex = laneTasks.findIndex((t) => t.id === active.id);
+  let newIndex = laneTasks.findIndex((t) => t.id === over.id);
+  if (newIndex === -1) {
+    newIndex = laneTasks.length - 1;
+  }
+  if (oldIndex === newIndex) {
+    return;
+  }
+
+  const ordered = arrayMove(laneTasks, oldIndex, newIndex);
+  ordered.forEach((task, idx) => updateTask(task.id, { order: idx }));
+}
+
 export default function Board({ tasks, settings, updateTask, completeTask }: Props) {
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
@@ -29,49 +89,8 @@ export default function Board({ tasks, settings, updateTask, completeTask }: Pro
   );
   const [expanded, setExpanded] = useState<Category | 'done' | null>(null);
   const [selected, setSelected] = useState<Task | null>(null);
-
-  function handleDragEnd(ev: DragEndEvent) {
-    const { active, over } = ev;
-    if (!over) {
-      return;
-    }
-
-    const toCat = over.data.current?.category as Category | 'done';
-    const activeTask = tasks.find((t) => t.id === active.id);
-    if (!activeTask) {
-      return;
-    }
-
-    const fromCat = activeTask.category;
-
-    if (toCat === 'done') {
-      if (!activeTask.done) completeTask(active.id as string);
-      return;
-    }
-
-    if (fromCat !== toCat) {
-      // move to another lane; place at end if dropped on lane itself
-      const targetLane = tasks.filter((t) => t.category === toCat && !t.done);
-      const newIndex = targetLane.findIndex((t) => t.id === over.id);
-      const order = newIndex === -1 ? targetLane.length : newIndex;
-      updateTask(active.id as string, { category: toCat, order });
-      return;
-    }
-
-    // reorder within lane
-    const laneTasks = tasks.filter((t) => t.category === fromCat && !t.done);
-    const oldIndex = laneTasks.findIndex((t) => t.id === active.id);
-    let newIndex = laneTasks.findIndex((t) => t.id === over.id);
-    if (newIndex === -1) {
-      newIndex = laneTasks.length - 1;
-    }
-    if (oldIndex === newIndex) {
-      return;
-    }
-
-    const ordered = arrayMove(laneTasks, oldIndex, newIndex);
-    ordered.forEach((task, idx) => updateTask(task.id, { order: idx }));
-  }
+  const onDragEnd = (ev: DragEndEvent) =>
+    handleDragEnd(ev, tasks, updateTask, completeTask);
 
   if (selected) {
     return <TaskDetails task={selected} onBack={() => setSelected(null)} />;
@@ -84,7 +103,7 @@ export default function Board({ tasks, settings, updateTask, completeTask }: Pro
     ).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     return (
-      <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
+      <DndContext onDragEnd={onDragEnd} sensors={sensors}>
         <div {...aria.root} className="mx-auto flex max-w-5xl flex-col">
           <button
             type="button"
@@ -109,7 +128,7 @@ export default function Board({ tasks, settings, updateTask, completeTask }: Pro
   }
 
   return (
-    <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
+    <DndContext onDragEnd={onDragEnd} sensors={sensors}>
       <div {...aria.root} className="flex w-full flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
         {categories.map((cat) => {
           const laneTasks = tasks

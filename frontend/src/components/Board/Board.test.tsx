@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import Board, { aria } from '.';
+import Board, { aria, handleDragEnd } from '.';
 import type { Task } from '../../types';
 
 describe('Board', () => {
@@ -39,6 +39,23 @@ describe('Board', () => {
     vi.runAllTimers();
     expect(completeTask).toHaveBeenCalledWith('1');
     vi.useRealTimers();
+  });
+
+  it('uncompletes task when moved out of done lane', () => {
+    const tasks: Task[] = [
+      { id: '1', title: 'Done', category: 'fun', notes: '', order: 0, done: true }
+    ];
+    const updateTask = vi.fn();
+    const ev: any = {
+      active: { id: '1' },
+      over: { id: undefined, data: { current: { category: 'normal' } } }
+    };
+    handleDragEnd(ev, tasks, updateTask, vi.fn());
+    expect(updateTask).toHaveBeenCalledWith('1', {
+      category: 'normal',
+      order: 0,
+      done: false,
+    });
   });
 });
 
