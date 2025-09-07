@@ -286,5 +286,20 @@ func TestApplyUserSettingsUpdatedIgnoresOldEvent(t *testing.T) {
 	}
 }
 
+func TestApplyUserSettingsUpdatedCreatesDefaults(t *testing.T) {
+	fs := &fakeStore{}
+	sdt := true
+	data := UserSettingsUpdatedEventData{ShowDoneTasks: &sdt}
+	payload, _ := json.Marshal(data)
+	ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 1}
+	if err := Apply(context.Background(), fs, ev); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	ent := fs.settings["u1"]
+	if ent.TasksPerCategory != 0 || ent.TasksPerCategoryType != EdmInt32 || !ent.ShowDoneTasks || ent.ShowDoneTasksType != EdmBoolean {
+		t.Fatalf("unexpected settings entity: %#v", ent)
+	}
+}
+
 func ptrString(s string) *string { return &s }
 func ptrInt(i int) *int          { return &i }
