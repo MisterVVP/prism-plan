@@ -36,17 +36,29 @@ func TestUserSettingsPersistence(t *testing.T) {
 
 	userID := "integration-user"
 	ts := time.Now().UnixNano()
-	send(map[string]any{
-		"Id":         "s1",
-		"EntityId":   userID,
-		"EntityType": "user-settings",
-		"Type":       "user-settings-updated",
-		"Timestamp":  ts,
-		"UserId":     userID,
-		"Data":       map[string]any{"showDoneTasks": true},
-	})
+        send(map[string]any{
+                "Id":         "s1",
+                "EntityId":   userID,
+                "EntityType": "user-settings",
+                "Type":       "user-settings-updated",
+                "Timestamp":  ts,
+                "UserId":     userID,
+                "Data":       map[string]any{"showDoneTasks": true},
+        })
 
-	pollSettings(t, apiClient, "show done updated", func(s settings) bool { return s.ShowDoneTasks })
+        pollSettings(t, apiClient, "show done enabled", func(s settings) bool { return s.ShowDoneTasks })
+
+        send(map[string]any{
+                "Id":         "s2",
+                "EntityId":   userID,
+                "EntityType": "user-settings",
+                "Type":       "user-settings-updated",
+                "Timestamp":  ts + 1,
+                "UserId":     userID,
+                "Data":       map[string]any{"showDoneTasks": false},
+        })
+
+        pollSettings(t, apiClient, "show done disabled", func(s settings) bool { return !s.ShowDoneTasks })
 }
 
 func pollSettings(t *testing.T, client *httpclient.Client, desc string, cond func(settings) bool) settings {

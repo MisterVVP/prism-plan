@@ -24,4 +24,15 @@ describe("settingsReducer", () => {
     expect(s4.commands[0].idempotencyKey).toBe("k1");
     expect(s4.commands[1].idempotencyKey).toBe("k2");
   });
+
+  it("queues command when toggling show done", () => {
+    const s1 = settingsReducer(settingsInitialState, {
+      type: "update-settings",
+      userId: "u1",
+      settings: { showDoneTasks: true },
+    });
+    expect(s1.settings.showDoneTasks).toBe(true);
+    expect(s1.commands).toHaveLength(1);
+    expect(s1.commands[0].data).toEqual({ showDoneTasks: true });
+  });
 });
