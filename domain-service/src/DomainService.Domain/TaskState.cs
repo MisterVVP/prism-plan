@@ -58,10 +58,8 @@ internal static class TaskStateBuilder
                     if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi)) {
                         state.Order = oi;
                     }
-                    if (data.TryGetProperty("done", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.False) {
-                        state.Done = false;
-                    } else {
-                        state.Done = true;
+                    if (data.TryGetProperty("done", out var d)) {
+                        state.Done = d.ValueKind == System.Text.Json.JsonValueKind.True;
                     }
                 }
                 break;
