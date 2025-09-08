@@ -1,4 +1,6 @@
 using DomainService.Interfaces;
+using System;
+using System.Linq;
 
 namespace DomainService.Domain;
 
@@ -16,7 +18,7 @@ internal static class TaskStateBuilder
     public static TaskState From(IEnumerable<IEvent> events)
     {
         var state = new TaskState();
-        foreach (var ev in events)
+        foreach (var ev in events.OrderBy(e => e.Timestamp).ThenBy(e => e.Id, StringComparer.Ordinal))
         {
             Apply(state, ev);
         }
@@ -28,16 +30,20 @@ internal static class TaskStateBuilder
         switch (ev.Type)
         {
             case TaskEventTypes.Created:
-                if (ev.Data.HasValue) {
+                if (ev.Data.HasValue)
+                {
                     var data = ev.Data.Value;
                     state.Title = data.GetProperty("title").GetString();
-                    if (data.TryGetProperty("notes", out var n)) {
+                    if (data.TryGetProperty("notes", out var n))
+                    {
                         state.Notes = n.GetString();
                     }
-                    if (data.TryGetProperty("category", out var c)) {
+                    if (data.TryGetProperty("category", out var c))
+                    {
                         state.Category = c.GetString();
                     }
-                    if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi)) {
+                    if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi))
+                    {
                         state.Order = oi;
                     }
                 }
@@ -46,21 +52,28 @@ internal static class TaskStateBuilder
                 if (ev.Data.HasValue)
                 {
                     var data = ev.Data.Value;
-                    if (data.TryGetProperty("title", out var t)) { 
-                        state.Title = t.GetString(); 
+                    if (data.TryGetProperty("title", out var t))
+                    {
+                        state.Title = t.GetString();
                     }
-                    if (data.TryGetProperty("notes", out var n)) {
+                    if (data.TryGetProperty("notes", out var n))
+                    {
                         state.Notes = n.GetString();
                     }
-                    if (data.TryGetProperty("category", out var c)) {
+                    if (data.TryGetProperty("category", out var c))
+                    {
                         state.Category = c.GetString();
                     }
-                    if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi)) {
+                    if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi))
+                    {
                         state.Order = oi;
                     }
-                    if (data.TryGetProperty("done", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.False) {
+                    if (data.TryGetProperty("done", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.False)
+                    {
                         state.Done = false;
-                    } else {
+                    }
+                    else
+                    {
                         state.Done = true;
                     }
                 }

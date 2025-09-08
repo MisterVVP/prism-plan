@@ -2,6 +2,7 @@ using DomainService.Domain.CommandHandlers;
 using DomainService.Domain.Commands;
 using DomainService.Interfaces;
 using System.Text.Json;
+using System.Linq;
 using Xunit;
 
 public class HandlersTests
@@ -117,6 +118,28 @@ public class HandlersTests
         Assert.Equal("task-updated", repo.Events[3].Type);
         Assert.Equal(2, queue.Events.Count);
     }
+
+    [Fact]
+    public async Task CompleteTask_adds_event_after_reopen_even_with_unsorted_events()
+    {
+        var repo = new UnorderedInMemoryTaskRepo();
+        var queue = new InMemoryQueue();
+
+        var created = new Event("e1", "t1", "task", "task-created", JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1", "ik-seed1");
+        await repo.Add(created, CancellationToken.None);
+        var completed = new Event("e2", "t1", "task", "task-completed", null, 1, "u1", "ik-seed2");
+        await repo.Add(completed, CancellationToken.None);
+
+        ICommandHandler<UpdateTaskCommand> updater = new UpdateTask(repo, queue);
+        var updateCmd = new UpdateTaskCommand("t1", JsonDocument.Parse("{\"category\":\"c\",\"done\":false}").RootElement, "u1", 2, "ik-update");
+        await updater.Handle(updateCmd, CancellationToken.None);
+
+        ICommandHandler<CompleteTaskCommand> handler = new CompleteTask(repo, queue);
+        var cmd = new CompleteTaskCommand("t1", "u1", 3, "ik-complete");
+        await handler.Handle(cmd, CancellationToken.None);
+
+        Assert.Equal("task-completed", repo.Events.Last().Type);
+    }
 }
 
 class InMemoryQueue : IEventQueue
@@ -159,5 +182,30 @@ class InMemoryUserRepo : IUserEventRepository
     public Task<bool> Exists(string userId, CancellationToken ct)
     {
         return Task.FromResult(Events.Any(e => e.EntityId == userId));
+    }
+}
+
+class UnorderedInMemoryTaskRepo : ITaskEventRepository
+{
+    public List<IEvent> Events { get; } = [];
+
+    public Task Add(IEvent ev, CancellationToken ct)
+    {
+        Events.Add(ev);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<IEvent>> Get(string taskId, CancellationToken ct)
+    {
+        var unsorted = Events
+            .Where(e => e.EntityId == taskId)
+            .OrderByDescending(e => e.Timestamp)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<IEvent>>(unsorted);
+    }
+
+    public Task<bool> Exists(string idempotencyKey, CancellationToken ct)
+    {
+        return Task.FromResult(Events.Any(e => e.IdempotencyKey == idempotencyKey));
     }
 }

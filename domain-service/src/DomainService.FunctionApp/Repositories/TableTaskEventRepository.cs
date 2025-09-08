@@ -1,6 +1,8 @@
 using Azure.Data.Tables;
 using DomainService.Interfaces;
+using System;
 using System.Text.Json;
+using System.Linq;
 
 namespace DomainService.Repositories;
 
@@ -20,7 +22,10 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
                 if (ev != null) list.Add(ev);
             }
         }
-        return list;
+        return list
+            .OrderBy(e => e.Timestamp)
+            .ThenBy(e => e.Id, StringComparer.Ordinal)
+            .ToList();
     }
 
     public async Task Add(IEvent ev, CancellationToken ct)
