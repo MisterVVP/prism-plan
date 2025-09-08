@@ -54,7 +54,7 @@ namespace DomainService.Domain.Commands
                     },
                     _ => throw new ArgumentException("Unknown Command.EntityType!", nameof(queueMessage))
                 };
-
+                _logger.LogDebug("Created {cmd} command", envelope.Command.Type);
                 return cmd;
             }
             catch (Exception ex)

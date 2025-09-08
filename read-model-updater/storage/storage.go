@@ -123,34 +123,8 @@ func (s *Storage) InsertTask(ctx context.Context, ent domain.TaskEntity) error {
 	return err
 }
 
-// UpsertTask creates or replaces a task entity.
-func (s *Storage) UpsertTask(ctx context.Context, ent domain.TaskEntity) error {
-	payload, err := json.Marshal(ent)
-	if err == nil {
-		_, err = s.taskTable.UpsertEntity(ctx, payload, nil)
-	}
-	return err
-}
-
 // UpdateTask merges changes into an existing task entity.
 func (s *Storage) UpdateTask(ctx context.Context, ent domain.TaskUpdate) error {
-	payload, err := json.Marshal(ent)
-	if err == nil {
-		et := azcore.ETagAny
-		_, err = s.taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
-	}
-	return err
-}
-
-// SetTaskDone marks a task as completed.
-func (s *Storage) SetTaskDone(ctx context.Context, pk, rk string) error {
-	done := true
-	t := domain.EdmBoolean
-	ent := domain.TaskUpdate{
-		Entity:   domain.Entity{PartitionKey: pk, RowKey: rk},
-		Done:     &done,
-		DoneType: &t,
-	}
 	payload, err := json.Marshal(ent)
 	if err == nil {
 		et := azcore.ETagAny

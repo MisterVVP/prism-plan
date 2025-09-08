@@ -8,13 +8,13 @@ import (
 )
 
 type fakeStore struct {
-        tasks          map[string]TaskEntity
-        settings       map[string]UserSettingsEntity
-        upsertTask     TaskEntity
-        insertTask     TaskEntity
-        upsertUser     UserEntity
-       upsertSettings UserSettingsEntity
-       updateSettings UserSettingsUpdate
+	tasks          map[string]TaskEntity
+	settings       map[string]UserSettingsEntity
+	insertTask     TaskEntity
+	updateTask     TaskUpdate
+	upsertUser     UserEntity
+	upsertSettings UserSettingsEntity
+	updateSettings UserSettingsUpdate
 }
 
 func (f *fakeStore) GetTask(ctx context.Context, pk, rk string) (*TaskEntity, error) {
@@ -26,15 +26,6 @@ func (f *fakeStore) GetTask(ctx context.Context, pk, rk string) (*TaskEntity, er
 		return nil, nil
 	}
 	return &ent, nil
-}
-
-func (f *fakeStore) UpsertTask(ctx context.Context, ent TaskEntity) error {
-	if f.tasks == nil {
-		f.tasks = map[string]TaskEntity{}
-	}
-	f.tasks[ent.RowKey] = ent
-	f.upsertTask = ent
-	return nil
 }
 
 func (f *fakeStore) InsertTask(ctx context.Context, ent TaskEntity) error {
@@ -53,6 +44,7 @@ func (f *fakeStore) UpdateTask(ctx context.Context, upd TaskUpdate) error {
 	if f.tasks == nil {
 		f.tasks = map[string]TaskEntity{}
 	}
+	f.updateTask = upd
 	ent, ok := f.tasks[upd.RowKey]
 	if !ok {
 		ent = TaskEntity{Entity: Entity{PartitionKey: upd.PartitionKey, RowKey: upd.RowKey}}
@@ -88,8 +80,6 @@ func (f *fakeStore) UpdateTask(ctx context.Context, upd TaskUpdate) error {
 	return nil
 }
 
-func (f *fakeStore) SetTaskDone(ctx context.Context, pk, rk string) error { return nil }
-
 func (f *fakeStore) UpsertUser(ctx context.Context, ent UserEntity) error {
 	f.upsertUser = ent
 	return nil
@@ -116,34 +106,34 @@ func (f *fakeStore) UpsertUserSettings(ctx context.Context, ent UserSettingsEnti
 }
 
 func (f *fakeStore) UpdateUserSettings(ctx context.Context, ent UserSettingsUpdate) error {
-       if f.settings == nil {
-               f.settings = map[string]UserSettingsEntity{}
-       }
-       cur, ok := f.settings[ent.RowKey]
-       if !ok {
-               cur = UserSettingsEntity{Entity: Entity{PartitionKey: ent.PartitionKey, RowKey: ent.RowKey}}
-       }
-       if ent.TasksPerCategory != nil {
-               cur.TasksPerCategory = *ent.TasksPerCategory
-               if ent.TasksPerCategoryType != nil {
-                       cur.TasksPerCategoryType = *ent.TasksPerCategoryType
-               }
-       }
-       if ent.ShowDoneTasks != nil {
-               cur.ShowDoneTasks = *ent.ShowDoneTasks
-               if ent.ShowDoneTasksType != nil {
-                       cur.ShowDoneTasksType = *ent.ShowDoneTasksType
-               }
-       }
-       if ent.EventTimestamp != nil {
-               cur.EventTimestamp = *ent.EventTimestamp
-               if ent.EventTimestampType != nil {
-                       cur.EventTimestampType = *ent.EventTimestampType
-               }
-       }
-       f.settings[ent.RowKey] = cur
-       f.updateSettings = ent
-       return nil
+	if f.settings == nil {
+		f.settings = map[string]UserSettingsEntity{}
+	}
+	cur, ok := f.settings[ent.RowKey]
+	if !ok {
+		cur = UserSettingsEntity{Entity: Entity{PartitionKey: ent.PartitionKey, RowKey: ent.RowKey}}
+	}
+	if ent.TasksPerCategory != nil {
+		cur.TasksPerCategory = *ent.TasksPerCategory
+		if ent.TasksPerCategoryType != nil {
+			cur.TasksPerCategoryType = *ent.TasksPerCategoryType
+		}
+	}
+	if ent.ShowDoneTasks != nil {
+		cur.ShowDoneTasks = *ent.ShowDoneTasks
+		if ent.ShowDoneTasksType != nil {
+			cur.ShowDoneTasksType = *ent.ShowDoneTasksType
+		}
+	}
+	if ent.EventTimestamp != nil {
+		cur.EventTimestamp = *ent.EventTimestamp
+		if ent.EventTimestampType != nil {
+			cur.EventTimestampType = *ent.EventTimestampType
+		}
+	}
+	f.settings[ent.RowKey] = cur
+	f.updateSettings = ent
+	return nil
 }
 
 func TestApplyTaskCreated(t *testing.T) {
@@ -164,35 +154,23 @@ func TestApplyTaskCreated(t *testing.T) {
 	}
 }
 
-func TestApplyTaskUpdated(t *testing.T) {
+func TestApplyTaskUpdatedMissingTask(t *testing.T) {
 	fs := &fakeStore{}
-	data := struct {
-		Title *string `json:"title"`
-		Notes *string `json:"notes"`
-		Order *int    `json:"order"`
-	}{Title: ptrString("new"), Notes: ptrString("n"), Order: ptrInt(5)}
-	payload, _ := json.Marshal(data)
-	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 1}
-	if err := Apply(context.Background(), fs, ev); err != nil {
-		t.Fatalf("apply: %v", err)
-	}
-	if fs.upsertTask.RowKey != "t1" || fs.upsertTask.Title != "new" || fs.upsertTask.Order != 5 || fs.upsertTask.EventTimestamp != 1 {
-		t.Fatalf("unexpected upsertTask: %#v", fs.upsertTask)
+	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Timestamp: 1}
+	if err := Apply(context.Background(), fs, ev); err == nil {
+		t.Fatalf("expected error for missing task")
 	}
 }
 
-func TestApplyTaskCompleted(t *testing.T) {
+func TestApplyTaskCompletedMissingTask(t *testing.T) {
 	fs := &fakeStore{}
 	ev := Event{Type: TaskCompleted, UserID: "u1", EntityID: "t1", Timestamp: 1}
-	if err := Apply(context.Background(), fs, ev); err != nil {
-		t.Fatalf("apply: %v", err)
-	}
-	if fs.upsertTask.RowKey != "t1" || !fs.upsertTask.Done || fs.upsertTask.EventTimestamp != 1 {
-		t.Fatalf("unexpected upsertTask: %#v", fs.upsertTask)
+	if err := Apply(context.Background(), fs, ev); err == nil {
+		t.Fatalf("expected error for missing task")
 	}
 }
 
-func TestApplyTaskCompletedIgnoresOldEvent(t *testing.T) {
+func TestApplyTaskCompletedStaleEventReturnsError(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
 		Done:           false,
@@ -200,8 +178,8 @@ func TestApplyTaskCompletedIgnoresOldEvent(t *testing.T) {
 		EventTimestamp: 5,
 	}}}
 	ev := Event{Type: TaskCompleted, UserID: "u1", EntityID: "t1", Timestamp: 3}
-	if err := Apply(context.Background(), fs, ev); err != nil {
-		t.Fatalf("apply: %v", err)
+	if err := Apply(context.Background(), fs, ev); err == nil {
+		t.Fatalf("expected error for stale completion")
 	}
 	ent := fs.tasks["t1"]
 	if ent.Done || ent.EventTimestamp != 5 {
@@ -209,7 +187,7 @@ func TestApplyTaskCompletedIgnoresOldEvent(t *testing.T) {
 	}
 }
 
-func TestApplyTaskUpdatedStaleEventDoesNotOverride(t *testing.T) {
+func TestApplyTaskUpdatedStaleEventReturnsError(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
 		Title:          "a",
@@ -224,54 +202,11 @@ func TestApplyTaskUpdatedStaleEventDoesNotOverride(t *testing.T) {
 	data := TaskUpdatedEventData{Done: &done, Order: &order}
 	payload, _ := json.Marshal(data)
 	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 3}
-	if err := Apply(context.Background(), fs, ev); err != nil {
-		t.Fatalf("apply: %v", err)
+	if err := Apply(context.Background(), fs, ev); err == nil {
+		t.Fatalf("expected error for stale update")
 	}
 	ent := fs.tasks["t1"]
 	if !ent.Done || ent.Order != 10 || ent.EventTimestamp != 5 {
-		t.Fatalf("unexpected task entity: %#v", ent)
-	}
-}
-
-func TestApplyTaskUpdatedIgnoresStaleFields(t *testing.T) {
-	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
-		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
-		Title:          "a",
-		Order:          10,
-		OrderType:      EdmInt32,
-		Done:           true,
-		DoneType:       EdmBoolean,
-		EventTimestamp: 5,
-	}}}
-	notes := "note"
-	data := TaskUpdatedEventData{Notes: &notes}
-	payload, _ := json.Marshal(data)
-	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 3}
-	if err := Apply(context.Background(), fs, ev); err != nil {
-		t.Fatalf("apply: %v", err)
-	}
-	ent := fs.tasks["t1"]
-	if ent.Notes == "note" || ent.EventTimestamp != 5 {
-		t.Fatalf("unexpected task entity: %#v", ent)
-	}
-}
-
-func TestApplyTaskUpdatedIgnoresStaleDone(t *testing.T) {
-	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
-		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
-		Done:           false,
-		DoneType:       EdmBoolean,
-		EventTimestamp: 5,
-	}}}
-	done := true
-	data := TaskUpdatedEventData{Done: &done}
-	payload, _ := json.Marshal(data)
-	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 3}
-	if err := Apply(context.Background(), fs, ev); err != nil {
-		t.Fatalf("apply: %v", err)
-	}
-	ent := fs.tasks["t1"]
-	if ent.Done || ent.EventTimestamp != 5 {
 		t.Fatalf("unexpected task entity: %#v", ent)
 	}
 }
@@ -292,7 +227,7 @@ func TestApplyUserCreated(t *testing.T) {
 	}
 }
 
-func TestApplyUserSettingsUpdatedIgnoresOldEvent(t *testing.T) {
+func TestApplyUserSettingsUpdatedStaleEventReturnsError(t *testing.T) {
 	fs := &fakeStore{settings: map[string]UserSettingsEntity{"u1": {
 		Entity:               Entity{PartitionKey: "u1", RowKey: "u1"},
 		TasksPerCategory:     10,
@@ -307,8 +242,8 @@ func TestApplyUserSettingsUpdatedIgnoresOldEvent(t *testing.T) {
 	data := UserSettingsUpdatedEventData{TasksPerCategory: &tpc, ShowDoneTasks: &sdt}
 	payload, _ := json.Marshal(data)
 	ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 2}
-	if err := Apply(context.Background(), fs, ev); err != nil {
-		t.Fatalf("apply: %v", err)
+	if err := Apply(context.Background(), fs, ev); err == nil {
+		t.Fatalf("expected error for stale settings update")
 	}
 	ent := fs.settings["u1"]
 	if ent.TasksPerCategory != 10 || !ent.ShowDoneTasks || ent.EventTimestamp != 5 {
@@ -316,45 +251,45 @@ func TestApplyUserSettingsUpdatedIgnoresOldEvent(t *testing.T) {
 	}
 }
 
-func TestApplyUserSettingsUpdatedCreatesDefaults(t *testing.T) {
-        fs := &fakeStore{}
-        sdt := true
-        data := UserSettingsUpdatedEventData{ShowDoneTasks: &sdt}
-        payload, _ := json.Marshal(data)
-        ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 1}
-        if err := Apply(context.Background(), fs, ev); err != nil {
-                t.Fatalf("apply: %v", err)
-        }
-        ent := fs.settings["u1"]
-        if ent.TasksPerCategory != 0 || ent.TasksPerCategoryType != EdmInt32 || !ent.ShowDoneTasks || ent.ShowDoneTasksType != EdmBoolean {
-                t.Fatalf("unexpected settings entity: %#v", ent)
-        }
+func TestApplyUserSettingsUpdatedUpdatesExisting(t *testing.T) {
+	fs := &fakeStore{settings: map[string]UserSettingsEntity{
+		"u1": {
+			Entity:               Entity{PartitionKey: "u1", RowKey: "u1"},
+			TasksPerCategory:     3,
+			TasksPerCategoryType: EdmInt32,
+			ShowDoneTasks:        false,
+			ShowDoneTasksType:    EdmBoolean,
+			EventTimestamp:       1,
+			EventTimestampType:   EdmInt64,
+		},
+	}}
+	sdt := true
+	data := UserSettingsUpdatedEventData{ShowDoneTasks: &sdt}
+	payload, _ := json.Marshal(data)
+	ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 2}
+	if err := Apply(context.Background(), fs, ev); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if fs.updateSettings.PartitionKey != "u1" || fs.updateSettings.ShowDoneTasks == nil || !*fs.updateSettings.ShowDoneTasks {
+		t.Fatalf("unexpected update payload: %#v", fs.updateSettings)
+	}
+	if fs.settings["u1"].ShowDoneTasks != true || fs.settings["u1"].EventTimestamp != 2 {
+		t.Fatalf("settings not updated: %#v", fs.settings["u1"])
+	}
 }
 
-func TestApplyUserSettingsUpdatedUpdatesExisting(t *testing.T) {
-       fs := &fakeStore{settings: map[string]UserSettingsEntity{
-               "u1": {
-                       Entity:               Entity{PartitionKey: "u1", RowKey: "u1"},
-                       TasksPerCategory:     3,
-                       TasksPerCategoryType: EdmInt32,
-                       ShowDoneTasks:        false,
-                       ShowDoneTasksType:    EdmBoolean,
-                       EventTimestamp:       1,
-                       EventTimestampType:   EdmInt64,
-               },
-       }}
+func TestApplyUserSettingsUpdatedCreatesWhenMissing(t *testing.T) {
+       fs := &fakeStore{}
        sdt := true
        data := UserSettingsUpdatedEventData{ShowDoneTasks: &sdt}
        payload, _ := json.Marshal(data)
-       ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 2}
+       ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 1}
        if err := Apply(context.Background(), fs, ev); err != nil {
                t.Fatalf("apply: %v", err)
        }
-       if fs.updateSettings.PartitionKey != "u1" || fs.updateSettings.ShowDoneTasks == nil || !*fs.updateSettings.ShowDoneTasks {
-               t.Fatalf("unexpected update payload: %#v", fs.updateSettings)
-       }
-       if fs.settings["u1"].ShowDoneTasks != true || fs.settings["u1"].EventTimestamp != 2 {
-               t.Fatalf("settings not updated: %#v", fs.settings["u1"])
+       ent := fs.settings["u1"]
+       if !ent.ShowDoneTasks || ent.EventTimestamp != 1 {
+               t.Fatalf("settings not created: %#v", ent)
        }
 }
 

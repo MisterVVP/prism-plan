@@ -20,7 +20,7 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
                 if (ev != null) list.Add(ev);
             }
         }
-        return list;
+        return [.. list.OrderBy(e => e.Timestamp)];
     }
 
     public async Task Add(IEvent ev, CancellationToken ct)
