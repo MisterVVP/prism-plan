@@ -65,7 +65,7 @@ services:
       - COMMAND_QUEUE=${COMMAND_QUEUE}
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureFunctionsJobHost__logging__LogLevel__Default="Debug"
+      - AzureFunctionsJobHost__Logging___LogLevel__Default="Debug"
     depends_on:
       azurite:
         condition: service_healthy
