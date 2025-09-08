@@ -59,13 +59,13 @@ services:
   domain-service:
     build: ./domain-service
     environment:
-      - DEBUG=${DEBUG}
       - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
       - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
       - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
       - COMMAND_QUEUE=${COMMAND_QUEUE}
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
+      - AzureFunctionsJobHost__logging__LogLevel__Default="Debug"
     depends_on:
       azurite:
         condition: service_healthy
