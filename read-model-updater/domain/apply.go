@@ -163,37 +163,52 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 		if err := json.Unmarshal(ev.Data, &s); err != nil {
 			return err
 		}
-		ent, err := st.GetUserSettings(ctx, rk)
-		if err != nil {
-			return err
-		}
-		if ent == nil {
-			log.WithField("settings", rk).Error("settings-updated event for missing settings")
-			return fmt.Errorf("settings %s not found", rk)
-		}
-		if ev.Timestamp <= ent.EventTimestamp {
-			log.WithFields(log.Fields{"settings": rk, "ts": ev.Timestamp, "current": ent.EventTimestamp}).Error("stale settings-updated event")
-			return fmt.Errorf("settings %s received stale update", rk)
-		}
-		upd := UserSettingsUpdate{Entity: Entity{PartitionKey: rk, RowKey: rk}}
-		if s.TasksPerCategory != nil {
-			upd.TasksPerCategory = s.TasksPerCategory
-			t := EdmInt32
-			upd.TasksPerCategoryType = &t
-		}
-		if s.ShowDoneTasks != nil {
-			upd.ShowDoneTasks = s.ShowDoneTasks
-			t := EdmBoolean
-			upd.ShowDoneTasksType = &t
-		}
-		upd.EventTimestamp = &ev.Timestamp
-		t := EdmInt64
-		upd.EventTimestampType = &t
-		// Only attempt an update if there's something to change.
-		if upd.TasksPerCategory != nil || upd.ShowDoneTasks != nil {
-			return st.UpdateUserSettings(ctx, upd)
-		}
-		return fmt.Errorf("settings %s update had no fields", rk)
-	}
-	return nil
+               ent, err := st.GetUserSettings(ctx, rk)
+               if err != nil {
+                       return err
+               }
+               if ent == nil {
+                       // Create settings entity if it doesn't exist yet.
+                       newEnt := UserSettingsEntity{
+                               Entity:               Entity{PartitionKey: rk, RowKey: rk},
+                               TasksPerCategory:     0,
+                               TasksPerCategoryType: EdmInt32,
+                               ShowDoneTasks:        false,
+                               ShowDoneTasksType:    EdmBoolean,
+                               EventTimestamp:       ev.Timestamp,
+                               EventTimestampType:   EdmInt64,
+                       }
+                       if s.TasksPerCategory != nil {
+                               newEnt.TasksPerCategory = *s.TasksPerCategory
+                       }
+                       if s.ShowDoneTasks != nil {
+                               newEnt.ShowDoneTasks = *s.ShowDoneTasks
+                       }
+                       return st.UpsertUserSettings(ctx, newEnt)
+               }
+               if ev.Timestamp <= ent.EventTimestamp {
+                       log.WithFields(log.Fields{"settings": rk, "ts": ev.Timestamp, "current": ent.EventTimestamp}).Error("stale settings-updated event")
+                       return fmt.Errorf("settings %s received stale update", rk)
+               }
+               upd := UserSettingsUpdate{Entity: Entity{PartitionKey: rk, RowKey: rk}}
+               if s.TasksPerCategory != nil {
+                       upd.TasksPerCategory = s.TasksPerCategory
+                       t := EdmInt32
+                       upd.TasksPerCategoryType = &t
+               }
+               if s.ShowDoneTasks != nil {
+                       upd.ShowDoneTasks = s.ShowDoneTasks
+                       t := EdmBoolean
+                       upd.ShowDoneTasksType = &t
+               }
+               upd.EventTimestamp = &ev.Timestamp
+               t := EdmInt64
+               upd.EventTimestampType = &t
+               // Only attempt an update if there's something to change.
+               if upd.TasksPerCategory != nil || upd.ShowDoneTasks != nil {
+                       return st.UpdateUserSettings(ctx, upd)
+               }
+               return fmt.Errorf("settings %s update had no fields", rk)
+        }
+        return nil
 }
