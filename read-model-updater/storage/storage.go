@@ -89,8 +89,10 @@ func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntit
 		Title              string          `json:"Title,omitempty"`
 		Notes              string          `json:"Notes,omitempty"`
 		Category           string          `json:"Category,omitempty"`
-		Order              *int            `json:"Order,omitempty"`
-		Done               *bool           `json:"Done,omitempty"`
+		Order              int             `json:"Order"`
+		OrderType          string          `json:"Order@odata.type"`
+		Done               bool            `json:"Done"`
+		DoneType           string          `json:"Done@odata.type"`
 		EventTimestamp     json.RawMessage `json:"EventTimestamp"`
 		EventTimestampType string          `json:"EventTimestamp@odata.type"`
 	}
@@ -103,7 +105,9 @@ func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntit
 		Notes:              raw.Notes,
 		Category:           raw.Category,
 		Order:              raw.Order,
+		OrderType:          raw.OrderType,
 		Done:               raw.Done,
+		DoneType:           raw.DoneType,
 		EventTimestamp:     parseTimestamp(raw.EventTimestamp),
 		EventTimestampType: raw.EventTimestampType,
 	}
@@ -119,32 +123,8 @@ func (s *Storage) InsertTask(ctx context.Context, ent domain.TaskEntity) error {
 	return err
 }
 
-// UpsertTask creates or replaces a task entity.
-func (s *Storage) UpsertTask(ctx context.Context, ent domain.TaskEntity) error {
-	payload, err := json.Marshal(ent)
-	if err == nil {
-		_, err = s.taskTable.UpsertEntity(ctx, payload, nil)
-	}
-	return err
-}
-
 // UpdateTask merges changes into an existing task entity.
 func (s *Storage) UpdateTask(ctx context.Context, ent domain.TaskUpdate) error {
-	payload, err := json.Marshal(ent)
-	if err == nil {
-		et := azcore.ETagAny
-		_, err = s.taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
-	}
-	return err
-}
-
-// SetTaskDone marks a task as completed.
-func (s *Storage) SetTaskDone(ctx context.Context, pk, rk string) error {
-	done := true
-	ent := domain.TaskUpdate{
-		Entity: domain.Entity{PartitionKey: pk, RowKey: rk},
-		Done:   &done,
-	}
 	payload, err := json.Marshal(ent)
 	if err == nil {
 		et := azcore.ETagAny
@@ -201,15 +181,6 @@ func (s *Storage) UpsertUserSettings(ctx context.Context, ent domain.UserSetting
 	payload, err := json.Marshal(ent)
 	if err == nil {
 		_, err = s.settingsTable.UpsertEntity(ctx, payload, nil)
-	}
-	return err
-}
-
-// InsertUserSettings adds a new user settings entity if it does not already exist.
-func (s *Storage) InsertUserSettings(ctx context.Context, ent domain.UserSettingsEntity) error {
-	payload, err := json.Marshal(ent)
-	if err == nil {
-		_, err = s.settingsTable.AddEntity(ctx, payload, nil)
 	}
 	return err
 }
