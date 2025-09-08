@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 )
@@ -63,7 +62,8 @@ func ensureTask(ctx context.Context, st Storage, pk, rk string, ts int64, f task
 // mergeTask merges fields into ent respecting timestamps.
 func mergeTask(ent *TaskEntity, ts int64, f taskFields) (TaskUpdate, bool, error) {
 	if ts == ent.EventTimestamp {
-		return TaskUpdate{}, false, fmt.Errorf("task %s received event with identical timestamp", ent.RowKey)
+		// duplicate event, no changes needed
+		return TaskUpdate{}, false, nil
 	}
 	upd := TaskUpdate{Entity: ent.Entity}
 	changed := false

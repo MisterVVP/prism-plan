@@ -128,3 +128,63 @@ func TestTaskReopenIgnoresStaleCompletion(t *testing.T) {
 		t.Fatalf("unexpected task after reopen: %#v", ent)
 	}
 }
+
+func TestTaskDuplicateEventNoChange(t *testing.T) {
+	fs := &fakeStore{}
+	tp := TaskProcessor{}
+	ctx := context.Background()
+
+	created := TaskCreatedEventData{Title: "t"}
+	b, _ := json.Marshal(created)
+	ev := Event{Type: TaskCreated, EntityType: "task", UserID: "u1", EntityID: "t1", Data: b, Timestamp: 1}
+	if err := tp.Handle(ctx, fs, ev); err != nil {
+		t.Fatalf("handle create: %v", err)
+	}
+	// process duplicate event
+	if err := tp.Handle(ctx, fs, ev); err != nil {
+		t.Fatalf("handle duplicate: %v", err)
+	}
+	ent, _ := fs.GetTask(ctx, "u1", "t1")
+	if ent.Title != "t" {
+		t.Fatalf("expected title t, got %#v", ent)
+	}
+}
+
+func TestTaskReopenThenCompleteAgain(t *testing.T) {
+	fs := &fakeStore{}
+	tp := TaskProcessor{}
+	ctx := context.Background()
+
+	created := TaskCreatedEventData{Title: "t", Category: "c"}
+	b1, _ := json.Marshal(created)
+	ev1 := Event{Type: TaskCreated, EntityType: "task", UserID: "u1", EntityID: "t1", Data: b1, Timestamp: 1}
+	if err := tp.Handle(ctx, fs, ev1); err != nil {
+		t.Fatalf("handle create: %v", err)
+	}
+
+	done := TaskUpdatedEventData{Done: ptrBool(true), Category: ptrString("done")}
+	b2, _ := json.Marshal(done)
+	ev2 := Event{Type: TaskUpdated, EntityType: "task", UserID: "u1", EntityID: "t1", Data: b2, Timestamp: 2}
+	if err := tp.Handle(ctx, fs, ev2); err != nil {
+		t.Fatalf("handle done: %v", err)
+	}
+
+	reopen := TaskUpdatedEventData{Done: ptrBool(false), Category: ptrString("c")}
+	b3, _ := json.Marshal(reopen)
+	ev3 := Event{Type: TaskUpdated, EntityType: "task", UserID: "u1", EntityID: "t1", Data: b3, Timestamp: 3}
+	if err := tp.Handle(ctx, fs, ev3); err != nil {
+		t.Fatalf("handle reopen: %v", err)
+	}
+
+	doneAgain := TaskUpdatedEventData{Done: ptrBool(true), Category: ptrString("done")}
+	b4, _ := json.Marshal(doneAgain)
+	ev4 := Event{Type: TaskUpdated, EntityType: "task", UserID: "u1", EntityID: "t1", Data: b4, Timestamp: 4}
+	if err := tp.Handle(ctx, fs, ev4); err != nil {
+		t.Fatalf("handle done again: %v", err)
+	}
+
+	ent, _ := fs.GetTask(ctx, "u1", "t1")
+	if ent == nil || ent.Done == nil || !*ent.Done || ent.Category != "done" {
+		t.Fatalf("unexpected task after second completion: %#v", ent)
+	}
+}

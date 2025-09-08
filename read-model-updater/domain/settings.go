@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 )
@@ -48,7 +47,8 @@ func ensureSettings(ctx context.Context, st Storage, id string, ts int64, f sett
 
 func mergeSettings(ent *UserSettingsEntity, ts int64, f settingsFields) (UserSettingsUpdate, bool, error) {
 	if ts == ent.EventTimestamp {
-		return UserSettingsUpdate{}, false, fmt.Errorf("settings %s received event with identical timestamp", ent.RowKey)
+		// duplicate event, no changes required
+		return UserSettingsUpdate{}, false, nil
 	}
 	upd := UserSettingsUpdate{Entity: ent.Entity}
 	changed := false

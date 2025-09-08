@@ -58,3 +58,23 @@ func TestSettingsUpdateBeforeCreateMergesFields(t *testing.T) {
 		t.Fatalf("unexpected settings: %#v", ent)
 	}
 }
+
+func TestSettingsDuplicateEventNoChange(t *testing.T) {
+	fs := &fakeStore{}
+	sp := SettingsProcessor{}
+	ctx := context.Background()
+
+	data := UserSettingsEventData{TasksPerCategory: 2, ShowDoneTasks: true}
+	b, _ := json.Marshal(data)
+	ev := Event{Type: UserSettingsCreated, EntityType: "user-settings", EntityID: "u1", Data: b, Timestamp: 1}
+	if err := sp.Handle(ctx, fs, ev); err != nil {
+		t.Fatalf("handle create: %v", err)
+	}
+	if err := sp.Handle(ctx, fs, ev); err != nil {
+		t.Fatalf("handle duplicate: %v", err)
+	}
+	ent := fs.settings["u1"]
+	if ent.TasksPerCategory != 2 || !ent.ShowDoneTasks {
+		t.Fatalf("unexpected settings after duplicate: %#v", ent)
+	}
+}
