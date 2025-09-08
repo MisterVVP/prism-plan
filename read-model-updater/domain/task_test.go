@@ -19,7 +19,7 @@ func TestTaskCreated(t *testing.T) {
 	if err := tp.Handle(context.Background(), fs, ev); err != nil {
 		t.Fatalf("handle: %v", err)
 	}
-	if fs.insertTask.RowKey != "t1" || fs.insertTask.Title != "title1" || fs.insertTask.Order != 1 || fs.insertTask.EventTimestamp != 1 {
+	if fs.insertTask.RowKey != "t1" || fs.insertTask.Title != "title1" || fs.insertTask.Order == nil || *fs.insertTask.Order != 1 || fs.insertTask.EventTimestamp != 1 {
 		t.Fatalf("unexpected insertTask: %#v", fs.insertTask)
 	}
 }
@@ -33,7 +33,7 @@ func TestTaskUpdated(t *testing.T) {
 	if err := tp.Handle(context.Background(), fs, ev); err != nil {
 		t.Fatalf("handle: %v", err)
 	}
-	if fs.insertTask.RowKey != "t1" || fs.insertTask.Title != "new" || fs.insertTask.Order != 5 || fs.insertTask.EventTimestamp != 1 {
+	if fs.insertTask.RowKey != "t1" || fs.insertTask.Title != "new" || fs.insertTask.Order == nil || *fs.insertTask.Order != 5 || fs.insertTask.EventTimestamp != 1 {
 		t.Fatalf("unexpected insertTask: %#v", fs.insertTask)
 	}
 }
@@ -46,7 +46,7 @@ func TestTaskCompleted(t *testing.T) {
 		t.Fatalf("handle: %v", err)
 	}
 	ent, _ := fs.GetTask(context.Background(), "u1", "t1")
-	if ent == nil || !ent.Done {
+	if ent == nil || ent.Done == nil || !*ent.Done {
 		t.Fatalf("expected stored task done true: %#v", ent)
 	}
 }
@@ -81,7 +81,7 @@ func TestTaskUpdateBeforeCreateMergesFields(t *testing.T) {
 	}
 
 	ent, _ := fs.GetTask(ctx, "u1", "t1")
-	if ent.Title != "t" || ent.Notes != "note" || !ent.Done {
+	if ent.Title != "t" || ent.Notes != "note" || ent.Done == nil || !*ent.Done {
 		t.Fatalf("unexpected task: %#v", ent)
 	}
 }
@@ -124,7 +124,7 @@ func TestTaskReopenIgnoresStaleCompletion(t *testing.T) {
 	}
 
 	ent, _ := fs.GetTask(ctx, "u1", "t1")
-	if ent == nil || ent.Done || ent.Category != "c" {
+	if ent == nil || ent.Done == nil || *ent.Done || ent.Category != "c" {
 		t.Fatalf("unexpected task after reopen: %#v", ent)
 	}
 }

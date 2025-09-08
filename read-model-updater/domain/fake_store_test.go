@@ -67,16 +67,10 @@ func (f *fakeStore) UpdateTask(ctx context.Context, upd TaskUpdate) error {
 		ent.Category = *upd.Category
 	}
 	if upd.Order != nil {
-		ent.Order = *upd.Order
-		if upd.OrderType != nil {
-			ent.OrderType = *upd.OrderType
-		}
+		ent.Order = upd.Order
 	}
 	if upd.Done != nil {
-		ent.Done = *upd.Done
-		if upd.DoneType != nil {
-			ent.DoneType = *upd.DoneType
-		}
+		ent.Done = upd.Done
 	}
 	if upd.EventTimestamp != nil {
 		ent.EventTimestamp = *upd.EventTimestamp

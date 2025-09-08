@@ -89,10 +89,8 @@ func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntit
 		Title              string          `json:"Title,omitempty"`
 		Notes              string          `json:"Notes,omitempty"`
 		Category           string          `json:"Category,omitempty"`
-		Order              int             `json:"Order"`
-		OrderType          string          `json:"Order@odata.type"`
-		Done               bool            `json:"Done"`
-		DoneType           string          `json:"Done@odata.type"`
+		Order              *int            `json:"Order,omitempty"`
+		Done               *bool           `json:"Done,omitempty"`
 		EventTimestamp     json.RawMessage `json:"EventTimestamp"`
 		EventTimestampType string          `json:"EventTimestamp@odata.type"`
 	}
@@ -105,9 +103,7 @@ func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntit
 		Notes:              raw.Notes,
 		Category:           raw.Category,
 		Order:              raw.Order,
-		OrderType:          raw.OrderType,
 		Done:               raw.Done,
-		DoneType:           raw.DoneType,
 		EventTimestamp:     parseTimestamp(raw.EventTimestamp),
 		EventTimestampType: raw.EventTimestampType,
 	}
@@ -145,11 +141,9 @@ func (s *Storage) UpdateTask(ctx context.Context, ent domain.TaskUpdate) error {
 // SetTaskDone marks a task as completed.
 func (s *Storage) SetTaskDone(ctx context.Context, pk, rk string) error {
 	done := true
-	t := domain.EdmBoolean
 	ent := domain.TaskUpdate{
-		Entity:   domain.Entity{PartitionKey: pk, RowKey: rk},
-		Done:     &done,
-		DoneType: &t,
+		Entity: domain.Entity{PartitionKey: pk, RowKey: rk},
+		Done:   &done,
 	}
 	payload, err := json.Marshal(ent)
 	if err == nil {

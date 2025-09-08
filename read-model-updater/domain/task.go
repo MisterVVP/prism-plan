@@ -41,12 +41,10 @@ func ensureTask(ctx context.Context, st Storage, pk, rk string, ts int64, f task
 		ent.Category = *f.Category
 	}
 	if f.Order != nil {
-		ent.Order = *f.Order
-		ent.OrderType = EdmInt32
+		ent.Order = f.Order
 	}
 	if f.Done != nil {
-		ent.Done = *f.Done
-		ent.DoneType = EdmBoolean
+		ent.Done = f.Done
 	}
 	if err := st.InsertTask(ctx, *ent); err != nil {
 		var respErr *azcore.ResponseError
@@ -84,17 +82,11 @@ func mergeTask(ent *TaskEntity, ts int64, f taskFields) (TaskUpdate, bool, error
 		}
 		if f.Order != nil {
 			upd.Order = f.Order
-			t := EdmInt32
-			upd.OrderType = &t
-			ent.Order = *f.Order
-			ent.OrderType = EdmInt32
+			ent.Order = f.Order
 		}
 		if f.Done != nil {
 			upd.Done = f.Done
-			t := EdmBoolean
-			upd.DoneType = &t
-			ent.Done = *f.Done
-			ent.DoneType = EdmBoolean
+			ent.Done = f.Done
 		}
 		upd.EventTimestamp = &ts
 		t := EdmInt64
@@ -118,20 +110,14 @@ func mergeTask(ent *TaskEntity, ts int64, f taskFields) (TaskUpdate, bool, error
 			ent.Category = *f.Category
 			changed = true
 		}
-		if f.Order != nil && ent.OrderType == "" {
+		if f.Order != nil && ent.Order == nil {
 			upd.Order = f.Order
-			t := EdmInt32
-			upd.OrderType = &t
-			ent.Order = *f.Order
-			ent.OrderType = EdmInt32
+			ent.Order = f.Order
 			changed = true
 		}
-		if f.Done != nil && ent.DoneType == "" {
+		if f.Done != nil && ent.Done == nil {
 			upd.Done = f.Done
-			t := EdmBoolean
-			upd.DoneType = &t
-			ent.Done = *f.Done
-			ent.DoneType = EdmBoolean
+			ent.Done = f.Done
 			changed = true
 		}
 	}
