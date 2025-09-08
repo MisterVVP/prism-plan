@@ -211,6 +211,15 @@ func (s *Storage) UpsertUserSettings(ctx context.Context, ent domain.UserSetting
 	return err
 }
 
+// InsertUserSettings adds a new user settings entity if it does not already exist.
+func (s *Storage) InsertUserSettings(ctx context.Context, ent domain.UserSettingsEntity) error {
+	payload, err := json.Marshal(ent)
+	if err == nil {
+		_, err = s.settingsTable.AddEntity(ctx, payload, nil)
+	}
+	return err
+}
+
 func (s *Storage) UpdateUserSettings(ctx context.Context, ent domain.UserSettingsUpdate) error {
 	payload, err := json.Marshal(ent)
 	if err == nil {

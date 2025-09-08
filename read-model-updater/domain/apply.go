@@ -19,6 +19,7 @@ type Storage interface {
 	SetTaskDone(ctx context.Context, pk, rk string) error
 	UpsertUser(ctx context.Context, ent UserEntity) error
 	GetUserSettings(ctx context.Context, id string) (*UserSettingsEntity, error)
+	InsertUserSettings(ctx context.Context, ent UserSettingsEntity) error
 	UpsertUserSettings(ctx context.Context, ent UserSettingsEntity) error
 	UpdateUserSettings(ctx context.Context, ent UserSettingsUpdate) error
 }
@@ -120,7 +121,19 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			if eventData.Done != nil {
 				ent.Done = *eventData.Done
 			}
-			return st.UpsertTask(ctx, *ent)
+			if err := st.InsertTask(ctx, *ent); err != nil {
+				var respErr *azcore.ResponseError
+				if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+					ent, err = st.GetTask(ctx, pk, rk)
+					if err != nil {
+						return err
+					}
+				} else {
+					return err
+				}
+			} else {
+				return nil
+			}
 		}
 		if ev.Timestamp == ent.EventTimestamp {
 			return fmt.Errorf("task %s received event with identical timestamp", rk)
@@ -276,7 +289,19 @@ func Apply(ctx context.Context, st Storage, ev Event) error {
 			if s.ShowDoneTasks != nil {
 				ent.ShowDoneTasks = *s.ShowDoneTasks
 			}
-			return st.UpsertUserSettings(ctx, *ent)
+			if err := st.InsertUserSettings(ctx, *ent); err != nil {
+				var respErr *azcore.ResponseError
+				if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+					ent, err = st.GetUserSettings(ctx, rk)
+					if err != nil {
+						return err
+					}
+				} else {
+					return err
+				}
+			} else {
+				return nil
+			}
 		}
 		if ev.Timestamp == ent.EventTimestamp {
 			return fmt.Errorf("settings %s received event with identical timestamp", rk)

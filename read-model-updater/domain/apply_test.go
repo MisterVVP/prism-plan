@@ -3,8 +3,9 @@ package domain
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 )
 
 type fakeStore struct {
@@ -42,7 +43,7 @@ func (f *fakeStore) InsertTask(ctx context.Context, ent TaskEntity) error {
 		f.tasks = map[string]TaskEntity{}
 	}
 	if _, exists := f.tasks[ent.RowKey]; exists {
-		return errors.New("conflict")
+		return &azcore.ResponseError{StatusCode: 409}
 	}
 	f.tasks[ent.RowKey] = ent
 	f.insertTask = ent
@@ -104,6 +105,17 @@ func (f *fakeStore) GetUserSettings(ctx context.Context, id string) (*UserSettin
 		return nil, nil
 	}
 	return &ent, nil
+}
+
+func (f *fakeStore) InsertUserSettings(ctx context.Context, ent UserSettingsEntity) error {
+	if f.settings == nil {
+		f.settings = map[string]UserSettingsEntity{}
+	}
+	if _, exists := f.settings[ent.RowKey]; exists {
+		return &azcore.ResponseError{StatusCode: 409}
+	}
+	f.settings[ent.RowKey] = ent
+	return nil
 }
 
 func (f *fakeStore) UpsertUserSettings(ctx context.Context, ent UserSettingsEntity) error {
@@ -176,8 +188,8 @@ func TestApplyTaskUpdated(t *testing.T) {
 	if err := Apply(context.Background(), fs, ev); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if fs.upsertTask.RowKey != "t1" || fs.upsertTask.Title != "new" || fs.upsertTask.Order != 5 || fs.upsertTask.EventTimestamp != 1 {
-		t.Fatalf("unexpected upsertTask: %#v", fs.upsertTask)
+	if fs.insertTask.RowKey != "t1" || fs.insertTask.Title != "new" || fs.insertTask.Order != 5 || fs.insertTask.EventTimestamp != 1 {
+		t.Fatalf("unexpected insertTask: %#v", fs.insertTask)
 	}
 }
 
