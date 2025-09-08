@@ -18,10 +18,10 @@ type TaskEntity struct {
 	Title              string `json:"Title,omitempty"`
 	Notes              string `json:"Notes,omitempty"`
 	Category           string `json:"Category,omitempty"`
-	Order              int    `json:"Order"`
-	OrderType          string `json:"Order@odata.type"`
-	Done               bool   `json:"Done"`
-	DoneType           string `json:"Done@odata.type"`
+	Order              int    `json:"Order,omitempty"`
+	OrderType          string `json:"Order@odata.type,omitempty"`
+	Done               bool   `json:"Done,omitempty"`
+	DoneType           string `json:"Done@odata.type,omitempty"`
 	EventTimestamp     int64  `json:"EventTimestamp,string"`
 	EventTimestampType string `json:"EventTimestamp@odata.type"`
 }

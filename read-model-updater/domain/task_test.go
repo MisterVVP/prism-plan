@@ -85,3 +85,46 @@ func TestTaskUpdateBeforeCreateMergesFields(t *testing.T) {
 		t.Fatalf("unexpected task: %#v", ent)
 	}
 }
+
+func TestTaskReopenIgnoresStaleCompletion(t *testing.T) {
+	fs := &fakeStore{}
+	tp := TaskProcessor{}
+	ctx := context.Background()
+
+	// create task
+	created := TaskCreatedEventData{Title: "t", Category: "c", Order: 1}
+	b1, _ := json.Marshal(created)
+	ev1 := Event{Type: TaskCreated, EntityType: "task", UserID: "u1", EntityID: "t1", Data: b1, Timestamp: 1}
+	if err := tp.Handle(ctx, fs, ev1); err != nil {
+		t.Fatalf("handle create: %v", err)
+	}
+
+	// complete task
+	done := TaskUpdatedEventData{Done: ptrBool(true), Category: ptrString("done")}
+	b2, _ := json.Marshal(done)
+	ev2 := Event{Type: TaskUpdated, EntityType: "task", UserID: "u1", EntityID: "t1", Data: b2, Timestamp: 2}
+	if err := tp.Handle(ctx, fs, ev2); err != nil {
+		t.Fatalf("handle complete: %v", err)
+	}
+
+	// reopen with later timestamp
+	reopen := TaskUpdatedEventData{Done: ptrBool(false), Category: ptrString("c"), Order: ptrInt(1)}
+	b3, _ := json.Marshal(reopen)
+	ev3 := Event{Type: TaskUpdated, EntityType: "task", UserID: "u1", EntityID: "t1", Data: b3, Timestamp: 3}
+	if err := tp.Handle(ctx, fs, ev3); err != nil {
+		t.Fatalf("handle reopen: %v", err)
+	}
+
+	// stale completion arrives late
+	stale := TaskUpdatedEventData{Done: ptrBool(true)}
+	b4, _ := json.Marshal(stale)
+	ev4 := Event{Type: TaskUpdated, EntityType: "task", UserID: "u1", EntityID: "t1", Data: b4, Timestamp: 2}
+	if err := tp.Handle(ctx, fs, ev4); err != nil {
+		t.Fatalf("handle stale: %v", err)
+	}
+
+	ent, _ := fs.GetTask(ctx, "u1", "t1")
+	if ent == nil || ent.Done || ent.Category != "c" {
+		t.Fatalf("unexpected task after reopen: %#v", ent)
+	}
+}
