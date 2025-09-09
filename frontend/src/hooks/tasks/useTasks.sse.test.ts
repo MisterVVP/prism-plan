@@ -31,6 +31,7 @@ class MockEventSource {
 
 describe('useTasks SSE', () => {
   it('ignores keep-alive messages', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { result, unmount } = renderHook(() => useTasks());
 
     await waitFor(() => expect(MockEventSource.instance).not.toBeNull());
@@ -46,6 +47,7 @@ describe('useTasks SSE', () => {
     });
 
     expect(result.current.tasks).toHaveLength(1);
+    errSpy.mockRestore();
     unmount();
   });
 });

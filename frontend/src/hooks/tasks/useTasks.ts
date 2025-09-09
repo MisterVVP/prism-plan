@@ -2,7 +2,7 @@ import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import type { Task } from "../../types";
 import { tasksReducer, initialState } from "../../reducers";
-import { parseTasks } from "./parseTasks";
+import { subscribe } from "../../stream";
 
 export function useTasks() {
   const [state, dispatch] = useReducer(tasksReducer, initialState);
@@ -59,39 +59,21 @@ export function useTasks() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    let source: EventSource | null = null;
-    let reconnectTimer: number | null = null;
-    async function connect() {
-      try {
-        const token = await getAccessTokenSilently({
+    return subscribe(
+      () =>
+        getAccessTokenSilently({
           authorizationParams: {
             audience,
             scope: "openid profile email offline_access",
           },
-        });
-        const encoded = encodeURIComponent(token);
-        source = new EventSource(`${streamUrl}?token=${encoded}`);
-        source.onmessage = (ev) => {
-          const data = parseTasks(ev.data);
-          if (data.length) {
-            dispatch({ type: "merge-tasks", tasks: data });
-          }
-        };
-        source.onerror = () => {
-          source?.close();
-          reconnectTimer = window.setTimeout(connect, 5000);
-        };
-      } catch (err) {
-        console.error(err);
+        }),
+      streamUrl,
+      (msg) => {
+        if (msg.entityType === "task" && Array.isArray(msg.data)) {
+          dispatch({ type: "merge-tasks", tasks: msg.data as Task[] });
+        }
       }
-    }
-    connect();
-    return () => {
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-      }
-      if (source) source.close();
-    };
+    );
   }, [isAuthenticated, streamUrl, getAccessTokenSilently, audience]);
 
   useEffect(() => {

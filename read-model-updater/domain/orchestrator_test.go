@@ -138,6 +138,7 @@ func (f *fakeStore) UpdateUserSettings(ctx context.Context, ent UserSettingsUpda
 
 func TestApplyTaskCreated(t *testing.T) {
 	fs := &fakeStore{}
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
 	data := struct {
 		Title    string `json:"title"`
 		Notes    string `json:"notes"`
@@ -145,8 +146,8 @@ func TestApplyTaskCreated(t *testing.T) {
 		Order    int    `json:"order"`
 	}{"title1", "note", "cat", 1}
 	payload, _ := json.Marshal(data)
-	ev := Event{Type: TaskCreated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 1}
-	if err := Apply(context.Background(), fs, ev); err != nil {
+	ev := Event{EntityType: "task", Type: TaskCreated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 1}
+	if err := orch.Apply(context.Background(), ev); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 	if fs.insertTask.PartitionKey != "u1" || fs.insertTask.RowKey != "t1" || fs.insertTask.Title != "title1" || fs.insertTask.Order != 1 || fs.insertTask.EventTimestamp != 1 {
@@ -156,16 +157,18 @@ func TestApplyTaskCreated(t *testing.T) {
 
 func TestApplyTaskUpdatedMissingTask(t *testing.T) {
 	fs := &fakeStore{}
-	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Timestamp: 1}
-	if err := Apply(context.Background(), fs, ev); err == nil {
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	ev := Event{EntityType: "task", Type: TaskUpdated, UserID: "u1", EntityID: "t1", Timestamp: 1}
+	if err := orch.Apply(context.Background(), ev); err == nil {
 		t.Fatalf("expected error for missing task")
 	}
 }
 
 func TestApplyTaskCompletedMissingTask(t *testing.T) {
 	fs := &fakeStore{}
-	ev := Event{Type: TaskCompleted, UserID: "u1", EntityID: "t1", Timestamp: 1}
-	if err := Apply(context.Background(), fs, ev); err == nil {
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	ev := Event{EntityType: "task", Type: TaskCompleted, UserID: "u1", EntityID: "t1", Timestamp: 1}
+	if err := orch.Apply(context.Background(), ev); err == nil {
 		t.Fatalf("expected error for missing task")
 	}
 }
@@ -177,8 +180,9 @@ func TestApplyTaskCompletedStaleEventReturnsError(t *testing.T) {
 		DoneType:       EdmBoolean,
 		EventTimestamp: 5,
 	}}}
-	ev := Event{Type: TaskCompleted, UserID: "u1", EntityID: "t1", Timestamp: 3}
-	if err := Apply(context.Background(), fs, ev); err == nil {
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	ev := Event{EntityType: "task", Type: TaskCompleted, UserID: "u1", EntityID: "t1", Timestamp: 3}
+	if err := orch.Apply(context.Background(), ev); err == nil {
 		t.Fatalf("expected error for stale completion")
 	}
 	ent := fs.tasks["t1"]
@@ -201,8 +205,9 @@ func TestApplyTaskUpdatedStaleEventReturnsError(t *testing.T) {
 	order := 0
 	data := TaskUpdatedEventData{Done: &done, Order: &order}
 	payload, _ := json.Marshal(data)
-	ev := Event{Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 3}
-	if err := Apply(context.Background(), fs, ev); err == nil {
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	ev := Event{EntityType: "task", Type: TaskUpdated, UserID: "u1", EntityID: "t1", Data: payload, Timestamp: 3}
+	if err := orch.Apply(context.Background(), ev); err == nil {
 		t.Fatalf("expected error for stale update")
 	}
 	ent := fs.tasks["t1"]
@@ -213,13 +218,14 @@ func TestApplyTaskUpdatedStaleEventReturnsError(t *testing.T) {
 
 func TestApplyUserCreated(t *testing.T) {
 	fs := &fakeStore{}
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
 	data := struct {
 		Name  string `json:"name"`
 		Email string `json:"email"`
 	}{"Alice", "a@example.com"}
 	payload, _ := json.Marshal(data)
-	ev := Event{Type: UserCreated, EntityID: "u1", UserID: "u1", Data: payload}
-	if err := Apply(context.Background(), fs, ev); err != nil {
+	ev := Event{EntityType: "user", Type: UserCreated, EntityID: "u1", UserID: "u1", Data: payload}
+	if err := orch.Apply(context.Background(), ev); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 	if fs.upsertUser.PartitionKey != "u1" || fs.upsertUser.Name != "Alice" {
@@ -241,8 +247,9 @@ func TestApplyUserSettingsUpdatedStaleEventReturnsError(t *testing.T) {
 	sdt := false
 	data := UserSettingsUpdatedEventData{TasksPerCategory: &tpc, ShowDoneTasks: &sdt}
 	payload, _ := json.Marshal(data)
-	ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 2}
-	if err := Apply(context.Background(), fs, ev); err == nil {
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	ev := Event{EntityType: "user-settings", Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 2}
+	if err := orch.Apply(context.Background(), ev); err == nil {
 		t.Fatalf("expected error for stale settings update")
 	}
 	ent := fs.settings["u1"]
@@ -266,8 +273,9 @@ func TestApplyUserSettingsUpdatedUpdatesExisting(t *testing.T) {
 	sdt := true
 	data := UserSettingsUpdatedEventData{ShowDoneTasks: &sdt}
 	payload, _ := json.Marshal(data)
-	ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 2}
-	if err := Apply(context.Background(), fs, ev); err != nil {
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	ev := Event{EntityType: "user-settings", Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 2}
+	if err := orch.Apply(context.Background(), ev); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 	if fs.updateSettings.PartitionKey != "u1" || fs.updateSettings.ShowDoneTasks == nil || !*fs.updateSettings.ShowDoneTasks {
@@ -279,18 +287,19 @@ func TestApplyUserSettingsUpdatedUpdatesExisting(t *testing.T) {
 }
 
 func TestApplyUserSettingsUpdatedCreatesWhenMissing(t *testing.T) {
-       fs := &fakeStore{}
-       sdt := true
-       data := UserSettingsUpdatedEventData{ShowDoneTasks: &sdt}
-       payload, _ := json.Marshal(data)
-       ev := Event{Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 1}
-       if err := Apply(context.Background(), fs, ev); err != nil {
-               t.Fatalf("apply: %v", err)
-       }
-       ent := fs.settings["u1"]
-       if !ent.ShowDoneTasks || ent.EventTimestamp != 1 {
-               t.Fatalf("settings not created: %#v", ent)
-       }
+	fs := &fakeStore{}
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	sdt := true
+	data := UserSettingsUpdatedEventData{ShowDoneTasks: &sdt}
+	payload, _ := json.Marshal(data)
+	ev := Event{EntityType: "user-settings", Type: UserSettingsUpdated, UserID: "u1", EntityID: "u1", Data: payload, Timestamp: 1}
+	if err := orch.Apply(context.Background(), ev); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	ent := fs.settings["u1"]
+	if !ent.ShowDoneTasks || ent.EventTimestamp != 1 {
+		t.Fatalf("settings not created: %#v", ent)
+	}
 }
 
 func ptrString(s string) *string { return &s }
