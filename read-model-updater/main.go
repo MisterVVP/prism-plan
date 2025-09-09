@@ -45,6 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}
+	orch := domain.NewOrchestrator(domain.NewTaskService(st), domain.NewUserService(st))
 	redisConn := os.Getenv("REDIS_CONNECTION_STRING")
 	if redisConn == "" {
 		log.Fatal("missing redis config")
@@ -98,16 +99,9 @@ func main() {
 		}
 
 		ctx := c.Request().Context()
-		if err := domain.Apply(ctx, st, ev); err != nil {
+		if err := processEvent(ctx, orch, rc, taskUpdatesChannel, settingsUpdatesChannel, ev, eventPayload); err != nil {
 			log.Errorf("Unable to process message, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
-		}
-		channel := taskUpdatesChannel
-		if ev.EntityType == "user-settings" {
-			channel = settingsUpdatesChannel
-		}
-		if err := rc.Publish(ctx, channel, eventPayload).Err(); err != nil {
-			log.Errorf("Unable to publish update, error: %v", err)
 		}
 
 		return c.JSON(http.StatusOK, azFuncResponse{Outputs: map[string]any{}})
