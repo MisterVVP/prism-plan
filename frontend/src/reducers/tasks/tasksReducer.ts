@@ -1,4 +1,4 @@
-import type { Task, Command } from "../types";
+import type { Task, Command } from "../../types";
 
 type Counters = Record<Task["category"], number>;
 
@@ -16,22 +16,18 @@ const initialState: State = {
 
 type AddTaskAction = {
   type: "add-task";
-  taskId: string;
-  commandId: string;
   partial: Omit<Task, "id" | "order" | "done">;
 };
 
 type UpdateTaskAction = {
   type: "update-task";
   id: string;
-  commandId: string;
   changes: Partial<Task>;
 };
 
 type CompleteTaskAction = {
   type: "complete-task";
   id: string;
-  commandId: string;
 };
 
 type SetTasksAction = { type: "set-tasks"; tasks: Task[] };
@@ -39,6 +35,7 @@ type SetTasksAction = { type: "set-tasks"; tasks: Task[] };
 type MergeTasksAction = { type: "merge-tasks"; tasks: Task[] };
 
 type ClearCommandsAction = { type: "clear-commands" };
+type SetIdempotencyKeysAction = { type: "set-idempotency-keys"; keys: string[] };
 
 type Action =
   | AddTaskAction
@@ -46,7 +43,8 @@ type Action =
   | CompleteTaskAction
   | SetTasksAction
   | MergeTasksAction
-  | ClearCommandsAction;
+  | ClearCommandsAction
+  | SetIdempotencyKeysAction;
 const categories: Task["category"][] = [
   "critical",
   "fun",
@@ -91,18 +89,15 @@ export function tasksReducer(state: State = initialState, action: Action): State
       };
     }
     case "add-task": {
-      const { taskId, commandId, partial } = action;
+      const { partial } = action;
       const order = state.nextOrder[partial.category];
-      const task: Task = { id: taskId, ...partial, order, done: false };
       const cmd: Command = {
-        id: commandId,
-        entityId: taskId,
         entityType: "task",
         type: "create-task",
         data: { ...partial, order },
       };
       return {
-        tasks: [...state.tasks, task],
+        tasks: state.tasks,
         commands: [...state.commands, cmd],
         nextOrder: {
           ...state.nextOrder,
@@ -111,30 +106,36 @@ export function tasksReducer(state: State = initialState, action: Action): State
       };
     }
     case "update-task": {
-      const { id, commandId, changes } = action;
+      const { id, changes } = action;
       const tasks = state.tasks.map((t) => (t.id === id ? { ...t, ...changes } : t));
       const cmd: Command = {
-        id: commandId,
-        entityId: id,
         entityType: "task",
         type: "update-task",
-        data: changes,
+        data: { id, ...changes },
       };
       return { tasks, commands: [...state.commands, cmd], nextOrder: state.nextOrder };
     }
     case "complete-task": {
-      const { id, commandId } = action;
+      const { id } = action;
       const tasks = state.tasks.map((t) => (t.id === id ? { ...t, done: true } : t));
       const cmd: Command = {
-        id: commandId,
-        entityId: id,
         entityType: "task",
         type: "complete-task",
+        data: { id },
       };
       return { tasks, commands: [...state.commands, cmd], nextOrder: state.nextOrder };
     }
     case "clear-commands":
       return { ...state, commands: [] };
+    case "set-idempotency-keys": {
+      let j = 0;
+      const cmds = state.commands.map((c) => {
+        const key = action.keys[j++];
+        if (c.idempotencyKey || !key) return c;
+        return { ...c, idempotencyKey: key };
+      });
+      return { ...state, commands: cmds };
+    }
     default:
       return state;
   }

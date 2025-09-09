@@ -11,31 +11,32 @@ import (
 func TestCreateEditCompleteTask(t *testing.T) {
 	client := newPrismApiClient(t)
 
-	taskID := fmt.Sprintf("task-%d", time.Now().UnixNano())
-	title := "task-title-" + taskID
-	// Create task
-	_, err := client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil)
+        title := fmt.Sprintf("task-title-%d", time.Now().UnixNano())
+        // Create task
+        _, err := client.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-create-%s", title), EntityType: "task", Type: "create-task", Data: map[string]any{"title": title}}}, nil)
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 
 	// Wait for task to appear
-	pollTasks(t, client, func(ts []task) bool {
-		for _, tk := range ts {
-			if tk.ID == taskID {
-				return tk.Title == title
-			}
-		}
-		return false
-	})
+        var taskID string
+        pollTasks(t, client, fmt.Sprintf("task with title %s to be created", title), func(ts []task) bool {
+                for _, tk := range ts {
+                        if tk.Title == title {
+                                taskID = tk.ID
+                                return true
+                        }
+                }
+                return false
+        })
 
 	// Edit task title
 	newTitle := title + " updated"
-	_, err = client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": newTitle}}}, nil)
+	_, err = client.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-update-%s", taskID), EntityType: "task", Type: "update-task", Data: map[string]any{"id": taskID, "title": newTitle}}}, nil)
 	if err != nil {
 		t.Fatalf("edit task: %v", err)
 	}
-	pollTasks(t, client, func(ts []task) bool {
+	pollTasks(t, client, fmt.Sprintf("task %s to have updated title %s", taskID, newTitle), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Title == newTitle
@@ -45,11 +46,11 @@ func TestCreateEditCompleteTask(t *testing.T) {
 	})
 
 	// Complete task
-	_, err = client.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "complete-task"}}, nil)
+	_, err = client.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-complete-%s", taskID), EntityType: "task", Type: "complete-task", Data: map[string]any{"id": taskID}}}, nil)
 	if err != nil {
 		t.Fatalf("complete task: %v", err)
 	}
-	tasks := pollTasks(t, client, func(ts []task) bool {
+	tasks := pollTasks(t, client, fmt.Sprintf("task %s to be completed with title %s", taskID, newTitle), func(ts []task) bool {
 		for _, tk := range ts {
 			if tk.ID == taskID {
 				return tk.Done && tk.Title == newTitle

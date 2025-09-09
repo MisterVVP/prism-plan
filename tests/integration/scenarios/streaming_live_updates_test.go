@@ -12,20 +12,21 @@ import (
 func TestStreamingLiveUpdates(t *testing.T) {
 	prismApiClient := newPrismApiClient(t)
 
-	// Create a task to mutate
-	taskID := fmt.Sprintf("stream-%d", time.Now().UnixNano())
-	title := "stream-title-" + taskID
-	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "create-task", Data: map[string]any{"title": title}}}, nil); err != nil {
-		t.Fatalf("create task: %v", err)
-	}
-	pollTasks(t, prismApiClient, func(ts []task) bool {
-		for _, tk := range ts {
-			if tk.ID == taskID {
-				return tk.Title == title
-			}
-		}
-		return false
-	})
+        // Create a task to mutate
+        title := fmt.Sprintf("stream-title-%d", time.Now().UnixNano())
+        if _, err := prismApiClient.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-create-%s", title), EntityType: "task", Type: "create-task", Data: map[string]any{"title": title}}}, nil); err != nil {
+                t.Fatalf("create task: %v", err)
+        }
+        var taskID string
+        pollTasks(t, prismApiClient, fmt.Sprintf("task with title %s to be created", title), func(ts []task) bool {
+                for _, tk := range ts {
+                        if tk.Title == title {
+                                taskID = tk.ID
+                                return true
+                        }
+                }
+                return false
+        })
 
 	streamServiceClient := newStreamServiceClient(t)
 	req, err := http.NewRequest(http.MethodGet, streamServiceClient.BaseURL+"/stream", nil)
@@ -60,10 +61,10 @@ func TestStreamingLiveUpdates(t *testing.T) {
 	}()
 
 	// mutate the task
-	newTitle := title + "-sse"
-	if _, err := prismApiClient.PostJSON("/api/commands", []command{{EntityType: "task", EntityID: taskID, Type: "update-task", Data: map[string]any{"title": newTitle}}}, nil); err != nil {
-		t.Fatalf("edit task: %v", err)
-	}
+        newTitle := title + "-sse"
+        if _, err := prismApiClient.PostJSON("/api/commands", []command{{IdempotencyKey: fmt.Sprintf("ik-update-%s", taskID), EntityType: "task", Type: "update-task", Data: map[string]any{"id": taskID, "title": newTitle}}}, nil); err != nil {
+                t.Fatalf("edit task: %v", err)
+        }
 
 	select {
 	case ev := <-eventCh:

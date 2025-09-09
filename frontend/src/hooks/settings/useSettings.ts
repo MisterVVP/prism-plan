@@ -1,8 +1,8 @@
 import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { v4 as uuid } from "uuid";
 import type { Settings } from "../../types";
 import { settingsReducer, settingsInitialState } from "../../reducers";
+import { subscribe } from "../../stream";
 
 export function useSettings() {
   const [state, dispatch] = useReducer(settingsReducer, settingsInitialState);
@@ -58,43 +58,21 @@ export function useSettings() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    let source: EventSource | null = null;
-    let reconnectTimer: number | null = null;
-    async function connect() {
-      try {
-        const token = await getAccessTokenSilently({
+    return subscribe(
+      () =>
+        getAccessTokenSilently({
           authorizationParams: {
             audience,
             scope: "openid profile email offline_access",
           },
-        });
-        const encoded = encodeURIComponent(token);
-        source = new EventSource(`${streamUrl}?token=${encoded}`);
-        source.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(ev.data);
-            if (msg.entityType === "user-settings") {
-              dispatch({ type: "merge-settings", settings: msg.data as Partial<Settings> });
-            }
-          } catch (e) {
-            console.error(e);
-          }
-        };
-        source.onerror = () => {
-          source?.close();
-          reconnectTimer = window.setTimeout(connect, 5000);
-        };
-      } catch (err) {
-        console.error(err);
+        }),
+      streamUrl,
+      (msg) => {
+        if (msg.entityType === "user-settings") {
+          dispatch({ type: "merge-settings", settings: msg.data as Partial<Settings> });
+        }
       }
-    }
-    connect();
-    return () => {
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-      }
-      if (source) source.close();
-    };
+    );
   }, [isAuthenticated, streamUrl, getAccessTokenSilently, audience]);
 
   useEffect(() => {
@@ -108,7 +86,7 @@ export function useSettings() {
             scope: "openid profile email offline_access",
           },
         });
-        await fetch(`${apiBaseUrl}/commands`, {
+        const res = await fetch(`${apiBaseUrl}/commands`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -116,8 +94,12 @@ export function useSettings() {
           },
           body: JSON.stringify(commands),
         });
+        const { idempotencyKeys } = await res.json();
         if (!cancelled) {
-          dispatch({ type: "clear-commands" });
+          dispatch({ type: "set-idempotency-keys", keys: idempotencyKeys });
+          if (res.ok) {
+            dispatch({ type: "clear-commands" });
+          }
         }
       } catch (err) {
         if (
@@ -147,12 +129,7 @@ export function useSettings() {
 
   function updateSettings(changes: Partial<Settings>) {
     if (!user?.sub) return;
-    dispatch({
-      type: "update-settings",
-      commandId: uuid(),
-      userId: user.sub,
-      settings: changes,
-    });
+    dispatch({ type: "update-settings", userId: user.sub, settings: changes });
   }
 
   return { settings, updateSettings };

@@ -8,13 +8,17 @@ This document illustrates how application events travel through the system and h
 sequenceDiagram
     participant UI as Frontend
     participant API as Prism API
+    participant RS as Redis
     participant CQ as Command Queue
     participant DS as Domain Service
     participant ES as Event Store
 
     UI->>API: HTTP Command Request
+    API->>RS: Record Idempotency Key
     API->>CQ: Enqueue Command
+    API-->>UI: Return Idempotency Key(s)
     CQ->>DS: Deliver Command
+    DS->>DS: Generate Entity ID
     DS->>ES: Append Domain Events
     DS-->>UI: Command Accepted
 ```

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { v4 as uuid } from "uuid";
 
 export function useLoginUser() {
   const { isAuthenticated, user, getAccessTokenSilently } = useAuth0();
@@ -43,13 +42,11 @@ export function useLoginUser() {
         const token: string = tokenResponse.access_token || tokenResponse;
         const expiresIn: number = tokenResponse.expires_in || 0;
         const command = {
-          id: uuid(),
-          entityId: user.sub,
           entityType: "user",
           type: "login-user",
           data: { name: user.name, email: user.email },
         };
-        await fetch(`${baseUrl}/commands`, {
+        const res = await fetch(`${baseUrl}/commands`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -57,6 +54,7 @@ export function useLoginUser() {
           },
           body: JSON.stringify([command]),
         });
+        await res.json();
         const expiresAt = Date.now() + expiresIn * 1000;
         localStorage.setItem(
           storageKey,

@@ -11,17 +11,18 @@ import (
 )
 
 type command struct {
-	ID         string         `json:"id,omitempty"`
-	EntityID   string         `json:"entityId,omitempty"`
-	EntityType string         `json:"entityType"`
-	Type       string         `json:"type"`
-	Data       map[string]any `json:"data,omitempty"`
+	IdempotencyKey string         `json:"idempotencyKey,omitempty"`
+	EntityType     string         `json:"entityType"`
+	Type           string         `json:"type"`
+	Data           map[string]any `json:"data,omitempty"`
 }
 
 type task struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Done  bool   `json:"done"`
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Notes    string `json:"notes"`
+	Done     bool   `json:"done"`
+	Category string `json:"category"`
 }
 
 func getPollTimeout(t *testing.T) time.Duration {
@@ -69,18 +70,23 @@ func newStreamServiceClient(t *testing.T) *httpclient.Client {
 	return newApiClientInner(t, "STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT")
 }
 
-// pollTasks polls /api/tasks until cond returns true or timeout.
-func pollTasks(t *testing.T, client *httpclient.Client, cond func([]task) bool) []task {
+// pollTasks polls /api/tasks until cond returns true or timeout. desc is used to
+// identify the condition being waited on so failures are easier to diagnose.
+func pollTasks(t *testing.T, client *httpclient.Client, desc string, cond func([]task) bool) []task {
 	deadline := time.Now().Add(getPollTimeout(t))
 	backoff := 200 * time.Millisecond
+	var (
+		tasks []task
+		err   error
+	)
 	for {
-		var tasks []task
-		_, err := client.GetJSON("/api/tasks", &tasks)
+		tasks = nil
+		_, err = client.GetJSON("/api/tasks", &tasks)
 		if err == nil && cond(tasks) {
 			return tasks
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("timeout waiting for tasks: %v", err)
+			t.Fatalf("timeout waiting for tasks for %s: last tasks %v: %v", desc, tasks, err)
 		}
 		time.Sleep(backoff)
 		if backoff < time.Second {
