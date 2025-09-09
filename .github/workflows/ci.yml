@@ -3,6 +3,11 @@ name: CI
 # yamllint disable-line rule:truthy
 on:
   push:
+    branches:
+    - main
+    - dev*
+    - release/*
+    - codex/*
   pull_request:
 
 jobs:
