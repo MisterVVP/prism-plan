@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 
-	"github.com/redis/go-redis/v9"
-
 	"read-model-updater/domain"
+
+	"github.com/redis/go-redis/v9"
+	log "github.com/sirupsen/logrus"
 )
 
 type eventApplier interface {
@@ -20,5 +21,8 @@ func processEvent(ctx context.Context, h eventApplier, rc *redis.Client, taskCha
 	if ev.EntityType == "user-settings" {
 		channel = settingsChannel
 	}
-	return rc.Publish(ctx, channel, payload).Err()
+	if err := rc.Publish(ctx, channel, payload).Err(); err != nil {
+		log.Errorf("Unable to publish updates for %s to %s", ev.EntityType, channel)
+	}
+	return nil
 }
