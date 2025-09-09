@@ -114,10 +114,13 @@ namespace DomainService.Tests
             ICommandHandler<UpdateTaskCommand> handler = new UpdateTask(repo, queue);
             var cmd = new UpdateTaskCommand("t1", JsonDocument.Parse("{\"category\":\"fun\"}").RootElement, "u1", 2, "ik-update");
             await handler.Handle(cmd, CancellationToken.None);
-            Assert.Equal(4, repo.Events.Count);
+            Assert.Equal(3, repo.Events.Count);
             Assert.Equal("task-updated", repo.Events[2].Type);
-            Assert.Equal("task-updated", repo.Events[3].Type);
-            Assert.Equal(2, queue.Events.Count);
+            Assert.Single(queue.Events);
+            Assert.Equal("task-updated", queue.Events[0].Type);
+            Assert.True(repo.Events[2].Data.HasValue);
+            Assert.Equal("fun", repo.Events[2].Data.Value.GetProperty("category").GetString());
+            Assert.False(repo.Events[2].Data.Value.GetProperty("done").GetBoolean());
         }
     }
 
