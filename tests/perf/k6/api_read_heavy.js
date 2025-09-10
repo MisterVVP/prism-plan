@@ -4,8 +4,8 @@ export const options = {
   scenarios: {
     default: {
       executor: 'constant-vus',
-      vus: 10,
-      duration: '30s',
+      vus: Number(__ENV.K6_VUS) || 10,
+      duration: __ENV.K6_DURATION || '30s',
     },
   },
   thresholds: {
