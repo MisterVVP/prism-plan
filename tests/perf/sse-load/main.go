@@ -49,7 +49,7 @@ func main() {
 	client := &http.Client{}
 	var wg sync.WaitGroup
 	wg.Add(conns)
-	for i := 0; i < conns; i++ {
+	for range conns {
 		go func() {
 			defer wg.Done()
 			backoff := time.Second
@@ -62,10 +62,7 @@ func main() {
 				if err != nil {
 					atomic.AddUint64(&failures, 1)
 					time.Sleep(backoff)
-					backoff = backoff * 2
-					if backoff > 5*time.Second {
-						backoff = 5 * time.Second
-					}
+					backoff = min(backoff*2, 5*time.Second)
 					continue
 				}
 				if bearer != "" {
@@ -78,10 +75,7 @@ func main() {
 					}
 					atomic.AddUint64(&failures, 1)
 					time.Sleep(backoff)
-					backoff = backoff * 2
-					if backoff > 5*time.Second {
-						backoff = 5 * time.Second
-					}
+					backoff = min(backoff*2, 5*time.Second)
 					continue
 				}
 				backoff = time.Second
@@ -102,10 +96,7 @@ func main() {
 				}
 				atomic.AddUint64(&failures, 1)
 				time.Sleep(backoff)
-				backoff = backoff * 2
-				if backoff > 5*time.Second {
-					backoff = 5 * time.Second
-				}
+				backoff = min(backoff*2, 5*time.Second)
 			}
 		}()
 	}
