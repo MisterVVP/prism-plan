@@ -1,5 +1,7 @@
 import http from 'k6/http';
 
+const tokens = __ENV.TEST_BEARERS ? JSON.parse(__ENV.TEST_BEARERS) : {};
+
 export const options = {
   scenarios: {
     default: {
@@ -16,7 +18,7 @@ export const options = {
 
 export default function () {
   const base = __ENV.PRISM_API_BASE || 'http://localhost';
-  const bearer = __ENV.TEST_BEARER;
+  const bearer = tokens[__VU];
   const headers = {};
   if (bearer) {
     headers.Authorization = `Bearer ${bearer}`;
