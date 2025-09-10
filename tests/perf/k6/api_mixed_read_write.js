@@ -26,11 +26,15 @@ export default function () {
     http.get(`${base}/api/tasks`, { headers });
   } else {
     const postHeaders = Object.assign({ 'Content-Type': 'application/json' }, headers);
-    http.post(
-      `${base}/api/commands`,
-      JSON.stringify({ type: 'CreateTask', payload: { title: 'k6 task' } }),
-      { headers: postHeaders },
-    );
+    const cmd = [
+      {
+        idempotencyKey: `k6-${__VU}-${Date.now()}-${Math.random()}`,
+        entityType: 'task',
+        type: 'create-task',
+        data: { title: 'k6 task' },
+      },
+    ];
+    http.post(`${base}/api/commands`, JSON.stringify(cmd), { headers: postHeaders });
   }
 }
 
