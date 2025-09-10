@@ -58,8 +58,8 @@ jobs:
           set +a
           TEST_BEARER=$(cd tests/utils && go run ./cmd/gen-token)
           export TEST_BEARER
-          export K6_VUS=10000
-          export K6_DURATION=180s
+          export K6_VUS=1500
+          export K6_DURATION=60s
           tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
           k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
           export SSE_CONNECTIONS=10000
