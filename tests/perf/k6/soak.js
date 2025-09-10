@@ -12,6 +12,11 @@ export const options = {
 
 export default function () {
   const base = __ENV.PRISM_API_BASE || 'http://localhost';
-  http.get(`${base}/api/tasks`);
+  const bearer = __ENV.TEST_BEARER;
+  const headers = {};
+  if (bearer) {
+    headers.Authorization = `Bearer ${bearer}`;
+  }
+  http.get(`${base}/api/tasks`, { headers });
 }
 

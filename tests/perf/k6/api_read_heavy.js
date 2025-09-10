@@ -16,13 +16,19 @@ export const options = {
 
 export default function () {
   const base = __ENV.PRISM_API_BASE || 'http://localhost';
+  const bearer = __ENV.TEST_BEARER;
+  const headers = {};
+  if (bearer) {
+    headers.Authorization = `Bearer ${bearer}`;
+  }
   if (Math.random() < 0.95) {
-    http.get(`${base}/api/tasks`);
+    http.get(`${base}/api/tasks`, { headers });
   } else {
+    const postHeaders = Object.assign({ 'Content-Type': 'application/json' }, headers);
     http.post(
       `${base}/api/commands`,
       JSON.stringify({ type: 'CreateTask', payload: { title: 'k6 task' } }),
-      { headers: { 'Content-Type': 'application/json' } },
+      { headers: postHeaders },
     );
   }
 }
