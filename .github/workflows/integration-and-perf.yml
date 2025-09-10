@@ -56,7 +56,7 @@ jobs:
           STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
           ENABLE_DOCKER_CMDS=1
           set +a
-          TEST_BEARER=$(cd tests/integration && go run ./cmd/gen-token)
+          TEST_BEARER=$(cd tests/utils && go run ./cmd/gen-token)
           export TEST_BEARER
           tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
           k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json

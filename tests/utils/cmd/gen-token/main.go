@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log"
 
-	integration "prismtest"
+	testutil "prismtestutil"
 )
 
 func main() {
-	tok, err := integration.TestToken("perf-user")
+	tok, err := testutil.TestToken("perf-user")
 	if err != nil {
 		log.Fatalf("generate token: %v", err)
 	}

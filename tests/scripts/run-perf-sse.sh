@@ -21,6 +21,6 @@ tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 60
 STREAM_URL=${STREAM_URL:-${STREAM_SERVICE_BASE}/stream} \
 SSE_CONNECTIONS=${SSE_CONNECTIONS:-200} \
 DURATION_SEC=${DURATION_SEC:-120} \
-TEST_BEARER=${TEST_BEARER:-$(cd tests/integration && go run ./cmd/gen-token)} \
+TEST_BEARER=${TEST_BEARER:-$(cd tests/utils && go run ./cmd/gen-token)} \
 go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
 
