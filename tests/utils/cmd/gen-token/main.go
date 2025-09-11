@@ -1,16 +1,21 @@
 package main
 
 import (
-	"fmt"
-	"log"
+        "fmt"
+        "log"
+        "os"
 
-	testutil "prismtestutil"
+        testutil "prismtestutil"
 )
 
 func main() {
-	tok, err := testutil.TestToken("perf-user")
-	if err != nil {
-		log.Fatalf("generate token: %v", err)
-	}
-	fmt.Print(tok)
+        userID := "perf-user"
+        if len(os.Args) > 1 {
+                userID = os.Args[1]
+        }
+        tok, err := testutil.TestToken(userID)
+        if err != nil {
+                log.Fatalf("generate token: %v", err)
+        }
+        fmt.Print(tok)
 }
