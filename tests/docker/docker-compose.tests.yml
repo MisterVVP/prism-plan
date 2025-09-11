@@ -18,6 +18,8 @@ services:
   web:
     environment:
       - APP_ENV=test
+      - PRISM_API_PORT=${PRISM_API_PORT}
+      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 5s
@@ -44,8 +46,8 @@ services:
     image: haproxy:3.0-alpine
     volumes:
       - ../../haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    environment:
-      - PRISM_API_PORT=${PRISM_API_PORT}
+    ports:
+      - "${PRISM_API_PORT}:7071"
     depends_on:
       - prism-api-1
       - prism-api-2
