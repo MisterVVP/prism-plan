@@ -42,29 +42,23 @@ services:
     depends_on:
       - prism-api-lb
       - stream-service
-  prism-api-1:
+  prism-api:
     <<: *prism-api-base
     environment:
       - ASPNETCORE_URLS=http://+:7071
     expose:
       - "7071"
-  prism-api-2:
-    <<: *prism-api-base
-    environment:
-      - ASPNETCORE_URLS=http://+:7072
-    expose:
-      - "7072"
   prism-api-lb:
     image: haproxy:3.0-alpine
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     environment:
       - PRISM_API_PORT=${PRISM_API_PORT}
+      - PRISM_API_REPLICAS=${PRISM_API_REPLICAS:-2}
     ports:
       - "${PRISM_API_PORT}:${PRISM_API_PORT}"
     depends_on:
-      - prism-api-1
-      - prism-api-2
+      - prism-api
   stream-service:
     build: ./stream-service
     environment:
