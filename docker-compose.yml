@@ -1,3 +1,30 @@
+x-prism-api: &prism-api-base
+  build: ./prism-api
+  environment:
+    - DEBUG=${DEBUG}
+    - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
+    - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
+    - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
+    - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
+    - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
+    - TASKS_TABLE=${TASKS_TABLE}
+    - SETTINGS_TABLE=${SETTINGS_TABLE}
+    - USERS_TABLE=${USERS_TABLE}
+    - COMMAND_QUEUE=${COMMAND_QUEUE}
+    - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
+    - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
+    - AzureWebJobsScriptRoot=/home/site/wwwroot
+    - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+    - FUNCTIONS_WORKER_RUNTIME=custom
+    - ASPNETCORE_URLS=http://+:${PRISM_API_PORT}
+  expose:
+    - "${PRISM_API_PORT}"
+  depends_on:
+    azurite:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+
 services:
   web:
     build:
@@ -16,34 +43,21 @@ services:
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on:
-      - prism-api
+      - prism-api-lb
       - stream-service
-  prism-api:
-    build: ./prism-api
-    environment:
-      - DEBUG=${DEBUG}
-      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
-      - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
-      - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
-      - TASKS_TABLE=${TASKS_TABLE}
-      - SETTINGS_TABLE=${SETTINGS_TABLE}
-      - USERS_TABLE=${USERS_TABLE}
-      - COMMAND_QUEUE=${COMMAND_QUEUE}
-      - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureWebJobsScriptRoot=/home/site/wwwroot
-      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-      - FUNCTIONS_WORKER_RUNTIME=custom
-      - ASPNETCORE_URLS=http://+:${PRISM_API_PORT}
+  prism-api-1:
+    <<: *prism-api-base
+  prism-api-2:
+    <<: *prism-api-base
+  prism-api-lb:
+    image: haproxy:3.0-alpine
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
       - "${PRISM_API_PORT}:${PRISM_API_PORT}"
     depends_on:
-      azurite:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
+      - prism-api-1
+      - prism-api-2
   stream-service:
     build: ./stream-service
     environment:
