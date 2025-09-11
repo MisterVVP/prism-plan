@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	integration "prismtest"
 	"prismtest/internal/httpclient"
+	testutil "prismtestutil"
 )
 
 type command struct {
@@ -43,7 +43,7 @@ func getPollTimeout(t *testing.T) time.Duration {
 func getTestBearer(t *testing.T) string {
 	bearer := os.Getenv("TEST_BEARER")
 	if bearer == "" {
-		tok, err := integration.TestToken("integration-user")
+		tok, err := testutil.TestToken("integration-user")
 		if err != nil {
 			t.Fatalf("generate token: %v", err)
 		}

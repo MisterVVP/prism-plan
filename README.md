@@ -92,7 +92,7 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 6. Frontend code can be revisited and re-factored
    - Improve web UX on mobile devices
    - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
-7. Add some basic features to utilise event sourcing (e.g. undo/redo)
+7. Add some basic features to better utilise event sourcing (e.g. undo/redo)
 8. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
 9. TODO: fix & refactor local test scripts
 

@@ -17,6 +17,7 @@ bash tests/scripts/run-integration.sh
 ```bash
 bash tests/scripts/run-perf-api.sh
 ```
+This script generates a `tests/perf/k6/bearers.json` file containing one bearer token per k6 virtual user.
 
 ```bash
 bash tests/scripts/run-perf-sse.sh

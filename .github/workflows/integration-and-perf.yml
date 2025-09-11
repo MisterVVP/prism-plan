@@ -1,3 +1,5 @@
+---
+# yamllint disable rule:line-length
 name: Integration and Performance
 
 on:
@@ -13,6 +15,9 @@ on:
   schedule:
     - cron: '0 0 * * *'
 
+env:
+  ENV_FILE: tests/docker/env.test
+
 jobs:
   integration:
     runs-on: ubuntu-latest
@@ -22,7 +27,6 @@ jobs:
         with:
           go-version: '1.24'
       - run: |
-          ENV_FILE=tests/docker/env.test
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
           set -a
           source $ENV_FILE
@@ -48,18 +52,11 @@ jobs:
           go-version: '1.24'
       - uses: grafana/setup-k6-action@v1
       - run: |
-          ENV_FILE=tests/docker/env.test
-          docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
           set -a
           source $ENV_FILE
-          PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
-          STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
-          ENABLE_DOCKER_CMDS=1
+          tests/scripts/run-perf-api.sh
+          tests/scripts/run-perf-sse.sh
           set +a
-          tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
-          k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary.json
-          STREAM_URL=${STREAM_SERVICE_BASE}/stream go run tests/perf/sse-load/main.go > tests/perf_sse_summary.txt
-          docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
       - uses: actions/upload-artifact@v4
         with:
           name: k6-summary
