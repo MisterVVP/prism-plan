@@ -50,12 +50,11 @@ jobs:
           go-version: '1.24'
       - uses: grafana/setup-k6-action@v1
       - run: |
-          export K6_VUS=1500
-          export K6_DURATION=60s
+          set -a
+          source $ENV_FILE
           tests/scripts/run-perf-api.sh
-          export SSE_CONNECTIONS=10000
-          export DURATION_SEC=120
           tests/scripts/run-perf-sse.sh
+          set +a
       - uses: actions/upload-artifact@v4
         with:
           name: k6-summary
