@@ -63,7 +63,7 @@ func newApiClientInner(t *testing.T, baseUrlEnvVarName string, healthEndpointEnv
 }
 
 func newPrismApiClient(t *testing.T) *httpclient.Client {
-	return newApiClientInner(t, "PRISM_API_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
+	return newApiClientInner(t, "PRISM_API_LB_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
 }
 
 func newStreamServiceClient(t *testing.T) *httpclient.Client {

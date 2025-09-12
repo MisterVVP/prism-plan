@@ -13,9 +13,9 @@ $COMPOSE up -d
 trap '$COMPOSE down -v' EXIT
 
 STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
-PRISM_API_BASE=http://localhost:${PRISM_API_LB_PORT}
+PRISM_API_LB_BASE=http://localhost:${PRISM_API_LB_PORT}
 
-tests/docker/wait-for.sh "${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT}" 60
+tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${AZ_FUNC_HEALTH_ENDPOINT}" 60
 tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 60
 
 K6_VUS=${K6_VUS:-10}
@@ -28,12 +28,12 @@ for i in $(seq 1 "$K6_VUS"); do
   tokens=$(jq --arg value "$tok" '. + [$value]' <<<"$tokens")
 done
 echo "$tokens" > tests/perf/k6/bearers.json
-export TEST_BEARER K6_VUS K6_DURATION PRISM_API_BASE
+export TEST_BEARER K6_VUS K6_DURATION PRISM_API_LB_BASE
 
-curl -I ${PRISM_API_BASE}/api/commands # warmup request
+curl -I ${PRISM_API_LB_BASE}/api/commands # warmup request
 k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.json
 
-curl -I ${PRISM_API_BASE}/api/tasks  # warmup request
+curl -I ${PRISM_API_LB_BASE}/api/tasks  # warmup request
 k6 run tests/perf/k6/api_heavy_read.js --summary-export=k6-summary-heavy_read.json
 
 k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary-mixed_read_write.json

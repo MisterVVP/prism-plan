@@ -41,12 +41,12 @@ export SETTINGS_UPDATES_CHANNEL=settings-updates
 export PRISM_API_LB_PORT=7071
 export STREAM_SERVICE_PORT=8090
 export CORS_ALLOWED_ORIGINS=".*"
-export AZ_FUNC_HEALTH_ENDPOINT="/healthz"
+export AZ_FUNC_HEALTH_ENDPOINT="/"
 export API_HEALTH_ENDPOINT="/healthz"
 export AUTH0_TEST_MODE=1
 export TEST_JWT_SECRET=${TEST_JWT_SECRET:-testsecret}
 export TEST_POLL_TIMEOUT="20s"
-export PRISM_API_BASE="http://localhost:${PRISM_API_LB_PORT}"
+export PRISM_API_LB_BASE="http://localhost:${PRISM_API_LB_PORT}"
 export STREAM_SERVICE_BASE="http://localhost:${STREAM_SERVICE_PORT}"
 export AzureWebJobsStorage="${STORAGE_CONNECTION_STRING}"
 export AzureFunctionsJobHost__Logging__Console__IsEnabled="true"
@@ -91,7 +91,7 @@ STREAM_PID=$!
 API_PID=$!
 
 # Wait for APIs to be reachable
-./tests/docker/wait-for.sh ${PRISM_API_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 60
+./tests/docker/wait-for.sh ${PRISM_API_LB_BASE} 60
 ./tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 60
 
 # Run integration tests
