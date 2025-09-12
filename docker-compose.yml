@@ -33,9 +33,9 @@ services:
         VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
         VITE_STREAM_URL: ${VITE_STREAM_URL}
     environment:
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-.*}
-      - PRISM_API_LB_PORT=${PRISM_API_LB_PORT}
-      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-.*}
+      PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
+      STREAM_SERVICE_PORT: ${STREAM_SERVICE_PORT}
     ports:
       - "${FRONTEND_PORT}:443"
     volumes:
@@ -65,7 +65,7 @@ services:
 
   prism-api-lb:
     environment:
-      - PRISM_API_LB_PORT=${PRISM_API_LB_PORT}
+      PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
     image: haproxy:3.0-alpine
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
@@ -77,14 +77,14 @@ services:
   stream-service:
     build: ./stream-service
     environment:
-      - DEBUG=${DEBUG}
-      - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
-      - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
-      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
-      - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
-      - TASK_UPDATES_CHANNEL=${TASK_UPDATES_CHANNEL}
-      - SETTINGS_UPDATES_CHANNEL=${SETTINGS_UPDATES_CHANNEL}
-      - WEBSITES_INCLUDE_CLOUD_CERTS=true
+      DEBUG: ${DEBUG}
+      AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+      AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+      STREAM_SERVICE_PORT: ${STREAM_SERVICE_PORT}
+      REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+      TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
+      SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
+      WEBSITES_INCLUDE_CLOUD_CERTS: true
     ports:
       - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
     restart: unless-stopped
@@ -92,15 +92,15 @@ services:
   domain-service:
     build: ./domain-service
     environment:
-      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
-      - COMMAND_QUEUE=${COMMAND_QUEUE}
-      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureWebJobsScriptRoot=/home/site/wwwroot
-      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-      - AzureFunctionsJobHost__Logging__LogLevel__Default=${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+      USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+      COMMAND_QUEUE: ${COMMAND_QUEUE}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
     depends_on:
       azurite:
         condition: service_healthy
@@ -111,20 +111,20 @@ services:
   read-model-updater:
     build: ./read-model-updater
     environment:
-      - DEBUG=${DEBUG}
-      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
-      - TASKS_TABLE=${TASKS_TABLE}
-      - SETTINGS_TABLE=${SETTINGS_TABLE}
-      - USERS_TABLE=${USERS_TABLE}
-      - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
-      - TASK_UPDATES_CHANNEL=${TASK_UPDATES_CHANNEL}
-      - SETTINGS_UPDATES_CHANNEL=${SETTINGS_UPDATES_CHANNEL}
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureWebJobsScriptRoot=/home/site/wwwroot
-      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-      - AzureFunctionsJobHost__Logging__LogLevel__Default=${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-      - FUNCTIONS_WORKER_RUNTIME=custom
+      DEBUG: ${DEBUG}
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+      TASKS_TABLE: ${TASKS_TABLE}
+      SETTINGS_TABLE: ${SETTINGS_TABLE}
+      USERS_TABLE: ${USERS_TABLE}
+      REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+      TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
+      SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+      FUNCTIONS_WORKER_RUNTIME: custom
     depends_on:
       azurite:
         condition: service_healthy
@@ -153,15 +153,15 @@ services:
   storage-init:
     build: ./storage-init
     environment:
-      - DEBUG=${DEBUG}
-      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
-      - TASKS_TABLE=${TASKS_TABLE}
-      - SETTINGS_TABLE=${SETTINGS_TABLE}
-      - USERS_TABLE=${USERS_TABLE}
-      - COMMAND_QUEUE=${COMMAND_QUEUE}
-      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
+      DEBUG: ${DEBUG}
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+      USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+      TASKS_TABLE: ${TASKS_TABLE}
+      SETTINGS_TABLE: ${SETTINGS_TABLE}
+      USERS_TABLE: ${USERS_TABLE}
+      COMMAND_QUEUE: ${COMMAND_QUEUE}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
     depends_on:
       azurite:
         condition: service_healthy

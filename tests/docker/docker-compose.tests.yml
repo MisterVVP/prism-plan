@@ -1,13 +1,13 @@
 x-prism-api: &prism-api-base
   environment: &prism-api-env
-    - APP_ENV=test
-    - AUTH0_TEST_MODE=1
-    - TEST_JWT_SECRET=${TEST_JWT_SECRET}
-    - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
-    - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-    - AzureWebJobsScriptRoot=/home/site/wwwroot
-    - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-    - FUNCTIONS_WORKER_RUNTIME=custom
+    APP_ENV: test
+    AUTH0_TEST_MODE: "1"
+    TEST_JWT_SECRET: ${TEST_JWT_SECRET}
+    REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsScriptRoot: /home/site/wwwroot
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: "true"
+    FUNCTIONS_WORKER_RUNTIME: custom
   depends_on:
     azurite:
       condition: service_healthy
@@ -62,19 +62,19 @@ services:
       - prism-api-2
   stream-service:
     environment:
-      - APP_ENV=test
-      - AUTH0_TEST_MODE=1
-      - TEST_JWT_SECRET=${TEST_JWT_SECRET}
+      APP_ENV: test
+      AUTH0_TEST_MODE: 1
+      TEST_JWT_SECRET: ${TEST_JWT_SECRET}
     depends_on:
       azurite:
         condition: service_healthy
   domain-service:
     environment:
-      - APP_ENV=test
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureWebJobsScriptRoot=/home/site/wwwroot
-      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-      - AzureFunctionsJobHost__Logging___LogLevel__Default="Debug"
+      APP_ENV: test
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
     depends_on:
       azurite:
         condition: service_healthy
@@ -82,11 +82,12 @@ services:
         condition: service_completed_successfully
   read-model-updater:
     environment:
-      - APP_ENV=test
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureWebJobsScriptRoot=/home/site/wwwroot
-      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-      - FUNCTIONS_WORKER_RUNTIME=custom
+      APP_ENV: test
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+      FUNCTIONS_WORKER_RUNTIME: custom
     depends_on:
       azurite:
         condition: service_healthy
@@ -96,13 +97,13 @@ services:
         condition: service_started
   storage-init:
     environment:
-      - APP_ENV=test
+      APP_ENV: test
     depends_on:
       azurite:
         condition: service_healthy
   redis:
     environment:
-      - APP_ENV=test
+      APP_ENV: test
     depends_on:
       azurite:
         condition: service_healthy
