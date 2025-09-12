@@ -1,3 +1,28 @@
+x-prism-api: &prism-api-base
+  build: ./prism-api
+  environment: &prism-api-env
+    DEBUG: ${DEBUG}
+    STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+    TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+    USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+    AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+    AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+    TASKS_TABLE: ${TASKS_TABLE}
+    SETTINGS_TABLE: ${SETTINGS_TABLE}
+    USERS_TABLE: ${USERS_TABLE}
+    COMMAND_QUEUE: ${COMMAND_QUEUE}
+    REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsScriptRoot: /home/site/wwwroot
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: "true"
+    FUNCTIONS_WORKER_RUNTIME: custom
+    WEBSITES_INCLUDE_CLOUD_CERTS: "true"
+  depends_on:
+    azurite:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+
 services:
   web:
     build:
@@ -8,85 +33,98 @@ services:
         VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
         VITE_STREAM_URL: ${VITE_STREAM_URL}
     environment:
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-.*}
-      - PRISM_API_PORT=${PRISM_API_PORT}
-      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-.*}
+      PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
+      STREAM_SERVICE_PORT: ${STREAM_SERVICE_PORT}
     ports:
       - "${FRONTEND_PORT}:443"
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on:
-      - prism-api
+      - prism-api-lb
       - stream-service
-  prism-api:
-    build: ./prism-api
+    restart: unless-stopped
+
+  prism-api-1:
+    <<: *prism-api-base
     environment:
-      - DEBUG=${DEBUG}
-      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
-      - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
-      - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
-      - TASKS_TABLE=${TASKS_TABLE}
-      - SETTINGS_TABLE=${SETTINGS_TABLE}
-      - USERS_TABLE=${USERS_TABLE}
-      - COMMAND_QUEUE=${COMMAND_QUEUE}
-      - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureWebJobsScriptRoot=/home/site/wwwroot
-      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-      - FUNCTIONS_WORKER_RUNTIME=custom
-      - ASPNETCORE_URLS=http://+:${PRISM_API_PORT}
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7072
+    expose:
+      - "7072"
+    restart: unless-stopped
+
+  prism-api-2:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7073
+    expose:
+      - "7073"
+    restart: unless-stopped
+
+  prism-api-lb:
+    environment:
+      PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
+    image: haproxy:3.0-alpine
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
-      - "${PRISM_API_PORT}:${PRISM_API_PORT}"
+      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
     depends_on:
-      azurite:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
+      - prism-api-1
+      - prism-api-2
   stream-service:
     build: ./stream-service
     environment:
-      - DEBUG=${DEBUG}
-      - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
-      - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
-      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
-      - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
-      - TASK_UPDATES_CHANNEL=${TASK_UPDATES_CHANNEL}
-      - SETTINGS_UPDATES_CHANNEL=${SETTINGS_UPDATES_CHANNEL}
+      DEBUG: ${DEBUG}
+      AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+      AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+      STREAM_SERVICE_PORT: ${STREAM_SERVICE_PORT}
+      REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+      TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
+      SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
+      WEBSITES_INCLUDE_CLOUD_CERTS: true
     ports:
       - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
+    restart: unless-stopped
+
   domain-service:
     build: ./domain-service
     environment:
-      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
-      - COMMAND_QUEUE=${COMMAND_QUEUE}
-      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureFunctionsJobHost__Logging___LogLevel__Default="Debug"
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+      USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+      COMMAND_QUEUE: ${COMMAND_QUEUE}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
     depends_on:
       azurite:
         condition: service_healthy
       storage-init:
         condition: service_completed_successfully
+    restart: unless-stopped
+
   read-model-updater:
     build: ./read-model-updater
     environment:
-      - DEBUG=${DEBUG}
-      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
-      - TASKS_TABLE=${TASKS_TABLE}
-      - SETTINGS_TABLE=${SETTINGS_TABLE}
-      - USERS_TABLE=${USERS_TABLE}
-      - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
-      - TASK_UPDATES_CHANNEL=${TASK_UPDATES_CHANNEL}
-      - SETTINGS_UPDATES_CHANNEL=${SETTINGS_UPDATES_CHANNEL}
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureWebJobsScriptRoot=/home/site/wwwroot
-      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-      - FUNCTIONS_WORKER_RUNTIME=custom
+      DEBUG: ${DEBUG}
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+      TASKS_TABLE: ${TASKS_TABLE}
+      SETTINGS_TABLE: ${SETTINGS_TABLE}
+      USERS_TABLE: ${USERS_TABLE}
+      REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+      TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
+      SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+      FUNCTIONS_WORKER_RUNTIME: custom
     depends_on:
       azurite:
         condition: service_healthy
@@ -94,6 +132,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
+    restart: unless-stopped
+
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     healthcheck:
@@ -108,19 +148,20 @@ services:
       - "10002:10002"
     volumes:
       - azurite_data:/data
+    restart: unless-stopped
 
   storage-init:
     build: ./storage-init
     environment:
-      - DEBUG=${DEBUG}
-      - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-      - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-      - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
-      - TASKS_TABLE=${TASKS_TABLE}
-      - SETTINGS_TABLE=${SETTINGS_TABLE}
-      - USERS_TABLE=${USERS_TABLE}
-      - COMMAND_QUEUE=${COMMAND_QUEUE}
-      - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
+      DEBUG: ${DEBUG}
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+      USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+      TASKS_TABLE: ${TASKS_TABLE}
+      SETTINGS_TABLE: ${SETTINGS_TABLE}
+      USERS_TABLE: ${USERS_TABLE}
+      COMMAND_QUEUE: ${COMMAND_QUEUE}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
     depends_on:
       azurite:
         condition: service_healthy
@@ -130,6 +171,7 @@ services:
     image: redis:alpine
     ports:
       - "6379:6379"
+    restart: unless-stopped
 
 volumes:
   azurite_data:

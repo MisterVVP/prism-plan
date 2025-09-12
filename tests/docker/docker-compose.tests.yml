@@ -1,46 +1,80 @@
+x-prism-api: &prism-api-base
+  environment: &prism-api-env
+    APP_ENV: test
+    AUTH0_TEST_MODE: "1"
+    TEST_JWT_SECRET: ${TEST_JWT_SECRET}
+    REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsScriptRoot: /home/site/wwwroot
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: "true"
+    FUNCTIONS_WORKER_RUNTIME: custom
+  depends_on:
+    azurite:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+
 services:
   web:
     environment:
       - APP_ENV=test
+      - PRISM_API_LB_PORT=${PRISM_API_LB_PORT}
+      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 5s
       timeout: 3s
       retries: 5
     depends_on:
-      prism-api:
+      prism-api-lb:
         condition: service_started
       stream-service:
         condition: service_started
-  prism-api:
+
+  prism-api-1:
+    <<: *prism-api-base
     environment:
-      - APP_ENV=test
-      - AUTH0_TEST_MODE=1
-      - TEST_JWT_SECRET=${TEST_JWT_SECRET}
-      - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureWebJobsScriptRoot=/home/site/wwwroot
-      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-      - FUNCTIONS_WORKER_RUNTIME=custom
-      - ASPNETCORE_URLS=http://+:${PRISM_API_PORT}
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7072
+    expose:
+      - "7072"
+    restart: unless-stopped
+
+  prism-api-2:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7073
+    expose:
+      - "7073"
+    restart: unless-stopped
+
+  prism-api-lb:
+    environment:
+      PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
+    image: haproxy:3.0-alpine
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
     depends_on:
-      azurite:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
+      - prism-api-1
+      - prism-api-2
   stream-service:
     environment:
-      - APP_ENV=test
-      - AUTH0_TEST_MODE=1
-      - TEST_JWT_SECRET=${TEST_JWT_SECRET}
+      APP_ENV: test
+      AUTH0_TEST_MODE: 1
+      TEST_JWT_SECRET: ${TEST_JWT_SECRET}
     depends_on:
       azurite:
         condition: service_healthy
   domain-service:
     environment:
-      - APP_ENV=test
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureFunctionsJobHost__Logging___LogLevel__Default="Debug"
+      APP_ENV: test
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
     depends_on:
       azurite:
         condition: service_healthy
@@ -48,11 +82,12 @@ services:
         condition: service_completed_successfully
   read-model-updater:
     environment:
-      - APP_ENV=test
-      - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureWebJobsScriptRoot=/home/site/wwwroot
-      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-      - FUNCTIONS_WORKER_RUNTIME=custom
+      APP_ENV: test
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+      FUNCTIONS_WORKER_RUNTIME: custom
     depends_on:
       azurite:
         condition: service_healthy
@@ -60,15 +95,18 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
+
   storage-init:
     environment:
-      - APP_ENV=test
+      APP_ENV: test
     depends_on:
       azurite:
         condition: service_healthy
+    restart: "no"
+
   redis:
     environment:
-      - APP_ENV=test
+      APP_ENV: test
     depends_on:
       azurite:
         condition: service_healthy

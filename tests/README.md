@@ -25,8 +25,8 @@ bash tests/scripts/run-perf-sse.sh
 
 ## Environment variables
 
-- `PRISM_API_BASE` – base URL for API requests (default `http://localhost`)
-- `AZ_FUNC_HEALTH_ENDPOINT` – endpoint to use as healthcheck (default `/`)
+- `PRISM_API_LB_BASE` – base URL for API requests (default `http://localhost`)
+- `AZ_FUNC_HEALTH_ENDPOINT` – endpoint to use as az function healthcheck (default `/`)
 - `STREAM_URL` – SSE endpoint for streaming tests (default `http://localhost/stream`)
 - `TEST_BEARER` – bearer token for authenticated requests in test mode
 - `DISABLE_AUTH_FOR_TESTS` – set to `1` to bypass auth if supported
