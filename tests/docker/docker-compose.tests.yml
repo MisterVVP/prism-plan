@@ -75,6 +75,7 @@ services:
       AzureWebJobsScriptRoot: /home/site/wwwroot
       AzureFunctionsJobHost__Logging__Console__IsEnabled: true
       AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+      FUNCTIONS_WORKER_RUNTIME: dotnet-isolated
     depends_on:
       azurite:
         condition: service_healthy
