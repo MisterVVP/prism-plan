@@ -91,8 +91,8 @@ STREAM_PID=$!
 API_PID=$!
 
 # Wait for APIs to be reachable
-./tests/docker/wait-for.sh ${PRISM_API_LB_BASE}/ 60
-./tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 60
+./tests/docker/wait-for.sh ${PRISM_API_LB_BASE} 30
+./tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 30
 
 # Run integration tests
 cd tests/integration
