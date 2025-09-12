@@ -27,10 +27,8 @@ done
 echo "$tokens" > tests/perf/k6/bearers.json
 export TEST_BEARER K6_VUS K6_DURATION PRISM_API_LB_BASE
 
-curl -I ${PRISM_API_LB_BASE}/api/commands # warmup request
 k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.json
 
-curl -I ${PRISM_API_LB_BASE}/api/tasks  # warmup request
 k6 run tests/perf/k6/api_heavy_read.js --summary-export=k6-summary-heavy_read.json
 
 k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary-mixed_read_write.json
