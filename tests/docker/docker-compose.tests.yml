@@ -95,12 +95,15 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
+
   storage-init:
     environment:
       APP_ENV: test
     depends_on:
       azurite:
         condition: service_healthy
+    restart: "no"
+
   redis:
     environment:
       APP_ENV: test
