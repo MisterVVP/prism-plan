@@ -1,21 +1,22 @@
 x-prism-api: &prism-api-base
   build: ./prism-api
-  environment:
-    - DEBUG=${DEBUG}
-    - STORAGE_CONNECTION_STRING=${STORAGE_CONNECTION_STRING}
-    - TASK_EVENTS_TABLE=${TASK_EVENTS_TABLE}
-    - USER_EVENTS_TABLE=${USER_EVENTS_TABLE}
-    - AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
-    - AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
-    - TASKS_TABLE=${TASKS_TABLE}
-    - SETTINGS_TABLE=${SETTINGS_TABLE}
-    - USERS_TABLE=${USERS_TABLE}
-    - COMMAND_QUEUE=${COMMAND_QUEUE}
-    - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
-    - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-    - AzureWebJobsScriptRoot=/home/site/wwwroot
-    - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
-    - FUNCTIONS_WORKER_RUNTIME=custom
+  environment: &prism-api-env
+    DEBUG: ${DEBUG}
+    STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+    TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+    USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+    AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+    AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+    TASKS_TABLE: ${TASKS_TABLE}
+    SETTINGS_TABLE: ${SETTINGS_TABLE}
+    USERS_TABLE: ${USERS_TABLE}
+    COMMAND_QUEUE: ${COMMAND_QUEUE}
+    REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsScriptRoot: /home/site/wwwroot
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: "true"
+    FUNCTIONS_WORKER_RUNTIME: custom
+    WEBSITES_INCLUDE_CLOUD_CERTS: "true"
   depends_on:
     azurite:
       condition: service_healthy
@@ -33,7 +34,7 @@ services:
         VITE_STREAM_URL: ${VITE_STREAM_URL}
     environment:
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-.*}
-      - PRISM_API_PORT=${PRISM_API_PORT}
+      - PRISM_API_LB_PORT=${PRISM_API_LB_PORT}
       - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
     ports:
       - "${FRONTEND_PORT}:443"
@@ -42,24 +43,34 @@ services:
     depends_on:
       - prism-api-lb
       - stream-service
+    restart: unless-stopped
+
   prism-api-1:
     <<: *prism-api-base
     environment:
-      - FUNCTIONS_CUSTOMHANDLER_PORT=7072
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7072
     expose:
       - "7072"
+    restart: unless-stopped
+
   prism-api-2:
     <<: *prism-api-base
     environment:
-      - FUNCTIONS_CUSTOMHANDLER_PORT=7073
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7073
     expose:
       - "7073"
+    restart: unless-stopped
+
   prism-api-lb:
+    environment:
+      - PRISM_API_LB_PORT=${PRISM_API_LB_PORT}
     image: haproxy:3.0-alpine
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
-      - "${PRISM_API_PORT}:7071"
+      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
     depends_on:
       - prism-api-1
       - prism-api-2
@@ -73,8 +84,11 @@ services:
       - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
       - TASK_UPDATES_CHANNEL=${TASK_UPDATES_CHANNEL}
       - SETTINGS_UPDATES_CHANNEL=${SETTINGS_UPDATES_CHANNEL}
+      - WEBSITES_INCLUDE_CLOUD_CERTS=true
     ports:
       - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
+    restart: unless-stopped
+
   domain-service:
     build: ./domain-service
     environment:
@@ -84,12 +98,16 @@ services:
       - COMMAND_QUEUE=${COMMAND_QUEUE}
       - DOMAIN_EVENTS_QUEUE=${DOMAIN_EVENTS_QUEUE}
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
-      - AzureFunctionsJobHost__Logging___LogLevel__Default="Debug"
+      - AzureWebJobsScriptRoot=/home/site/wwwroot
+      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+      - AzureFunctionsJobHost__Logging__LogLevel__Default=${AZ_FUNC_JOB_HOST_LOG_LEVEL}
     depends_on:
       azurite:
         condition: service_healthy
       storage-init:
         condition: service_completed_successfully
+    restart: unless-stopped
+
   read-model-updater:
     build: ./read-model-updater
     environment:
@@ -105,6 +123,7 @@ services:
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
       - AzureWebJobsScriptRoot=/home/site/wwwroot
       - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+      - AzureFunctionsJobHost__Logging__LogLevel__Default=${AZ_FUNC_JOB_HOST_LOG_LEVEL}
       - FUNCTIONS_WORKER_RUNTIME=custom
     depends_on:
       azurite:
@@ -113,6 +132,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
+    restart: unless-stopped
+
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     healthcheck:
@@ -127,6 +148,7 @@ services:
       - "10002:10002"
     volumes:
       - azurite_data:/data
+    restart: unless-stopped
 
   storage-init:
     build: ./storage-init
@@ -149,6 +171,7 @@ services:
     image: redis:alpine
     ports:
       - "6379:6379"
+    restart: unless-stopped
 
 volumes:
   azurite_data:

@@ -30,7 +30,7 @@ jobs:
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
           set -a
           source $ENV_FILE
-          PRISM_API_BASE=http://localhost:${PRISM_API_PORT}
+          PRISM_API_BASE=http://localhost:${PRISM_API_LB_PORT}
           STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
           ENABLE_DOCKER_CMDS=1
           set +a

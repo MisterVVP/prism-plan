@@ -1,5 +1,5 @@
 x-prism-api: &prism-api-base
-  environment:
+  environment: &prism-api-env
     - APP_ENV=test
     - AUTH0_TEST_MODE=1
     - TEST_JWT_SECRET=${TEST_JWT_SECRET}
@@ -18,7 +18,7 @@ services:
   web:
     environment:
       - APP_ENV=test
-      - PRISM_API_PORT=${PRISM_API_PORT}
+      - PRISM_API_LB_PORT=${PRISM_API_LB_PORT}
       - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthz"]
@@ -30,24 +30,33 @@ services:
         condition: service_started
       stream-service:
         condition: service_started
+
   prism-api-1:
     <<: *prism-api-base
     environment:
-      - FUNCTIONS_CUSTOMHANDLER_PORT=7072
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7072
     expose:
       - "7072"
+    restart: unless-stopped
+
   prism-api-2:
     <<: *prism-api-base
     environment:
-      - FUNCTIONS_CUSTOMHANDLER_PORT=7073
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7073
     expose:
       - "7073"
+    restart: unless-stopped
+
   prism-api-lb:
+    environment:
+      - PRISM_API_LB_PORT=${PRISM_API_LB_PORT}
     image: haproxy:3.0-alpine
     volumes:
       - ../../haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
-      - "${PRISM_API_PORT}:7071"
+      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
     depends_on:
       - prism-api-1
       - prism-api-2
@@ -63,6 +72,8 @@ services:
     environment:
       - APP_ENV=test
       - AzureWebJobsStorage=${STORAGE_CONNECTION_STRING}
+      - AzureWebJobsScriptRoot=/home/site/wwwroot
+      - AzureFunctionsJobHost__Logging__Console__IsEnabled=true
       - AzureFunctionsJobHost__Logging___LogLevel__Default="Debug"
     depends_on:
       azurite:
