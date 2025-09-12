@@ -12,9 +12,6 @@ COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/dock
 $COMPOSE up -d
 trap "$COMPOSE down -v" EXIT
 
-STREAM_SERVICE_BASE=http://localhost:${STREAM_SERVICE_PORT}
-PRISM_API_LB_BASE=http://localhost:${PRISM_API_LB_PORT}
-
 tests/docker/wait-for.sh ${PRISM_API_LB_BASE} 30
 tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 30
 cd tests/integration && go test ./...

@@ -57,7 +57,7 @@ func newApiClientInner(t *testing.T, baseUrlEnvVarName string, healthEndpointEnv
 	base := os.Getenv(baseUrlEnvVarName)
 	health := os.Getenv(healthEndpointEnvVarName)
 	if _, err := http.Get(base + health); err != nil {
-		t.Fatalf("API not reachable: %v", err)
+		t.Fatalf("API not reachable at %s, error: %v", base+health, err)
 	}
 	return httpclient.New(base, bearer)
 }
