@@ -29,7 +29,13 @@ func main() {
 	if connStr == "" || tasksTableName == "" || settingsTableName == "" || commandQueueName == "" {
 		log.Fatal("missing storage config")
 	}
-	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName)
+	concurrency := 32
+	if v := os.Getenv("COMMAND_SENDER_CONCURRENCY"); v != "" {
+		if c, err := strconv.Atoi(v); err == nil && c > 0 {
+			concurrency = c
+		}
+	}
+	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName, concurrency)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}

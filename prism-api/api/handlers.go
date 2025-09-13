@@ -126,7 +126,7 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			filtered = append(filtered, cmds[i])
 		}
 		if len(filtered) == 0 {
-			return c.JSON(http.StatusOK, postCommandResponse{IdempotencyKeys: keys})
+			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		}
 		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
 			for _, key := range added {
@@ -137,6 +137,6 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			c.Logger().Error(err)
 			return c.JSON(http.StatusInternalServerError, postCommandResponse{IdempotencyKeys: keys, Error: err.Error()})
 		}
-		return c.JSON(http.StatusOK, postCommandResponse{IdempotencyKeys: keys})
+		return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 	}
 }

@@ -316,8 +316,8 @@ func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
 	if err := handler(c2); err != nil {
 		t.Fatalf("second post: %v", err)
 	}
-	if rec2.Code != http.StatusOK {
-		t.Fatalf("expected status 200 got %d", rec2.Code)
+	if rec2.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202 got %d", rec2.Code)
 	}
 	if len(d.keys) != 2 {
 		t.Fatalf("expected 2 keys added, got %d", len(d.keys))
