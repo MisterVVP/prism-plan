@@ -37,6 +37,10 @@ flowchart LR
     API --> UI
 ```
 
+## Command Catalog
+
+For a complete list of domain commands and their payload structures, see [commands.md](./commands.md).
+
 ## Event Catalog
 
 For a complete list of domain events and their payload structures, see [events.md](./events.md).
