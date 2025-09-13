@@ -113,7 +113,6 @@ func (s *Storage) FetchSettings(ctx context.Context, userID string) (domain.Sett
 
 // EnqueueCommands sends the given commands to the command queue.
 func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error {
-	results := make([]chan error, 0, len(cmds))
 	for _, cmd := range cmds {
 		env := domain.CommandEnvelope{UserID: userID, Command: cmd}
 		data, err := json.Marshal(env)
@@ -122,10 +121,7 @@ func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []dom
 		}
 		resCh := make(chan error, 1)
 		s.jobs <- queueJob{ctx: ctx, message: string(data), result: resCh}
-		results = append(results, resCh)
-	}
-	for _, ch := range results {
-		if err := <-ch; err != nil {
+		if err := <-resCh; err != nil {
 			return err
 		}
 	}
