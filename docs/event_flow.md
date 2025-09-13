@@ -36,3 +36,7 @@ flowchart LR
     SS --> UI
     API --> UI
 ```
+
+## Event Catalog
+
+For a complete list of domain events and their payload structures, see [events.md](./events.md).
