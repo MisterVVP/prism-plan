@@ -15,10 +15,17 @@ type Storage struct {
 	taskTable     *aztables.Client
 	settingsTable *aztables.Client
 	commandQueue  *azqueue.QueueClient
+	jobs          chan queueJob
+}
+
+type queueJob struct {
+	ctx     context.Context
+	message string
+	result  chan error
 }
 
 // New creates a Storage instance from the given connection string.
-func New(connStr, tasksTable, settingsTable, commandQueue string) (*Storage, error) {
+func New(connStr, tasksTable, settingsTable, commandQueue string, concurrency int) (*Storage, error) {
 	svc, err := aztables.NewServiceClientFromConnectionString(connStr, nil)
 	if err != nil {
 		return nil, err
@@ -29,7 +36,23 @@ func New(connStr, tasksTable, settingsTable, commandQueue string) (*Storage, err
 	if err != nil {
 		return nil, err
 	}
-	return &Storage{taskTable: tt, settingsTable: st, commandQueue: cq}, nil
+	s := &Storage{
+		taskTable:     tt,
+		settingsTable: st,
+		commandQueue:  cq,
+		jobs:          make(chan queueJob, concurrency),
+	}
+	for i := 0; i < concurrency; i++ {
+		go s.worker()
+	}
+	return s, nil
+}
+
+func (s *Storage) worker() {
+	for job := range s.jobs {
+		_, err := s.commandQueue.EnqueueMessage(job.ctx, job.message, nil)
+		job.result <- err
+	}
 }
 
 type taskEntity struct {
@@ -96,7 +119,9 @@ func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []dom
 		if err != nil {
 			return err
 		}
-		if _, err := s.commandQueue.EnqueueMessage(ctx, string(data), nil); err != nil {
+		resCh := make(chan error, 1)
+		s.jobs <- queueJob{ctx: ctx, message: string(data), result: resCh}
+		if err := <-resCh; err != nil {
 			return err
 		}
 	}
