@@ -17,11 +17,12 @@ type Auth struct {
 	Issuer     string
 	TestMode   bool
 	TestSecret []byte
+	parser     *jwt.Parser
 }
 
 // NewAuth creates a new Auth instance.
 func NewAuth(jwks *keyfunc.JWKS, audience, issuer string) *Auth {
-	a := &Auth{JWKS: jwks, Audience: audience, Issuer: issuer}
+	a := &Auth{JWKS: jwks, Audience: audience, Issuer: issuer, parser: jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}))}
 	if os.Getenv("AUTH0_TEST_MODE") == "1" {
 		secret := os.Getenv("TEST_JWT_SECRET")
 		if secret == "" {
@@ -69,8 +70,7 @@ func (a *Auth) UserIDFromAuthHeader(h string) (string, error) {
 		return sub, nil
 	}
 
-	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}))
-	token, err := parser.Parse(tokenStr, a.JWKS.Keyfunc)
+	token, err := a.parser.Parse(tokenStr, a.JWKS.Keyfunc)
 	if err != nil {
 		return "", err
 	}

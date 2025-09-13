@@ -1,7 +1,8 @@
 package api
 
 import (
-	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -11,26 +12,6 @@ import (
 
 	"prism-api/domain"
 )
-
-// Storage abstracts persistence for handlers.
-type Storage interface {
-	FetchTasks(ctx context.Context, userID string) ([]domain.Task, error)
-	FetchSettings(ctx context.Context, userID string) (domain.Settings, error)
-	EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error
-}
-
-// Authenticator is implemented by types able to extract user IDs from headers.
-type Authenticator interface {
-	UserIDFromAuthHeader(string) (string, error)
-}
-
-// Deduper prevents processing of duplicate commands.
-type Deduper interface {
-	// Add records the idempotency key and returns true if it was newly added.
-	Add(ctx context.Context, userID, key string) (bool, error)
-	// Remove deletes a previously added key, used when downstream processing fails.
-	Remove(ctx context.Context, userID, key string) error
-}
 
 // Register wires up all API routes on the provided Echo instance.
 func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper) {
@@ -95,10 +76,26 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}
-		var cmds []domain.Command
-		if err := c.Bind(&cmds); err != nil {
+
+		lr := io.LimitReader(c.Request().Body, postCommandMaxSize)
+		dec := json.NewDecoder(lr)
+		dec.DisallowUnknownFields()
+
+		raw := make([]postCommandRequest, 0, 4)
+		if err := dec.Decode(&raw); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
+
+		cmds := make([]domain.Command, len(raw))
+		for i := range raw {
+			cmds[i] = domain.Command{
+				IdempotencyKey: raw[i].IdempotencyKey,
+				EntityType:     raw[i].EntityType,
+				Type:           raw[i].Type,
+				Data:           raw[i].Data,
+			}
+		}
+
 		keys := make([]string, len(cmds))
 		filtered := make([]domain.Command, 0, len(cmds))
 		added := make([]string, 0, len(cmds))
@@ -111,13 +108,11 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
 			if err != nil {
 				c.Logger().Error(err)
-				// Attempt to remove any keys added earlier in the loop
 				for _, key := range added {
 					if remErr := deduper.Remove(ctx, userID, key); remErr != nil {
 						c.Logger().Error(remErr)
 					}
 				}
-				// Also try to remove the current key in case it was stored
 				if remErr := deduper.Remove(ctx, userID, cmds[i].IdempotencyKey); remErr != nil {
 					c.Logger().Error(remErr)
 				}
@@ -131,7 +126,7 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			filtered = append(filtered, cmds[i])
 		}
 		if len(filtered) == 0 {
-			return c.JSON(http.StatusOK, map[string][]string{"idempotencyKeys": keys})
+			return c.JSON(http.StatusOK, postCommandResponse{IdempotencyKeys: keys})
 		}
 		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
 			for _, key := range added {
@@ -140,8 +135,8 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 				}
 			}
 			c.Logger().Error(err)
-			return c.JSON(http.StatusInternalServerError, map[string]any{"idempotencyKeys": keys, "error": err.Error()})
+			return c.JSON(http.StatusInternalServerError, postCommandResponse{IdempotencyKeys: keys, Error: err.Error()})
 		}
-		return c.JSON(http.StatusOK, map[string][]string{"idempotencyKeys": keys})
+		return c.JSON(http.StatusOK, postCommandResponse{IdempotencyKeys: keys})
 	}
 }
