@@ -94,7 +94,9 @@ func setupDeduper(t *testing.T) (Deduper, func()) {
 	rc := redis.NewClient(&redis.Options{Addr: m.Addr()})
 	d := NewRedisDeduper(rc, time.Hour)
 	return d, func() {
-		rc.Close()
+		if err := rc.Close(); err != nil {
+			t.Logf("redis close: %v", err)
+		}
 		m.Close()
 	}
 }

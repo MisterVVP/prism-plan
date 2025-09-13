@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -95,10 +97,33 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}
-		var cmds []domain.Command
-		if err := c.Bind(&cmds); err != nil {
+
+		const maxBodySize = 64 * 1024 // 64 KiB
+		lr := io.LimitReader(c.Request().Body, maxBodySize)
+		dec := json.NewDecoder(lr)
+		dec.DisallowUnknownFields()
+
+		type commandPayload struct {
+			IdempotencyKey string          `json:"idempotencyKey"`
+			EntityType     string          `json:"entityType"`
+			Type           string          `json:"type"`
+			Data           json.RawMessage `json:"data,omitempty"`
+		}
+		raw := make([]commandPayload, 0, 4)
+		if err := dec.Decode(&raw); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
+
+		cmds := make([]domain.Command, len(raw))
+		for i := range raw {
+			cmds[i] = domain.Command{
+				IdempotencyKey: raw[i].IdempotencyKey,
+				EntityType:     raw[i].EntityType,
+				Type:           raw[i].Type,
+				Data:           raw[i].Data,
+			}
+		}
+
 		keys := make([]string, len(cmds))
 		filtered := make([]domain.Command, 0, len(cmds))
 		added := make([]string, 0, len(cmds))
@@ -111,13 +136,11 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
 			if err != nil {
 				c.Logger().Error(err)
-				// Attempt to remove any keys added earlier in the loop
 				for _, key := range added {
 					if remErr := deduper.Remove(ctx, userID, key); remErr != nil {
 						c.Logger().Error(remErr)
 					}
 				}
-				// Also try to remove the current key in case it was stored
 				if remErr := deduper.Remove(ctx, userID, cmds[i].IdempotencyKey); remErr != nil {
 					c.Logger().Error(remErr)
 				}
