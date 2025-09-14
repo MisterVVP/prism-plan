@@ -63,6 +63,15 @@ services:
       - "7073"
     restart: unless-stopped
 
+  prism-api-3:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7074
+    expose:
+      - "7074"
+    restart: unless-stopped
+
   prism-api-lb:
     environment:
       PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
@@ -74,6 +83,8 @@ services:
     depends_on:
       - prism-api-1
       - prism-api-2
+      - prism-api-3
+
   stream-service:
     build: ./stream-service
     environment:

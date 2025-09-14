@@ -39,15 +39,15 @@ func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
 		}
 		globalLog = log
 
-		workerCount = envInt("ENQUEUE_WORKERS", 32)
+		workerCount = envInt("ENQUEUE_WORKERS", 16)
 		jobBuf = envInt("ENQUEUE_BUFFER", 1024)
-		enqueueTimeout = envDur("ENQUEUE_TIMEOUT", 2*time.Second)
+		enqueueTimeout = envDur("ENQUEUE_TIMEOUT", 60*time.Second)
 
 		jobs = make(chan enqueueJob, jobBuf)
 		for i := 0; i < workerCount; i++ {
 			go worker(i)
 		}
-		globalLog.Info("command sender started ", "workers: ", workerCount, "buffer: ", jobBuf, "timeout: ", enqueueTimeout)
+		globalLog.Infof("command sender started, workers: %d, buffer: %d, timeout: %v", workerCount, jobBuf, enqueueTimeout)
 	})
 }
 
@@ -61,10 +61,10 @@ func worker(id int) {
 			// Best-effort rollback of dedupe entries we just marked as added
 			for _, k := range j.added {
 				if rerr := globalDeduper.Remove(bg, j.userID, k); rerr != nil {
-					globalLog.Error("dedupe rollback failed", "err", rerr, "key", k, "user", j.userID)
+					globalLog.Errorf("dedupe rollback failed, err : %v, key: %s, user: %s", err, k, j.userID)
 				}
 			}
-			globalLog.Error("enqueue failed", "err", err, "user", j.userID, "count", len(j.cmds), "worker", id)
+			globalLog.Errorf("enqueue failed, err: %v, user: %s, count: %d, worker: %d", err, j.userID, len(j.cmds), id)
 		}
 	}
 }

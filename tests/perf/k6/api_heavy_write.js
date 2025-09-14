@@ -30,6 +30,6 @@ export default function () {
       data: { title: 'k6 task' },
     },
   ];
-  http.post(`${base}/api/commands`, JSON.stringify(cmd), { headers: postHeaders });
+  http.post(`${base}/api/commands`, JSON.stringify(cmd), { headers: postHeaders, tags: { endpoint: '/api/commands' } });
 }
 

@@ -22,7 +22,7 @@ export default function () {
   const bearer = tokens[__VU - 1];
   const headers = bearer ? { Authorization: `Bearer ${bearer}` } : {};
   if (Math.random() < 0.8) {
-    http.get(`${base}/api/tasks`, { headers });
+    http.get(`${base}/api/tasks`, { headers, tags: { endpoint: '/api/tasks' }  });
   } else {
     const postHeaders = Object.assign({ 'Content-Type': 'application/json' }, headers);
     const cmd = [
@@ -33,7 +33,7 @@ export default function () {
         data: { title: 'k6 task' },
       },
     ];
-    http.post(`${base}/api/commands`, JSON.stringify(cmd), { headers: postHeaders });
+    http.post(`${base}/api/commands`, JSON.stringify(cmd), { headers: postHeaders, tags: { endpoint: '/api/commands' }  });
   }
 }
 
