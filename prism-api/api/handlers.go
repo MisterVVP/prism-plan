@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"sync/atomic"
-	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -14,27 +14,10 @@ import (
 )
 
 // Register wires up all API routes on the provided Echo instance.
-func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper) {
+func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, log *log.Logger) {
 	e.GET("/api/tasks", getTasks(store, auth))
 	e.GET("/api/settings", getSettings(store, auth))
-	e.POST("/api/commands", postCommands(store, auth, deduper))
-}
-
-var (
-	lastTimestamp int64
-)
-
-func nextTimestamp() int64 {
-	for {
-		now := time.Now().UnixNano()
-		last := atomic.LoadInt64(&lastTimestamp)
-		if now <= last {
-			now = last + 1
-		}
-		if atomic.CompareAndSwapInt64(&lastTimestamp, last, now) {
-			return now
-		}
-	}
+	e.POST("/api/commands", postCommands(store, auth, deduper, log))
 }
 
 func getTasks(store Storage, auth Authenticator) echo.HandlerFunc {
@@ -69,9 +52,12 @@ func getSettings(store Storage, auth Authenticator) echo.HandlerFunc {
 	}
 }
 
-func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.HandlerFunc {
+func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.Logger) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
+
+		initCommandSender(store, deduper, log)
+
 		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
@@ -99,23 +85,20 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 		keys := make([]string, len(cmds))
 		filtered := make([]domain.Command, 0, len(cmds))
 		added := make([]string, 0, len(cmds))
+
 		for i := range cmds {
 			if cmds[i].IdempotencyKey == "" {
 				cmds[i].IdempotencyKey = uuid.NewString()
 			}
 			cmds[i].ID = cmds[i].IdempotencyKey
 			keys[i] = cmds[i].IdempotencyKey
+
 			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
 			if err != nil {
-				c.Logger().Error(err)
 				for _, key := range added {
-					if remErr := deduper.Remove(ctx, userID, key); remErr != nil {
-						c.Logger().Error(remErr)
-					}
+					_ = deduper.Remove(ctx, userID, key)
 				}
-				if remErr := deduper.Remove(ctx, userID, cmds[i].IdempotencyKey); remErr != nil {
-					c.Logger().Error(remErr)
-				}
+				_ = deduper.Remove(ctx, userID, cmds[i].IdempotencyKey)
 				return c.String(http.StatusInternalServerError, err.Error())
 			}
 			if !addedNow {
@@ -125,18 +108,29 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			cmds[i].Timestamp = nextTimestamp()
 			filtered = append(filtered, cmds[i])
 		}
+
 		if len(filtered) == 0 {
 			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		}
-		if err := store.EnqueueCommands(ctx, userID, filtered); err != nil {
-			for _, key := range added {
-				if remErr := deduper.Remove(ctx, userID, key); remErr != nil {
-					c.Logger().Error(remErr)
-				}
-			}
-			c.Logger().Error(err)
-			return c.JSON(http.StatusInternalServerError, postCommandResponse{IdempotencyKeys: keys, Error: err.Error()})
+
+		job := enqueueJob{
+			userID: userID,
+			cmds:   append([]domain.Command(nil), filtered...),
+			added:  append([]string(nil), added...),
 		}
-		return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+
+		select {
+		case jobs <- job:
+			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+		default:
+			for _, k := range added {
+				_ = deduper.Remove(ctx, userID, k)
+			}
+			errMsg := "queue saturated; please retry"
+			return c.JSON(http.StatusServiceUnavailable, postCommandResponse{
+				IdempotencyKeys: keys,
+				Error:           errMsg,
+			})
+		}
 	}
 }

@@ -42,7 +42,7 @@ func New(connStr, tasksTable, settingsTable, commandQueue string, concurrency in
 		commandQueue:  cq,
 		jobs:          make(chan queueJob, concurrency),
 	}
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		go s.worker()
 	}
 	return s, nil

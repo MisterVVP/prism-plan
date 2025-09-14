@@ -13,6 +13,7 @@ import (
 	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
+	log "github.com/sirupsen/logrus"
 
 	"prism-api/domain"
 )
@@ -102,11 +103,12 @@ func setupDeduper(t *testing.T) (Deduper, func()) {
 }
 
 func TestPostCommandsIdempotency(t *testing.T) {
+	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{}, deduper)
+	handler := postCommands(store, mockAuth{}, deduper, logger)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -162,11 +164,12 @@ func (e *errStore) EnqueueCommands(ctx context.Context, userID string, cmds []do
 }
 
 func TestPostCommandsRetryOnError(t *testing.T) {
+	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
 	e := echo.New()
 	store := &errStore{fail: true}
-	handler := postCommands(store, mockAuth{}, deduper)
+	handler := postCommands(store, mockAuth{}, deduper, logger)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -214,6 +217,7 @@ func TestPostCommandsRetryOnError(t *testing.T) {
 }
 
 func TestPostCommandsReturnKeysForAll(t *testing.T) {
+	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
 	// pre-add a key to simulate duplicate
@@ -222,7 +226,7 @@ func TestPostCommandsReturnKeysForAll(t *testing.T) {
 	}
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{}, deduper)
+	handler := postCommands(store, mockAuth{}, deduper, logger)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -286,10 +290,11 @@ func (d *flakeyDeduper) Remove(ctx context.Context, userID, key string) error {
 }
 
 func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
+	logger := log.New()
 	d := newFlakeyDeduper(1)
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{}, d)
+	handler := postCommands(store, mockAuth{}, d, logger)
 	body := `[{"entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
