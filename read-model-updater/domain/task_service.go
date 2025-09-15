@@ -120,6 +120,31 @@ func (s TaskService) Apply(ctx context.Context, ev Event) error {
 			EventTimestampType: &tp,
 		}
 		return s.st.UpdateTask(ctx, upd)
+	case TaskReopened:
+		ent, err := s.st.GetTask(ctx, pk, rk)
+		if err != nil {
+			return err
+		}
+		if ent == nil {
+			log.WithField("task", rk).Error("task-reopened event for missing task")
+			return fmt.Errorf("task %s not found", rk)
+		}
+		if ev.Timestamp <= ent.EventTimestamp {
+			log.WithFields(log.Fields{"task": rk, "ts": ev.Timestamp, "current": ent.EventTimestamp}).Error("stale task-reopened event")
+			return fmt.Errorf("task %s received stale reopen", rk)
+		}
+		done := false
+		dt := EdmBoolean
+		ts := ev.Timestamp
+		tp := EdmInt64
+		upd := TaskUpdate{
+			Entity:             Entity{PartitionKey: pk, RowKey: rk},
+			Done:               &done,
+			DoneType:           &dt,
+			EventTimestamp:     &ts,
+			EventTimestampType: &tp,
+		}
+		return s.st.UpdateTask(ctx, upd)
 	default:
 		return fmt.Errorf("unknown task event %s", ev.Type)
 	}

@@ -22,6 +22,7 @@ interface Props {
   settings: Settings;
   updateTask: (id: string, changes: Partial<Task>) => void;
   completeTask: (id: string) => void;
+  reopenTask: (id: string) => void;
 }
 
 const categories: Category[] = ['critical', 'fun', 'important', 'normal'];
@@ -82,7 +83,7 @@ export function handleDragEnd(
   ordered.forEach((task, idx) => updateTask(task.id, { order: idx }));
 }
 
-export default function Board({ tasks, settings, updateTask, completeTask }: Props) {
+export default function Board({ tasks, settings, updateTask, completeTask, reopenTask }: Props) {
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { distance: 5 } })
@@ -119,7 +120,9 @@ export default function Board({ tasks, settings, updateTask, completeTask }: Pro
               limit={settings.tasksPerCategory}
               expanded
               onTaskClick={setSelected}
-              onTaskComplete={(task) => completeTask(task.id)}
+              onTaskComplete={(task) =>
+                expanded === 'done' ? reopenTask(task.id) : completeTask(task.id)
+              }
             />
           </SortableContext>
         </div>
@@ -158,6 +161,7 @@ export default function Board({ tasks, settings, updateTask, completeTask }: Pro
             limit={settings.tasksPerCategory}
             onExpand={() => setExpanded('done')}
             onTaskClick={setSelected}
+            onTaskComplete={(task) => reopenTask(task.id)}
           />
         )}
       </div>

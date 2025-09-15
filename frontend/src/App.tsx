@@ -9,7 +9,7 @@ import AddTaskButton from './components/AddTaskButton';
 import { aria } from './aria';
 
 export default function App() {
-  const { tasks, addTask, updateTask, completeTask } = useTasks();
+  const { tasks, addTask, updateTask, completeTask, reopenTask } = useTasks();
   const { settings, updateSettings } = useSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -84,6 +84,7 @@ export default function App() {
           settings={settings}
           updateTask={updateTask}
           completeTask={completeTask}
+          reopenTask={reopenTask}
         />
       </main>
 

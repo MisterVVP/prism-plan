@@ -34,6 +34,11 @@ namespace DomainService.Domain.Commands
                             envelope.UserId,
                             envelope.Command.Timestamp,
                             envelope.Command.Id),
+                        CommandTypes.ReopenTask => new ReopenTaskCommand(
+                            envelope.Command.Data?.GetProperty("id").GetString() ?? string.Empty,
+                            envelope.UserId,
+                            envelope.Command.Timestamp,
+                            envelope.Command.Id),
                         _ => throw new ArgumentException("Unknown command type!", nameof(queueMessage))
                     },
                     EntityTypes.User => envelope.Command.Type switch

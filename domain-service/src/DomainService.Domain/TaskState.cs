@@ -66,6 +66,9 @@ internal static class TaskStateBuilder
             case TaskEventTypes.Completed:
                 state.Done = true;
                 break;
+            case TaskEventTypes.Reopened:
+                state.Done = false;
+                break;
         }
     }
 }

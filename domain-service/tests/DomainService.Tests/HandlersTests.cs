@@ -64,6 +64,22 @@ namespace DomainService.Tests
         }
 
         [Fact]
+        public async Task ReopenTask_adds_event_when_done()
+        {
+            var repo = new InMemoryTaskRepo();
+            var queue = new InMemoryQueue();
+            var created = new Event("e1", "t1", "task", "task-created", JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1", "ik-seed1");
+            await repo.Add(created, CancellationToken.None);
+            var completed = new Event("e2", "t1", "task", "task-completed", null, 1, "u1", "ik-seed2");
+            await repo.Add(completed, CancellationToken.None);
+            ICommandHandler<ReopenTaskCommand> handler = new ReopenTask(repo, queue);
+            var cmd = new ReopenTaskCommand("t1", "u1", 2, "ik-reopen");
+            await handler.Handle(cmd, CancellationToken.None);
+            Assert.Equal(3, repo.Events.Count);
+            Assert.Equal("task-reopened", repo.Events[2].Type);
+        }
+
+        [Fact]
         public async Task LoginUser_logs_in_existing_user()
         {
             var repo = new InMemoryUserRepo();

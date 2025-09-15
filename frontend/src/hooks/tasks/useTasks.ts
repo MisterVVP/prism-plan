@@ -140,5 +140,9 @@ export function useTasks() {
     dispatch({ type: "complete-task", id });
   }
 
-  return { tasks, addTask, updateTask, completeTask };
+  function reopenTask(id: string) {
+    dispatch({ type: "reopen-task", id });
+  }
+
+  return { tasks, addTask, updateTask, completeTask, reopenTask };
 }

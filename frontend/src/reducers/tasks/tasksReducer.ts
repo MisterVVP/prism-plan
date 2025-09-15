@@ -30,6 +30,11 @@ type CompleteTaskAction = {
   id: string;
 };
 
+type ReopenTaskAction = {
+  type: "reopen-task";
+  id: string;
+};
+
 type SetTasksAction = { type: "set-tasks"; tasks: Task[] };
 
 type MergeTasksAction = { type: "merge-tasks"; tasks: Task[] };
@@ -41,6 +46,7 @@ type Action =
   | AddTaskAction
   | UpdateTaskAction
   | CompleteTaskAction
+  | ReopenTaskAction
   | SetTasksAction
   | MergeTasksAction
   | ClearCommandsAction
@@ -121,6 +127,16 @@ export function tasksReducer(state: State = initialState, action: Action): State
       const cmd: Command = {
         entityType: "task",
         type: "complete-task",
+        data: { id },
+      };
+      return { tasks, commands: [...state.commands, cmd], nextOrder: state.nextOrder };
+    }
+    case "reopen-task": {
+      const { id } = action;
+      const tasks = state.tasks.map((t) => (t.id === id ? { ...t, done: false } : t));
+      const cmd: Command = {
+        entityType: "task",
+        type: "reopen-task",
         data: { id },
       };
       return { tasks, commands: [...state.commands, cmd], nextOrder: state.nextOrder };

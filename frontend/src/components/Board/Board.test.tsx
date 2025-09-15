@@ -12,6 +12,7 @@ describe('Board', () => {
         settings={settings}
         updateTask={() => {}}
         completeTask={() => {}}
+        reopenTask={() => {}}
       />
     );
     const board = screen.getByRole('region', { name: aria.root['aria-label'] });
@@ -31,6 +32,7 @@ describe('Board', () => {
         settings={{ tasksPerCategory: 3, showDoneTasks: true }}
         updateTask={() => {}}
         completeTask={completeTask}
+        reopenTask={() => {}}
       />
     );
     const card = getByText('Sample').parentElement as HTMLElement;
@@ -56,6 +58,30 @@ describe('Board', () => {
       order: 0,
       done: false,
     });
+  });
+
+  it('reopens task on double click in done lane', () => {
+    vi.useFakeTimers();
+    const tasks: Task[] = [
+      { id: '1', title: 'Done', category: 'fun', notes: '', order: 0, done: true }
+    ];
+    const reopenTask = vi.fn();
+    const { getAllByText } = render(
+      <Board
+        tasks={tasks}
+        settings={{ tasksPerCategory: 3, showDoneTasks: true }}
+        updateTask={() => {}}
+        completeTask={() => {}}
+        reopenTask={reopenTask}
+      />
+    );
+    const cardTitle = getAllByText('Done').find((el) => el.tagName === 'DIV') as HTMLElement;
+    const card = cardTitle.parentElement as HTMLElement;
+    fireEvent.click(card);
+    fireEvent.click(card, { detail: 2 });
+    vi.runAllTimers();
+    expect(reopenTask).toHaveBeenCalledWith('1');
+    vi.useRealTimers();
   });
 });
 

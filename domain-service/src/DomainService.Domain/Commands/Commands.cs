@@ -5,6 +5,7 @@ using System.Text.Json;
 namespace DomainService.Domain.Commands
 {
     public sealed record CompleteTaskCommand(string TaskId, string UserId, long Timestamp, string IdempotencyKey) : ICommand<Unit>;
+    public sealed record ReopenTaskCommand(string TaskId, string UserId, long Timestamp, string IdempotencyKey) : ICommand<Unit>;
 
     public sealed record CreateTaskCommand(JsonElement? Data, string UserId, long Timestamp, string IdempotencyKey) : ICommand<Unit>;
 

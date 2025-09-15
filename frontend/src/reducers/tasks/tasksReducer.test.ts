@@ -113,6 +113,24 @@ describe("tasksReducer", () => {
     });
   });
 
+  it("reopens task and queues command", () => {
+    const s1 = tasksReducer(initialState, {
+      type: "set-tasks",
+      tasks: [
+        { id: "t1", title: "a", notes: "", category: "normal", order: 0, done: true },
+      ],
+    });
+    const s2 = tasksReducer(s1, {
+      type: "reopen-task",
+      id: "t1",
+    });
+    expect(s2.tasks[0].done).toBe(false);
+    expect(s2.commands[0]).toMatchObject({
+      type: "reopen-task",
+      data: { id: "t1" },
+    });
+  });
+
   it("preserves index alignment when applying idempotency keys", () => {
     const s1 = tasksReducer(initialState, {
       type: "add-task",

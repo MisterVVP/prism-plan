@@ -67,3 +67,51 @@ func TestSubscribeUpdates(t *testing.T) {
 		t.Fatal("SubscribeUpdates did not exit")
 	}
 }
+
+func TestSubscribeUpdatesReopen(t *testing.T) {
+	m, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	defer m.Close()
+	rc := redis.NewClient(&redis.Options{Addr: m.Addr()})
+	defer rc.Close()
+
+	var mu sync.Mutex
+	var gotData []byte
+	broadcast := func(_ string, data []byte) {
+		mu.Lock()
+		gotData = data
+		mu.Unlock()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		SubscribeUpdates(ctx, echo.New().Logger, rc, "chan2", broadcast)
+		close(done)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	payload := `{"Id":"1","EntityId":"t1","EntityType":"task","Type":"task-reopened","Timestamp":123,"UserId":"u1"}`
+	if err := rc.Publish(context.Background(), "chan2", payload).Err(); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+	mu.Lock()
+	data := gotData
+	mu.Unlock()
+	var payloadObj struct {
+		Data []Task `json:"data"`
+	}
+	if err := json.Unmarshal(data, &payloadObj); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if len(payloadObj.Data) != 1 || payloadObj.Data[0].ID != "t1" || payloadObj.Data[0].Done != false {
+		t.Fatalf("unexpected payload %+v", payloadObj)
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("SubscribeUpdates did not exit")
+	}
+}
