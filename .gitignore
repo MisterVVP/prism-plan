@@ -158,3 +158,5 @@ __tablestorage__
 __blobstorage__
 AzuriteConfig
 __azurite_db_*
+
+k6-summary*

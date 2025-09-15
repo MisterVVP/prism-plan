@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
 
@@ -41,11 +42,33 @@ func parseTimestamp(raw json.RawMessage) int64 {
 
 // New creates a Storage from connection parameters.
 func New(connStr, eventsQueue, tasksTable, usersTable, settingsTable string) (*Storage, error) {
-	queue, err := azqueue.NewQueueClientFromConnectionString(connStr, eventsQueue, nil)
+	queueClientOptions := azqueue.ClientOptions{
+		ClientOptions: azcore.ClientOptions{
+			Retry: policy.RetryOptions{
+				MaxRetries:    5,
+				TryTimeout:    time.Minute * 5,
+				RetryDelay:    time.Second * 1,
+				MaxRetryDelay: time.Second * 60,
+				StatusCodes:   []int{408, 429, 500, 502, 503, 504},
+			},
+		},
+	}
+	queue, err := azqueue.NewQueueClientFromConnectionString(connStr, eventsQueue, &queueClientOptions)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := aztables.NewServiceClientFromConnectionString(connStr, nil)
+	tablesClientOptions := aztables.ClientOptions{
+		ClientOptions: azcore.ClientOptions{
+			Retry: policy.RetryOptions{
+				MaxRetries:    3,
+				TryTimeout:    time.Minute * 3,
+				RetryDelay:    time.Second * 1,
+				MaxRetryDelay: time.Second * 15,
+				StatusCodes:   []int{408, 429, 500, 502, 503, 504},
+			},
+		},
+	}
+	svc, err := aztables.NewServiceClientFromConnectionString(connStr, &tablesClientOptions)
 	if err != nil {
 		return nil, err
 	}

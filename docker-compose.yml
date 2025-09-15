@@ -2,6 +2,9 @@ x-prism-api: &prism-api-base
   build: ./prism-api
   environment: &prism-api-env
     DEBUG: ${DEBUG}
+    ENQUEUE_WORKERS: ${ENQUEUE_WORKERS}
+    ENQUEUE_BUFFER: ${ENQUEUE_BUFFER}
+    ENQUEUE_TIMEOUT: ${ENQUEUE_TIMEOUT}
     STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
     TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
     USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
@@ -63,6 +66,15 @@ services:
       - "7073"
     restart: unless-stopped
 
+  prism-api-3:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7074
+    expose:
+      - "7074"
+    restart: unless-stopped
+
   prism-api-lb:
     environment:
       PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
@@ -74,6 +86,8 @@ services:
     depends_on:
       - prism-api-1
       - prism-api-2
+      - prism-api-3
+
   stream-service:
     build: ./stream-service
     environment:
