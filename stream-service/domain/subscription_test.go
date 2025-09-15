@@ -105,7 +105,7 @@ func TestSubscribeUpdatesReopen(t *testing.T) {
 	if err := json.Unmarshal(data, &payloadObj); err != nil {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
-	if len(payloadObj.Data) != 1 || payloadObj.Data[0].ID != "t1" || payloadObj.Data[0].Done != false {
+	if len(payloadObj.Data) != 1 || payloadObj.Data[0].ID != "t1" || payloadObj.Data[0].Done == nil || *payloadObj.Data[0].Done {
 		t.Fatalf("unexpected payload %+v", payloadObj)
 	}
 	cancel()

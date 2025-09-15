@@ -75,13 +75,13 @@ func SubscribeUpdates(
 						newTask.Order = *taskUpdatedEvent.Order
 					}
 					if taskUpdatedEvent.Done != nil {
-						newTask.Done = *taskUpdatedEvent.Done
+						newTask.Done = taskUpdatedEvent.Done
 					}
 					tasks = append(tasks, newTask)
 				case TaskCompleted:
-					tasks = append(tasks, Task{ID: ev.EntityID, Done: true})
+					tasks = append(tasks, Task{ID: ev.EntityID, Done: boolPtr(true)})
 				case TaskReopened:
-					tasks = append(tasks, Task{ID: ev.EntityID, Done: false})
+					tasks = append(tasks, Task{ID: ev.EntityID, Done: boolPtr(false)})
 				default:
 					logger.Warnf("Received unknown task event of type %s in %s channel - ignoring it", ev.Type, readModelUpdatesChannel)
 					continue
