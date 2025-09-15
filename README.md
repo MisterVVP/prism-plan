@@ -84,19 +84,18 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 1. Handle edge-case and error scenarios related to event sourcing and complex design
    - connection and other errors (consider circuit breakers, exponential retries, transactional outbox, sagas and other patterns)
 2. Deploy this project to Azure/GCP or AWS on free tier. Budget infra costs to 10 EUR per month.
-3. Draw overall system design for this project and ensure it can scale to handle millions of simultaneous users
-   - Ideally, PoC should be made locally. However system design is enough with relevant enterprise techs.
-   - If PoC is implemented, create load test script to emulate real-world scenario
-4. Observability setup would've been beneficial, consider adding wide events or traces
-5. Frontend code can be revisited and re-factored
+3. Observability setup would've been beneficial, consider adding wide events or traces
+4. Frontend code can be revisited and re-factored
    - Improve web UX on mobile devices
    - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
-6. Add some basic features to better utilise event sourcing (e.g. undo/redo)
-7. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
-8. TODO: fix & refactor local test scripts
+5. Add some basic features to better utilise event sourcing (e.g. undo/redo)
+6. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
 
 ### Accepted risks
 1. Edge case scenario where 2 events contain equal timestamp in nanoseconds is not handled. Probability of such event is extremely low and (for now) it's considered to be out of scope.
    - If required, the problem could be solved by adding additional checks for other fields, storing more granular timestamps or implementing retry events. Right now the read-model-updater simply returns error.
 2. Relying on the API node’s clock still carries some risk: if two instances drift even slightly, a later command processed by a skewed node could be dropped as “stale.” Given the serverless environment and cloud‑provider NTP sync, you may choose to accept this trade‑off, but it does leave a small window where legitimate updates could be discarded.
    - Risk is accepted because we trust cloud providers clock sync and planning to run API on serverless compute. If required, this problem can be solved by replacing timestamps with sequences stored in one of our storages or configure all infra to sync with a single NTP, e.g. (AWS one)[https://aws.amazon.com/about-aws/whats-new/2022/11/amazon-time-sync-internet-public-ntp-service/]
+
+### Know issues
+1. Perf tests fail due to azurite scalability problems. This is expected and good, because I'm not planning to set up paid azure storage account for this
