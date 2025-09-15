@@ -58,7 +58,6 @@ func worker(id int) {
 		cancel()
 
 		if err != nil {
-			// Best-effort rollback of dedupe entries we just marked as added
 			for _, k := range j.added {
 				if rerr := globalDeduper.Remove(bg, j.userID, k); rerr != nil {
 					globalLog.Errorf("dedupe rollback failed, err : %v, key: %s, user: %s", err, k, j.userID)
