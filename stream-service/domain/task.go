@@ -13,7 +13,3 @@ type UserSettings struct {
 	TasksPerCategory *int  `json:"tasksPerCategory,omitempty"`
 	ShowDoneTasks    *bool `json:"showDoneTasks,omitempty"`
 }
-
-func boolPtr(v bool) *bool {
-	return &v
-}
