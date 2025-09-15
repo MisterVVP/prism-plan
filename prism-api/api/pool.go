@@ -2,9 +2,7 @@ package api
 
 import (
 	"context"
-	"os"
 	"prism-api/domain"
-	"strconv"
 	"sync"
 	"time"
 
@@ -29,7 +27,6 @@ var (
 	globalLog      *log.Logger
 )
 
-// Call lazily from handler (safe for Azure Functions cold starts)
 func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
 	once.Do(func() {
 		globalStore = store
@@ -66,21 +63,4 @@ func worker(id int) {
 			globalLog.Errorf("enqueue failed, err: %v, user: %s, count: %d, worker: %d", err, j.userID, len(j.cmds), id)
 		}
 	}
-}
-
-func envInt(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			return n
-		}
-	}
-	return def
-}
-func envDur(key string, def time.Duration) time.Duration {
-	if v := os.Getenv(key); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			return d
-		}
-	}
-	return def
 }
