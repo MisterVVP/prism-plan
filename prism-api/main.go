@@ -58,7 +58,15 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
-	deduper := api.NewRedisDeduper(rc, 24*time.Hour)
+	ttl := 24 * time.Hour
+	if v := os.Getenv("DEDUPER_TTL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			log.Fatalf("invalid DEDUPER_TTL: %v", err)
+		}
+		ttl = d
+	}
+	deduper := api.NewRedisDeduper(rc, ttl)
 
 	testMode := os.Getenv("AUTH0_TEST_MODE") == "1"
 	var auth *api.Auth
