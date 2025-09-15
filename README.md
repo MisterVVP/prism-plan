@@ -87,14 +87,13 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 3. Draw overall system design for this project and ensure it can scale to handle millions of simultaneous users
    - Ideally, PoC should be made locally. However system design is enough with relevant enterprise techs.
    - If PoC is implemented, create load test script to emulate real-world scenario
-4. Determine appropriate expiration for cached updates in Redis channel and enforce it while keeping this setting configurable
-5. Observability setup would've been beneficial, consider adding wide events or traces
-6. Frontend code can be revisited and re-factored
+4. Observability setup would've been beneficial, consider adding wide events or traces
+5. Frontend code can be revisited and re-factored
    - Improve web UX on mobile devices
    - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
-7. Add some basic features to better utilise event sourcing (e.g. undo/redo)
-8. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
-9. TODO: fix & refactor local test scripts
+6. Add some basic features to better utilise event sourcing (e.g. undo/redo)
+7. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
+8. TODO: fix & refactor local test scripts
 
 ### Accepted risks
 1. Edge case scenario where 2 events contain equal timestamp in nanoseconds is not handled. Probability of such event is extremely low and (for now) it's considered to be out of scope.
