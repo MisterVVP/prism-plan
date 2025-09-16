@@ -1,3 +1,4 @@
+using Azure.Core;
 using Azure.Data.Tables;
 using Azure.Storage.Queues;
 using DomainService.Domain;
@@ -19,9 +20,29 @@ var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
     .ConfigureServices(services =>
     {
-        services.AddSingleton<IEventQueue>(_ => new StorageQueueEventQueue(new QueueClient(connStr, domainEventsQueueName)));
-        services.AddSingleton<ITaskEventRepository>(_ => new TableTaskEventRepository(new TableClient(connStr, taskEventTableName)));
-        services.AddSingleton<IUserEventRepository>(_ => new TableUserEventRepository(new TableClient(connStr, userEventTableName)));
+        var queueClientOptions = new QueueClientOptions
+        {
+            Retry = {
+                Delay = TimeSpan.FromSeconds(1),
+                MaxRetries = 5,
+                Mode = RetryMode.Exponential,
+                MaxDelay = TimeSpan.FromSeconds(15),
+                NetworkTimeout = TimeSpan.FromSeconds(60)
+            },
+        };
+        services.AddSingleton<IEventQueue>(_ => new StorageQueueEventQueue(new QueueClient(connStr, domainEventsQueueName, queueClientOptions)));
+        var tableClientOptions = new TableClientOptions
+        {
+            Retry = {
+                Delay = TimeSpan.FromSeconds(1),
+                MaxRetries = 3,
+                Mode = RetryMode.Exponential,
+                MaxDelay = TimeSpan.FromSeconds(15),
+                NetworkTimeout = TimeSpan.FromSeconds(60)
+            },
+        };
+        services.AddSingleton<ITaskEventRepository>(_ => new TableTaskEventRepository(new TableClient(connStr, taskEventTableName, tableClientOptions)));
+        services.AddSingleton<IUserEventRepository>(_ => new TableUserEventRepository(new TableClient(connStr, userEventTableName, tableClientOptions)));
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
         services.AddCommands();
     })

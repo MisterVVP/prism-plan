@@ -88,8 +88,7 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 4. Frontend code can be revisited and re-factored
    - Improve web UX on mobile devices
    - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
-5. Add some basic features to better utilise event sourcing (e.g. undo/redo)
-6. Try out to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
+5. Try to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
 
 ### Accepted risks
 1. Edge case scenario where 2 events contain equal timestamp in nanoseconds is not handled. Probability of such event is extremely low and (for now) it's considered to be out of scope.
