@@ -191,6 +191,51 @@ func TestApplyTaskCompletedStaleEventReturnsError(t *testing.T) {
 	}
 }
 
+func TestApplyTaskReopenedMissingTask(t *testing.T) {
+	fs := &fakeStore{}
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	ev := Event{EntityType: "task", Type: TaskReopened, UserID: "u1", EntityID: "t1", Timestamp: 1}
+	if err := orch.Apply(context.Background(), ev); err == nil {
+		t.Fatalf("expected error for missing task")
+	}
+}
+
+func TestApplyTaskReopenedStaleEventReturnsError(t *testing.T) {
+	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
+		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
+		Done:           false,
+		DoneType:       EdmBoolean,
+		EventTimestamp: 5,
+	}}}
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	ev := Event{EntityType: "task", Type: TaskReopened, UserID: "u1", EntityID: "t1", Timestamp: 3}
+	if err := orch.Apply(context.Background(), ev); err == nil {
+		t.Fatalf("expected error for stale reopen")
+	}
+	ent := fs.tasks["t1"]
+	if ent.Done || ent.EventTimestamp != 5 {
+		t.Fatalf("unexpected task entity: %#v", ent)
+	}
+}
+
+func TestApplyTaskReopened(t *testing.T) {
+	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
+		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
+		Done:           true,
+		DoneType:       EdmBoolean,
+		EventTimestamp: 5,
+	}}}
+	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
+	ev := Event{EntityType: "task", Type: TaskReopened, UserID: "u1", EntityID: "t1", Timestamp: 6}
+	if err := orch.Apply(context.Background(), ev); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	ent := fs.tasks["t1"]
+	if ent.Done || ent.EventTimestamp != 6 {
+		t.Fatalf("unexpected task entity: %#v", ent)
+	}
+}
+
 func TestApplyTaskUpdatedStaleEventReturnsError(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},

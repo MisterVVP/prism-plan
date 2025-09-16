@@ -6,6 +6,7 @@ const (
 	TaskCreated         = "task-created"
 	TaskUpdated         = "task-updated"
 	TaskCompleted       = "task-completed"
+	TaskReopened        = "task-reopened"
 	UserCreated         = "user-created"
 	UserLoggedIn        = "user-logged-in"
 	UserLoggedOut       = "user-logged-out"

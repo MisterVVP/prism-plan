@@ -12,6 +12,7 @@ public static class TaskEventTypes
     public const string Created = "task-created";
     public const string Updated = "task-updated";
     public const string Completed = "task-completed";
+    public const string Reopened = "task-reopened";
 }
 
 public static class UserEventTypes
@@ -28,6 +29,7 @@ public static class CommandTypes
     public const string CompleteTask = "complete-task";
     public const string CreateTask = "create-task";
     public const string UpdateTask = "update-task";
+    public const string ReopenTask = "reopen-task";
     public const string LoginUser = "login-user";
     public const string LogoutUser = "logout-user";
     public const string UpdateUserSettings = "update-user-settings";

@@ -8,7 +8,8 @@ vi.mock('./hooks', () => ({
     tasks: [],
     addTask: vi.fn(),
     updateTask: vi.fn(),
-    completeTask: vi.fn()
+    completeTask: vi.fn(),
+    reopenTask: vi.fn()
   }),
   useLoginUser: () => {},
   useSettings: () => ({

@@ -6,7 +6,7 @@ type Task struct {
 	Notes    string `json:"notes,omitempty"`
 	Category string `json:"category,omitempty"`
 	Order    int    `json:"order,omitempty"`
-	Done     bool   `json:"done,omitempty"`
+	Done     *bool  `json:"done,omitempty"`
 }
 
 type UserSettings struct {

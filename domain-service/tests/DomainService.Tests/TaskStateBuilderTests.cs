@@ -14,8 +14,8 @@ namespace DomainService.Tests
                 JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1", "ik1");
             var completed = new Event("e2", "t1", EntityTypes.Task, TaskEventTypes.Completed,
                 null, 2, "u1", "ik2");
-            var reopened = new Event("e3", "t1", EntityTypes.Task, TaskEventTypes.Updated,
-                JsonDocument.Parse("{\"done\":false}").RootElement, 3, "u1", "ik3");
+            var reopened = new Event("e3", "t1", EntityTypes.Task, TaskEventTypes.Reopened,
+                null, 3, "u1", "ik3");
             // shuffled order
             var state = TaskStateBuilder.From([completed, created, reopened]);
             Assert.False(state.Done);
