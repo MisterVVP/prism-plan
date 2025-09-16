@@ -22,10 +22,17 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
     {
         var entity = new TableEntity(ev.EntityId, ev.Id)
         {
+            {"Type", ev.Type},
+            {"EventTimestamp", ev.Timestamp},
             {"UserId", ev.UserId},
-            {"Data", JsonSerializer.Serialize(ev)},
-            {"IdempotencyKey", ev.IdempotencyKey}
+            {"IdempotencyKey", ev.IdempotencyKey},
         };
+
+        if (ev.Data.HasValue)
+        {
+            entity.Add("Data", ev.Data.Value.GetRawText());
+        }
+
         await _table.AddEntityAsync(entity, ct);
     }
 }
