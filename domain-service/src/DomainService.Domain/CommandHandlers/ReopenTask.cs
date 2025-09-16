@@ -11,9 +11,8 @@ internal sealed class ReopenTask(ITaskEventRepository taskRepo, IEventQueue even
 
     public async Task<Unit> Handle(ReopenTaskCommand request, CancellationToken ct)
     {
-        var events = await _taskRepo.Get(request.TaskId, ct);
-        var state = TaskStateBuilder.From(events);
-        if (state.Title == null || !state.Done) return Unit.Value;
+        var status = await _taskRepo.GetStatus(request.TaskId, ct);
+        if (!status.Exists || !status.Done) return Unit.Value;
 
         var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Reopened, null, request.Timestamp, request.UserId, request.IdempotencyKey);
         await _taskRepo.Add(ev, ct);

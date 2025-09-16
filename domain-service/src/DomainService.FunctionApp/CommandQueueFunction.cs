@@ -17,9 +17,11 @@ internal sealed class CommandQueueFunction(ISender sender, ILoggerFactory logger
         try
         {
             var command = _commandFactory.Create(msg);
-            if (command != null) {
+            if (command != null)
+            {
                 await _sender.Send(command, context.CancellationToken);
-            } else
+            }
+            else
             {
                 _logger.LogDebug("Unable to create command from message: {msg}", msg);
             }

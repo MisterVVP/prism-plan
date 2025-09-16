@@ -28,16 +28,20 @@ internal static class TaskStateBuilder
         switch (ev.Type)
         {
             case TaskEventTypes.Created:
-                if (ev.Data.HasValue) {
+                if (ev.Data.HasValue)
+                {
                     var data = ev.Data.Value;
                     state.Title = data.GetProperty("title").GetString();
-                    if (data.TryGetProperty("notes", out var n)) {
+                    if (data.TryGetProperty("notes", out var n))
+                    {
                         state.Notes = n.GetString();
                     }
-                    if (data.TryGetProperty("category", out var c)) {
+                    if (data.TryGetProperty("category", out var c))
+                    {
                         state.Category = c.GetString();
                     }
-                    if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi)) {
+                    if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi))
+                    {
                         state.Order = oi;
                     }
                 }
@@ -46,19 +50,24 @@ internal static class TaskStateBuilder
                 if (ev.Data.HasValue)
                 {
                     var data = ev.Data.Value;
-                    if (data.TryGetProperty("title", out var t)) { 
-                        state.Title = t.GetString(); 
+                    if (data.TryGetProperty("title", out var t))
+                    {
+                        state.Title = t.GetString();
                     }
-                    if (data.TryGetProperty("notes", out var n)) {
+                    if (data.TryGetProperty("notes", out var n))
+                    {
                         state.Notes = n.GetString();
                     }
-                    if (data.TryGetProperty("category", out var c)) {
+                    if (data.TryGetProperty("category", out var c))
+                    {
                         state.Category = c.GetString();
                     }
-                    if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi)) {
+                    if (data.TryGetProperty("order", out var o) && o.TryGetInt32(out var oi))
+                    {
                         state.Order = oi;
                     }
-                    if (data.TryGetProperty("done", out var d)) {
+                    if (data.TryGetProperty("done", out var d))
+                    {
                         state.Done = d.ValueKind == System.Text.Json.JsonValueKind.True;
                     }
                 }

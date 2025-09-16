@@ -134,9 +134,11 @@ namespace DomainService.Tests
             Assert.Equal("task-updated", repo.Events[2].Type);
             Assert.Single(queue.Events);
             Assert.Equal("task-updated", queue.Events[0].Type);
-            Assert.True(repo.Events[2].Data.HasValue);
-            Assert.Equal("fun", repo.Events[2].Data.Value.GetProperty("category").GetString());
-            Assert.False(repo.Events[2].Data.Value.GetProperty("done").GetBoolean());
+            var updatedData = repo.Events[2].Data;
+            Assert.True(updatedData.HasValue);
+            var dataValue = updatedData.Value;
+            Assert.Equal("fun", dataValue.GetProperty("category").GetString());
+            Assert.False(dataValue.GetProperty("done").GetBoolean());
         }
     }
 
@@ -161,6 +163,36 @@ namespace DomainService.Tests
         public Task<IReadOnlyList<IEvent>> Get(string taskId, CancellationToken ct)
         {
             return Task.FromResult<IReadOnlyList<IEvent>>([.. Events.Where(e => e.EntityId == taskId)]);
+        }
+
+        public Task<TaskEventStatus> GetStatus(string taskId, CancellationToken ct)
+        {
+            var exists = false;
+            long latestTimestamp = long.MinValue;
+            var done = false;
+
+            foreach (var ev in Events)
+            {
+                if (ev.EntityId != taskId)
+                {
+                    continue;
+                }
+
+                exists = true;
+
+                if (ev.Type != TaskEventTypes.Completed && ev.Type != TaskEventTypes.Reopened)
+                {
+                    continue;
+                }
+
+                if (ev.Timestamp > latestTimestamp)
+                {
+                    latestTimestamp = ev.Timestamp;
+                    done = ev.Type == TaskEventTypes.Completed;
+                }
+            }
+
+            return Task.FromResult(new TaskEventStatus(exists, latestTimestamp != long.MinValue && done));
         }
 
         public Task<bool> Exists(string idempotencyKey, CancellationToken ct)
