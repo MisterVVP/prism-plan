@@ -54,34 +54,24 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
     {
         ev = null;
 
-        if (entity.TryGetValue("Type", out var typeObj))
+        if (!entity.TryGetValue("Type", out var typeObj) || typeObj is not string type)
         {
-            if (typeObj is not string type)
-            {
-                return false;
-            }
-
-            var timestamp = ExtractInt64(entity, "EventTimestamp");
-            var userId = entity.TryGetValue("UserId", out var userIdObj) && userIdObj is string uid ? uid : string.Empty;
-            var idempotencyKey = entity.TryGetValue("IdempotencyKey", out var keyObj) && keyObj is string key ? key : string.Empty;
-            JsonElement? data = null;
-
-            if (entity.TryGetValue("Data", out var dataObj) && dataObj is string dataText && !string.IsNullOrWhiteSpace(dataText) && dataText != "null")
-            {
-                using var doc = JsonDocument.Parse(dataText);
-                data = doc.RootElement.Clone();
-            }
-
-            ev = new Event(entity.RowKey, entity.PartitionKey, EntityTypes.Task, type, data, timestamp, userId, idempotencyKey);
-            return true;
+            return false;
         }
 
-        if (entity.TryGetValue("Data", out var legacyDataObj) && legacyDataObj is string legacyData)
+        var timestamp = ExtractInt64(entity, "EventTimestamp");
+        var userId = entity.TryGetValue("UserId", out var userIdObj) && userIdObj is string uid ? uid : string.Empty;
+        var idempotencyKey = entity.TryGetValue("IdempotencyKey", out var keyObj) && keyObj is string key ? key : string.Empty;
+        JsonElement? data = null;
+
+        if (entity.TryGetValue("Data", out var dataObj) && dataObj is string dataText && !string.IsNullOrWhiteSpace(dataText) && dataText != "null")
         {
-            ev = JsonSerializer.Deserialize<Event>(legacyData);
+            using var doc = JsonDocument.Parse(dataText);
+            data = doc.RootElement.Clone();
         }
 
-        return ev != null;
+        ev = new Event(entity.RowKey, entity.PartitionKey, EntityTypes.Task, type, data, timestamp, userId, idempotencyKey);
+        return true;
     }
 
     private static long ExtractInt64(TableEntity entity, string key)
