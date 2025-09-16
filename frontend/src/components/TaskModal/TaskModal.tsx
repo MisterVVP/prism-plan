@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
+import { Dialog, Transition, RadioGroup } from '@headlessui/react';
+import { CheckIcon } from '@heroicons/react/20/solid';
 import type { Category, Task } from '../../types';
 
 interface Props {
@@ -15,6 +16,10 @@ const categories: { value: Category; label: string; bg: string }[] = [
   { value: 'important', label: 'Important', bg: 'bg-important' },
   { value: 'normal',    label: 'Normal',    bg: 'bg-normal'    }
 ];
+
+function classNames(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ');
+}
 
 export default function TaskModal({
   isOpen,
@@ -87,25 +92,40 @@ export default function TaskModal({
               </label>
 
               {/* Category picker */}
-              <fieldset className="mt-4">
-                <legend className="mb-1 text-sm font-medium text-gray-700">Category</legend>
-                <div className="space-y-1">
+              <RadioGroup value={cat} onChange={setCat} className="mt-4">
+                <RadioGroup.Label className="mb-1 block text-sm font-medium text-gray-700">
+                  Category
+                </RadioGroup.Label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {categories.map(({ value, label, bg }) => (
-                    <label key={value} className="flex cursor-pointer items-center gap-2 text-sm">
-                      <input
-                        type="radio"
-                        name="category"
-                        value={value}
-                        checked={cat === value}
-                        onChange={() => setCat(value)}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className={`h-2 w-2 rounded-full ${bg}`} />
-                      {label}
-                    </label>
+                    <RadioGroup.Option
+                      key={value}
+                      value={value}
+                      className={({ active, checked }) =>
+                        classNames(
+                          'flex cursor-pointer items-center justify-between rounded-lg border px-4 py-3 text-sm font-medium shadow-sm transition focus:outline-none',
+                          checked ? 'border-indigo-500 bg-indigo-50 text-indigo-900' : 'border-gray-200 bg-white text-gray-700',
+                          active ? 'ring-2 ring-indigo-200 ring-offset-1' : ''
+                        )
+                      }
+                    >
+                      {({ checked }) => (
+                        <>
+                          <div className="flex items-center gap-3">
+                            <span className={`h-3 w-3 rounded-full ${bg}`} aria-hidden="true" />
+                            <RadioGroup.Label as="span">{label}</RadioGroup.Label>
+                          </div>
+                          {checked ? (
+                            <CheckIcon aria-hidden="true" className="h-5 w-5 text-indigo-500" />
+                          ) : (
+                            <span aria-hidden="true" className="h-5 w-5" />
+                          )}
+                        </>
+                      )}
+                    </RadioGroup.Option>
                   ))}
                 </div>
-              </fieldset>
+              </RadioGroup>
 
               {/* Actions */}
               <div className="mt-6 flex justify-end gap-3">
