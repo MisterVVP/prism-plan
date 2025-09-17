@@ -6,11 +6,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  horizontalListSortingStrategy,
-} from '@dnd-kit/sortable';
+import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useState } from 'react';
 import Lane from '../Lane';
 import TaskDetails from '../TaskDetails';
@@ -52,9 +48,11 @@ export function handleDragEnd(
   }
 
   if (activeTask.done) {
+    if (toCat === 'done') {
+      return;
+    }
     const targetLane = tasks.filter((t) => t.category === toCat && !t.done);
-    const newIndex = targetLane.findIndex((t) => t.id === over.id);
-    const order = newIndex === -1 ? targetLane.length : newIndex;
+    const order = targetLane.length;
     updateTask(active.id as string, { category: toCat, order, done: false });
     return;
   }
@@ -62,25 +60,10 @@ export function handleDragEnd(
   if (fromCat !== toCat) {
     // move to another lane; place at end if dropped on lane itself
     const targetLane = tasks.filter((t) => t.category === toCat && !t.done);
-    const newIndex = targetLane.findIndex((t) => t.id === over.id);
-    const order = newIndex === -1 ? targetLane.length : newIndex;
+    const order = targetLane.length;
     updateTask(active.id as string, { category: toCat, order });
     return;
   }
-
-  // reorder within lane
-  const laneTasks = tasks.filter((t) => t.category === fromCat && !t.done);
-  const oldIndex = laneTasks.findIndex((t) => t.id === active.id);
-  let newIndex = laneTasks.findIndex((t) => t.id === over.id);
-  if (newIndex === -1) {
-    newIndex = laneTasks.length - 1;
-  }
-  if (oldIndex === newIndex) {
-    return;
-  }
-
-  const ordered = arrayMove(laneTasks, oldIndex, newIndex);
-  ordered.forEach((task, idx) => updateTask(task.id, { order: idx }));
 }
 
 export default function Board({ tasks, settings, updateTask, completeTask, reopenTask }: Props) {
@@ -92,6 +75,32 @@ export default function Board({ tasks, settings, updateTask, completeTask, reope
   const [selected, setSelected] = useState<Task | null>(null);
   const onDragEnd = (ev: DragEndEvent) =>
     handleDragEnd(ev, tasks, updateTask, completeTask);
+
+  const handleTaskMove = (task: Task, direction: 'up' | 'down') => {
+    if (task.done) {
+      return;
+    }
+    const laneTasks = tasks
+      .filter((t) => t.category === task.category && !t.done)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const currentIndex = laneTasks.findIndex((t) => t.id === task.id);
+    if (currentIndex === -1) {
+      return;
+    }
+    const offset = direction === 'up' ? -1 : 1;
+    const targetIndex = currentIndex + offset;
+    if (targetIndex < 0 || targetIndex >= laneTasks.length) {
+      return;
+    }
+
+    const currentTask = laneTasks[currentIndex];
+    const targetTask = laneTasks[targetIndex];
+    const currentOrder = currentTask.order ?? currentIndex;
+    const targetOrder = targetTask.order ?? targetIndex;
+
+    updateTask(currentTask.id, { order: targetOrder });
+    updateTask(targetTask.id, { order: currentOrder });
+  };
 
   if (selected) {
     return <TaskDetails task={selected} onBack={() => setSelected(null)} />;
@@ -123,6 +132,7 @@ export default function Board({ tasks, settings, updateTask, completeTask, reope
               onTaskComplete={(task) =>
                 expanded === 'done' ? reopenTask(task.id) : completeTask(task.id)
               }
+              onTaskMove={expanded === 'done' ? undefined : (task, dir) => handleTaskMove(task, dir)}
             />
           </SortableContext>
         </div>
@@ -150,6 +160,7 @@ export default function Board({ tasks, settings, updateTask, completeTask, reope
                 onExpand={() => setExpanded(cat)}
                 onTaskClick={setSelected}
                 onTaskComplete={(task) => completeTask(task.id)}
+                onTaskMove={(task, dir) => handleTaskMove(task, dir)}
               />
             </SortableContext>
           );

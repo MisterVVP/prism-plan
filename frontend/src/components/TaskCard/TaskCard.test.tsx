@@ -63,5 +63,40 @@ describe('TaskCard', () => {
     expect(handleClick).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
+
+  it('renders move controls with accessible labels and triggers callbacks', () => {
+    vi.useFakeTimers();
+    const task: Task = {
+      id: '1',
+      title: 'Sample',
+      category: 'normal',
+      notes: '',
+      order: 0,
+      done: false
+    };
+    const handleMoveUp = vi.fn();
+    const handleMoveDown = vi.fn();
+    const handleClick = vi.fn();
+    render(
+      <TaskCard
+        task={task}
+        onMoveUp={handleMoveUp}
+        onMoveDown={handleMoveDown}
+        onClick={handleClick}
+        showOrderControls
+      />
+    );
+    const upButton = screen.getByRole('button', { name: `Move ${task.title} up` });
+    const downButton = screen.getByRole('button', { name: `Move ${task.title} down` });
+
+    fireEvent.click(upButton);
+    fireEvent.click(downButton);
+    vi.runAllTimers();
+
+    expect(handleMoveUp).toHaveBeenCalledTimes(1);
+    expect(handleMoveDown).toHaveBeenCalledTimes(1);
+    expect(handleClick).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });
 
