@@ -31,3 +31,19 @@ flowchart LR
 | `user-settings-created` | Initial settings created for user. | `{ "tasksPerCategory": number, "showDoneTasks": boolean }` |
 | `user-settings-updated` | User changed their settings. | `{ "tasksPerCategory"?: number, "showDoneTasks"?: boolean }` |
 
+## Event storage schema
+
+Task and user events are stored in dedicated Azure Table Storage tables. Each row represents a single event with the following layout:
+
+| Column | Description |
+| --- | --- |
+| `PartitionKey` | Entity identifier (task ID or user ID). |
+| `RowKey` | Event identifier. |
+| `Type` | Event type (`Edm.String`). |
+| `EventTimestamp` | Event timestamp represented as a 64-bit integer (`Edm.Int64`). |
+| `UserId` | Identifier of the actor that produced the event (`Edm.String`). |
+| `IdempotencyKey` | Command idempotency key (`Edm.String`). |
+| `Data` | JSON payload that contains only domain-specific fields. Metadata fields such as `Id`, `EntityId`, `EntityType`, and `IdempotencyKey` are not duplicated here (`Edm.String`). |
+
+All persisted string and integer columns include explicit `@odata.type` annotations so downstream services can rely on consistent typing when reading the tables.
+

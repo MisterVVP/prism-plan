@@ -135,8 +135,36 @@ namespace DomainService.Tests
             Assert.Single(queue.Events);
             Assert.Equal("task-updated", queue.Events[0].Type);
             Assert.True(repo.Events[2].Data.HasValue);
-            Assert.Equal("fun", repo.Events[2].Data.Value.GetProperty("category").GetString());
-            Assert.False(repo.Events[2].Data.Value.GetProperty("done").GetBoolean());
+            JsonElement updateData = repo.Events[2].Data ?? throw new InvalidOperationException();
+            Assert.Equal("fun", updateData.GetProperty("category").GetString());
+            Assert.False(updateData.GetProperty("done").GetBoolean());
+        }
+
+        [Fact]
+        public async Task UpdateTask_removes_identifier_from_payload()
+        {
+            var repo = new InMemoryTaskRepo();
+            var queue = new InMemoryQueue();
+            var created = new Event("e1", "t1", "task", "task-created", JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1", "ik-seed1");
+            await repo.Add(created, CancellationToken.None);
+            ICommandHandler<UpdateTaskCommand> handler = new UpdateTask(repo, queue);
+            var payload = JsonDocument.Parse("{\"id\":\"t1\",\"notes\":\"updated\"}").RootElement;
+            var cmd = new UpdateTaskCommand("t1", payload, "u1", 2, "ik-update-id");
+
+            await handler.Handle(cmd, CancellationToken.None);
+
+            Assert.Equal(2, repo.Events.Count);
+            var stored = repo.Events[^1];
+            Assert.True(stored.Data.HasValue);
+            JsonElement storedData = stored.Data ?? throw new InvalidOperationException();
+            Assert.False(storedData.TryGetProperty("id", out _));
+            Assert.Equal("updated", storedData.GetProperty("notes").GetString());
+
+            Assert.Single(queue.Events);
+            var queued = queue.Events[^1];
+            Assert.True(queued.Data.HasValue);
+            JsonElement queuedData = queued.Data ?? throw new InvalidOperationException();
+            Assert.False(queuedData.TryGetProperty("id", out _));
         }
     }
 
