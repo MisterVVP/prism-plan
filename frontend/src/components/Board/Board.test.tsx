@@ -60,6 +60,56 @@ describe('Board', () => {
     });
   });
 
+  it('appends moved task to end of destination category', () => {
+    const tasks: Task[] = [
+      { id: '1', title: 'Task A', category: 'normal', order: 0 },
+      { id: '2', title: 'Task B', category: 'normal', order: 1 },
+      { id: '3', title: 'Task C', category: 'fun', order: 0 },
+    ];
+    const updateTask = vi.fn();
+    const ev: any = {
+      active: { id: '3' },
+      over: { id: '1', data: { current: { category: 'normal' } } }
+    };
+    handleDragEnd(ev, tasks, updateTask, vi.fn());
+    expect(updateTask).toHaveBeenCalledWith('3', {
+      category: 'normal',
+      order: 2,
+    });
+  });
+
+  it('assigns next order greater than existing values when lane has gaps', () => {
+    const tasks: Task[] = [
+      { id: '1', title: 'Task A', category: 'normal', order: 0 },
+      { id: '2', title: 'Task B', category: 'normal', order: 2 },
+      { id: '3', title: 'Task C', category: 'fun', order: 0 },
+    ];
+    const updateTask = vi.fn();
+    const ev: any = {
+      active: { id: '3' },
+      over: { id: '1', data: { current: { category: 'normal' } } }
+    };
+    handleDragEnd(ev, tasks, updateTask, vi.fn());
+    expect(updateTask).toHaveBeenCalledWith('3', {
+      category: 'normal',
+      order: 3,
+    });
+  });
+
+  it('ignores drag and drop within the same category', () => {
+    const tasks: Task[] = [
+      { id: '1', title: 'Task A', category: 'normal', order: 0 },
+      { id: '2', title: 'Task B', category: 'normal', order: 1 },
+    ];
+    const updateTask = vi.fn();
+    const ev: any = {
+      active: { id: '1' },
+      over: { id: '2', data: { current: { category: 'normal' } } }
+    };
+    handleDragEnd(ev, tasks, updateTask, vi.fn());
+    expect(updateTask).not.toHaveBeenCalled();
+  });
+
   it('reopens task on double click in done lane', () => {
     vi.useFakeTimers();
     const tasks: Task[] = [
@@ -82,6 +132,29 @@ describe('Board', () => {
     vi.runAllTimers();
     expect(reopenTask).toHaveBeenCalledWith('1');
     vi.useRealTimers();
+  });
+
+  it('uses arrow controls to swap tasks within a lane', () => {
+    const tasks: Task[] = [
+      { id: '1', title: 'First', category: 'normal', order: 0 },
+      { id: '2', title: 'Second', category: 'normal', order: 1 },
+      { id: '3', title: 'Third', category: 'normal', order: 2 }
+    ];
+    const updateTask = vi.fn();
+    render(
+      <Board
+        tasks={tasks}
+        settings={{ tasksPerCategory: 5, showDoneTasks: false }}
+        updateTask={updateTask}
+        completeTask={() => {}}
+        reopenTask={() => {}}
+      />
+    );
+    const moveDown = screen.getByRole('button', { name: 'Move First down' });
+    fireEvent.click(moveDown);
+    expect(updateTask).toHaveBeenCalledTimes(2);
+    expect(updateTask).toHaveBeenNthCalledWith(1, '1', { order: 1 });
+    expect(updateTask).toHaveBeenNthCalledWith(2, '2', { order: 0 });
   });
 });
 

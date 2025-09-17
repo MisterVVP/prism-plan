@@ -47,3 +47,10 @@ Task and user events are stored in dedicated Azure Table Storage tables. Each ro
 
 All persisted string and integer columns include explicit `@odata.type` annotations so downstream services can rely on consistent typing when reading the tables.
 
+### Task ordering updates
+
+Reordering uses `task-updated` events that include only the `order` field for the affected tasks. When a task is moved to
+another category, the emitted `task-updated` event carries both the new `category` and an `order` value equal to the number of
+tasks that existed in the destination category prior to the move. This ensures downstream consumers append the task instead of
+reordering existing items.
+
