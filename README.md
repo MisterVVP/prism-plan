@@ -85,10 +85,7 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
    - connection and other errors (consider circuit breakers, exponential retries, transactional outbox, sagas and other patterns)
 2. Deploy this project to Azure/GCP or AWS on free tier. Budget infra costs to 10 EUR per month.
 3. Observability setup would've been beneficial, consider adding wide events or traces
-4. Frontend code can be revisited and re-factored
-   - Improve web UX on mobile devices
-   - If we introduce new events that can't be merged/upserted - don't forget to refactor frontend and stream-service
-5. Try to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
+4. Try to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
 
 ### Accepted risks
 1. Edge case scenario where 2 events contain equal timestamp in nanoseconds is not handled. Probability of such event is extremely low and (for now) it's considered to be out of scope.
