@@ -12,9 +12,19 @@ interface Props {
   expanded?: boolean;
   onTaskClick?: (task: Task) => void;
   onTaskComplete?: (task: Task) => void;
+  onTaskMove?: (task: Task, direction: 'up' | 'down') => void;
 }
 
-export default function Lane({ category, tasks, limit, onExpand, expanded, onTaskClick, onTaskComplete }: Props) {
+export default function Lane({
+  category,
+  tasks,
+  limit,
+  onExpand,
+  expanded,
+  onTaskClick,
+  onTaskComplete,
+  onTaskMove,
+}: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: category, data: { category } });
   const titleMap = {
     critical: 'Critical',
@@ -34,6 +44,7 @@ export default function Lane({ category, tasks, limit, onExpand, expanded, onTas
   const maxVisible = expanded ? tasks.length : limit;
   const visibleTasks = tasks.slice(0, maxVisible);
   const extra = tasks.length - maxVisible;
+  const allowReorder = category !== 'done' && typeof onTaskMove === 'function';
 
   return (
     <section {...aria.section(category)} className="mb-2 flex w-full flex-col sm:mb-4 sm:flex-1 sm:min-w-[16rem]">
@@ -52,14 +63,22 @@ export default function Lane({ category, tasks, limit, onExpand, expanded, onTas
         style={droppableStyle}
         className={`flex w-full flex-1 flex-col transition-colors ${expanded ? 'overflow-auto' : 'overflow-hidden'} gap-1 px-1 pb-2 pt-2 sm:gap-2 sm:px-2 sm:pb-4 sm:pt-4`}
       >
-        {visibleTasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onClick={() => onTaskClick?.(task)}
-            onDoubleClick={() => onTaskComplete?.(task)}
-          />
-        ))}
+        {visibleTasks.map((task) => {
+          const position = tasks.findIndex((t) => t.id === task.id);
+          const canMoveUp = allowReorder && position > 0;
+          const canMoveDown = allowReorder && position >= 0 && position < tasks.length - 1;
+          return (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onClick={() => onTaskClick?.(task)}
+              onDoubleClick={() => onTaskComplete?.(task)}
+              onMoveUp={canMoveUp ? () => onTaskMove?.(task, 'up') : undefined}
+              onMoveDown={canMoveDown ? () => onTaskMove?.(task, 'down') : undefined}
+              showOrderControls={allowReorder}
+            />
+          );
+        })}
         {extra > 0 && (
           <button
             type="button"

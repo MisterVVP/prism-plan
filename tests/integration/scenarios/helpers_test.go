@@ -23,6 +23,7 @@ type task struct {
 	Notes    string `json:"notes"`
 	Done     bool   `json:"done"`
 	Category string `json:"category"`
+	Order    int    `json:"order"`
 }
 
 func getPollTimeout(t *testing.T) time.Duration {
