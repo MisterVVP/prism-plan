@@ -78,6 +78,24 @@ describe('Board', () => {
     });
   });
 
+  it('assigns next order greater than existing values when lane has gaps', () => {
+    const tasks: Task[] = [
+      { id: '1', title: 'Task A', category: 'normal', order: 0 },
+      { id: '2', title: 'Task B', category: 'normal', order: 2 },
+      { id: '3', title: 'Task C', category: 'fun', order: 0 },
+    ];
+    const updateTask = vi.fn();
+    const ev: any = {
+      active: { id: '3' },
+      over: { id: '1', data: { current: { category: 'normal' } } }
+    };
+    handleDragEnd(ev, tasks, updateTask, vi.fn());
+    expect(updateTask).toHaveBeenCalledWith('3', {
+      category: 'normal',
+      order: 3,
+    });
+  });
+
   it('ignores drag and drop within the same category', () => {
     const tasks: Task[] = [
       { id: '1', title: 'Task A', category: 'normal', order: 0 },

@@ -23,6 +23,10 @@ interface Props {
 
 const categories: Category[] = ['critical', 'fun', 'important', 'normal'];
 
+function getNextOrder(tasks: Task[]) {
+  return tasks.reduce((max, task) => Math.max(max, task.order ?? 0), -1) + 1;
+}
+
 export function handleDragEnd(
   ev: DragEndEvent,
   tasks: Task[],
@@ -52,7 +56,7 @@ export function handleDragEnd(
       return;
     }
     const targetLane = tasks.filter((t) => t.category === toCat && !t.done);
-    const order = targetLane.length;
+    const order = getNextOrder(targetLane);
     updateTask(active.id as string, { category: toCat, order, done: false });
     return;
   }
@@ -60,7 +64,7 @@ export function handleDragEnd(
   if (fromCat !== toCat) {
     // move to another lane; place at end if dropped on lane itself
     const targetLane = tasks.filter((t) => t.category === toCat && !t.done);
-    const order = targetLane.length;
+    const order = getNextOrder(targetLane);
     updateTask(active.id as string, { category: toCat, order });
     return;
   }
