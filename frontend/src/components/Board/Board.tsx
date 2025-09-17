@@ -93,13 +93,16 @@ export default function Board({ tasks, settings, updateTask, completeTask, reope
       return;
     }
 
-    const currentTask = laneTasks[currentIndex];
-    const targetTask = laneTasks[targetIndex];
-    const currentOrder = currentTask.order ?? currentIndex;
-    const targetOrder = targetTask.order ?? targetIndex;
+    const reorderedLane = [...laneTasks];
+    const [movedTask] = reorderedLane.splice(currentIndex, 1);
+    reorderedLane.splice(targetIndex, 0, movedTask);
 
-    updateTask(currentTask.id, { order: targetOrder });
-    updateTask(targetTask.id, { order: currentOrder });
+    reorderedLane.forEach((laneTask, index) => {
+      const desiredOrder = index;
+      if (laneTask.order !== desiredOrder) {
+        updateTask(laneTask.id, { order: desiredOrder });
+      }
+    });
   };
 
   if (selected) {
