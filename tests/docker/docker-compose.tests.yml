@@ -82,6 +82,8 @@ services:
     depends_on:
       azurite:
         condition: service_healthy
+    ports:
+      - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
   domain-service:
     environment:
       APP_ENV: test
@@ -102,6 +104,9 @@ services:
       AzureFunctionsJobHost__Logging__Console__IsEnabled: true
       AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
       FUNCTIONS_WORKER_RUNTIME: custom
+      ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
+    ports:
+      - "${READ_MODEL_UPDATER_PORT}:${READ_MODEL_UPDATER_PORT}"
     depends_on:
       azurite:
         condition: service_healthy

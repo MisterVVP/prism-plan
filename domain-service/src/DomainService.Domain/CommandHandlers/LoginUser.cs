@@ -5,13 +5,18 @@ using System.Text.Json;
 
 namespace DomainService.Domain.CommandHandlers;
 
-internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue eventQueue) : ICommandHandler<LoginUserCommand>
+internal sealed class LoginUser(IUserEventRepository userRepo, IEventDispatcher dispatcher) : ICommandHandler<LoginUserCommand>
 {
     private readonly IUserEventRepository _userRepo = userRepo;
-    private readonly IEventQueue _eventQueue = eventQueue;
+    private readonly IEventDispatcher _dispatcher = dispatcher;
 
     public async Task<Unit> Handle(LoginUserCommand request, CancellationToken ct)
     {
+        if (await _userRepo.ReplayStoredEvents(_dispatcher, request.IdempotencyKey, ct))
+        {
+            return Unit.Value;
+        }
+
         var exists = await _userRepo.Exists(request.UserId, ct);
         var type = exists ? UserEventTypes.Login : UserEventTypes.Created;
         JsonElement? data = null;
@@ -29,7 +34,8 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
             request.UserId,
             request.IdempotencyKey);
         await _userRepo.Add(ev, ct);
-        await _eventQueue.Add(ev, ct);
+        await _dispatcher.Dispatch(ev, ct);
+        await _userRepo.MarkAsDispatched(ev, ct);
         if (!exists)
         {
             var settingsData = JsonSerializer.SerializeToElement(new UserSettingsData(3, false));
@@ -43,7 +49,8 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventQueue event
                 request.UserId,
                 request.IdempotencyKey);
             await _userRepo.Add(settingsEv, ct);
-            await _eventQueue.Add(settingsEv, ct);
+            await _dispatcher.Dispatch(settingsEv, ct);
+            await _userRepo.MarkAsDispatched(settingsEv, ct);
         }
         return Unit.Value;
     }

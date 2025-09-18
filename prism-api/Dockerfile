@@ -7,6 +7,7 @@ RUN go build -o handler .
 
 FROM mcr.microsoft.com/azure-functions/base:4
 WORKDIR /home/site/wwwroot
+RUN mkdir -p /home/data/Functions/secrets
 COPY --from=build /src/handler ./handler
 COPY host.json ./
 COPY az-funcs/tasks ./tasks

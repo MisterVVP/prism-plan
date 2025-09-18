@@ -1,3 +1,4 @@
+using Azure;
 using Azure.Data.Tables;
 using DomainService.Interfaces;
 using System.Text.Json;
@@ -11,7 +12,7 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
     public async Task<IReadOnlyList<IEvent>> Get(string taskId, CancellationToken ct)
     {
         var list = new List<IEvent>();
-        var filter = $"PartitionKey eq '{taskId}'";
+        var filter = $"PartitionKey eq '{EscapeFilterValue(taskId)}'";
         await foreach (var e in _table.QueryAsync<TableEntity>(filter: filter, cancellationToken: ct))
         {
             if (TryParseEvent(e, out Event? ev) && ev != null)
@@ -34,6 +35,10 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
             {"UserId@odata.type", "Edm.String"},
             {"IdempotencyKey", ev.IdempotencyKey},
             {"IdempotencyKey@odata.type", "Edm.String"},
+            {"EntityType", ev.EntityType},
+            {"EntityType@odata.type", "Edm.String"},
+            {"Dispatched", false},
+            {"Dispatched@odata.type", "Edm.Boolean"},
         };
 
         if (ev.Data.HasValue)
@@ -47,12 +52,38 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
 
     public async Task<bool> Exists(string idempotencyKey, CancellationToken ct)
     {
-        var filter = $"IdempotencyKey eq '{idempotencyKey}'";
+        var filter = $"IdempotencyKey eq '{EscapeFilterValue(idempotencyKey)}'";
         await foreach (var _ in _table.QueryAsync<TableEntity>(filter: filter, maxPerPage: 1, cancellationToken: ct))
         {
             return true;
         }
         return false;
+    }
+
+    public async Task<IReadOnlyList<StoredEvent>> FindByIdempotencyKey(string idempotencyKey, CancellationToken ct)
+    {
+        var filter = $"IdempotencyKey eq '{EscapeFilterValue(idempotencyKey)}'";
+        var results = new List<StoredEvent>();
+        await foreach (var entity in _table.QueryAsync<TableEntity>(filter: filter, cancellationToken: ct))
+        {
+            if (TryParseEvent(entity, out Event? ev) && ev != null)
+            {
+                var dispatched = entity.TryGetValue("Dispatched", out var dispatchedObj) && dispatchedObj is bool dispatchedFlag && dispatchedFlag;
+                results.Add(new StoredEvent(ev, dispatched));
+            }
+        }
+        return results;
+    }
+
+    public Task MarkAsDispatched(IEvent ev, CancellationToken ct)
+    {
+        var entity = new TableEntity(ev.EntityId, ev.Id)
+        {
+            {"Dispatched", true},
+            {"Dispatched@odata.type", "Edm.Boolean"},
+        };
+
+        return _table.UpdateEntityAsync(entity, ETag.All, TableUpdateMode.Merge, ct);
     }
 
     private static bool TryParseEvent(TableEntity entity, out Event? ev)
@@ -67,6 +98,7 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
         var timestamp = ExtractInt64(entity, "EventTimestamp");
         var userId = entity.TryGetValue("UserId", out var userIdObj) && userIdObj is string uid ? uid : string.Empty;
         var idempotencyKey = entity.TryGetValue("IdempotencyKey", out var keyObj) && keyObj is string key ? key : string.Empty;
+        var entityType = entity.TryGetValue("EntityType", out var entityTypeObj) && entityTypeObj is string et ? et : EntityTypes.Task;
         JsonElement? data = null;
 
         if (entity.TryGetValue("Data", out var dataObj) && dataObj is string dataText && !string.IsNullOrWhiteSpace(dataText) && dataText != "null")
@@ -75,7 +107,7 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
             data = doc.RootElement.Clone();
         }
 
-        ev = new Event(entity.RowKey, entity.PartitionKey, EntityTypes.Task, type, data, timestamp, userId, idempotencyKey);
+        ev = new Event(entity.RowKey, entity.PartitionKey, entityType, type, data, timestamp, userId, idempotencyKey);
         return true;
     }
 
@@ -96,4 +128,7 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
             _ => 0L,
         };
     }
+
+    private static string EscapeFilterValue(string value)
+        => value.Replace("'", "''", StringComparison.Ordinal);
 }

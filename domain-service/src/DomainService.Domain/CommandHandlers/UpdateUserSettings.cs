@@ -4,13 +4,18 @@ using MediatR;
 
 namespace DomainService.Domain.CommandHandlers;
 
-internal sealed class UpdateUserSettings(IUserEventRepository userRepo, IEventQueue eventQueue) : ICommandHandler<UpdateUserSettingsCommand>
+internal sealed class UpdateUserSettings(IUserEventRepository userRepo, IEventDispatcher dispatcher) : ICommandHandler<UpdateUserSettingsCommand>
 {
     private readonly IUserEventRepository _userRepo = userRepo;
-    private readonly IEventQueue _eventQueue = eventQueue;
+    private readonly IEventDispatcher _dispatcher = dispatcher;
 
     public async Task<Unit> Handle(UpdateUserSettingsCommand request, CancellationToken ct)
     {
+        if (await _userRepo.ReplayStoredEvents(_dispatcher, request.IdempotencyKey, ct))
+        {
+            return Unit.Value;
+        }
+
         var ev = new Event(
             Guid.NewGuid().ToString(),
             request.UserId,
@@ -21,7 +26,8 @@ internal sealed class UpdateUserSettings(IUserEventRepository userRepo, IEventQu
             request.UserId,
             request.IdempotencyKey);
         await _userRepo.Add(ev, ct);
-        await _eventQueue.Add(ev, ct);
+        await _dispatcher.Dispatch(ev, ct);
+        await _userRepo.MarkAsDispatched(ev, ct);
         return Unit.Value;
     }
 }
