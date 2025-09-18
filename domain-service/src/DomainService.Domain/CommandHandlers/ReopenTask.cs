@@ -4,10 +4,10 @@ using MediatR;
 
 namespace DomainService.Domain.CommandHandlers;
 
-internal sealed class ReopenTask(ITaskEventRepository taskRepo, IEventQueue eventQueue) : ICommandHandler<ReopenTaskCommand>
+internal sealed class ReopenTask(ITaskEventRepository taskRepo, IEventDispatcher dispatcher) : ICommandHandler<ReopenTaskCommand>
 {
     private readonly ITaskEventRepository _taskRepo = taskRepo;
-    private readonly IEventQueue _eventQueue = eventQueue;
+    private readonly IEventDispatcher _dispatcher = dispatcher;
 
     public async Task<Unit> Handle(ReopenTaskCommand request, CancellationToken ct)
     {
@@ -17,7 +17,8 @@ internal sealed class ReopenTask(ITaskEventRepository taskRepo, IEventQueue even
 
         var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Reopened, null, request.Timestamp, request.UserId, request.IdempotencyKey);
         await _taskRepo.Add(ev, ct);
-        await _eventQueue.Add(ev, ct);
+        await _dispatcher.Dispatch(ev, ct);
+        await _taskRepo.MarkAsDispatched(ev, ct);
         return Unit.Value;
     }
 }

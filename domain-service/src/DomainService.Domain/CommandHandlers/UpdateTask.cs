@@ -7,10 +7,10 @@ using DomainService.Domain;
 
 namespace DomainService.Domain.CommandHandlers;
 
-internal sealed class UpdateTask(ITaskEventRepository taskRepo, IEventQueue eventQueue) : ICommandHandler<UpdateTaskCommand>
+internal sealed class UpdateTask(ITaskEventRepository taskRepo, IEventDispatcher dispatcher) : ICommandHandler<UpdateTaskCommand>
 {
     private readonly ITaskEventRepository _taskRepo = taskRepo;
-    private readonly IEventQueue _eventQueue = eventQueue;
+    private readonly IEventDispatcher _dispatcher = dispatcher;
 
     public async Task<Unit> Handle(UpdateTaskCommand request, CancellationToken ct)
     {
@@ -40,7 +40,8 @@ internal sealed class UpdateTask(ITaskEventRepository taskRepo, IEventQueue even
 
         var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Updated, data, request.Timestamp, request.UserId, request.IdempotencyKey);
         await _taskRepo.Add(ev, ct);
-        await _eventQueue.Add(ev, ct);
+        await _dispatcher.Dispatch(ev, ct);
+        await _taskRepo.MarkAsDispatched(ev, ct);
         return Unit.Value;
     }
 }

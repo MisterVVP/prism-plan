@@ -112,6 +112,7 @@ services:
       USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
       COMMAND_QUEUE: ${COMMAND_QUEUE}
       DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+      READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
       AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
       AzureWebJobsScriptRoot: /home/site/wwwroot
       AzureFunctionsJobHost__Logging__Console__IsEnabled: true

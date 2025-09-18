@@ -107,8 +107,9 @@ func main() {
 		return c.JSON(http.StatusOK, azFuncResponse{Outputs: map[string]any{}})
 	}
 
-	e.POST("/", handler)
-	e.POST("/domain-events", handler)
+    e.POST("/", handler)
+    e.POST("/domain-events", handler)
+    e.POST("/api/domain-events", handler)
 
 	listenAddr := ":8080"
 	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
