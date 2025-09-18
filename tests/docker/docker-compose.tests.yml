@@ -68,8 +68,8 @@ services:
     image: haproxy:3.0-alpine
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    expose:
-      - "${PRISM_API_LB_PORT}"
+    ports:
+      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
     depends_on:
       - prism-api-1
       - prism-api-2
@@ -102,9 +102,9 @@ services:
       AzureFunctionsJobHost__Logging__Console__IsEnabled: true
       AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
       FUNCTIONS_WORKER_RUNTIME: custom
-      ASPNETCORE_URLS: http://+:9071
-    expose:
-      - "9071"
+      ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
+    ports:
+      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
     depends_on:
       azurite:
         condition: service_healthy

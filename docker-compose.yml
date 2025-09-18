@@ -139,9 +139,9 @@ services:
       AzureFunctionsJobHost__Logging__Console__IsEnabled: true
       AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
       FUNCTIONS_WORKER_RUNTIME: custom
-      ASPNETCORE_URLS: http://+:9071
+      ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
     expose:
-      - "9071"
+      - "${READ_MODEL_UPDATER_PORT}"
     depends_on:
       azurite:
         condition: service_healthy
