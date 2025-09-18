@@ -82,6 +82,8 @@ services:
     depends_on:
       azurite:
         condition: service_healthy
+    ports:
+      - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
   domain-service:
     environment:
       APP_ENV: test
