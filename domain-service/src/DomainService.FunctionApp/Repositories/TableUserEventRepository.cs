@@ -85,11 +85,11 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
         var userId = entity.TryGetValue("UserId", out var userIdObj) && userIdObj is string uid ? uid : string.Empty;
         var idempotencyKey = entity.TryGetValue("IdempotencyKey", out var keyObj) && keyObj is string key ? key : string.Empty;
         var entityType = entity.TryGetValue("EntityType", out var entityTypeObj) && entityTypeObj is string et ? et : EntityTypes.User;
-        JsonElement? data = null;
+        System.Text.Json.JsonElement? data = null;
 
         if (entity.TryGetValue("Data", out var dataObj) && dataObj is string dataText && !string.IsNullOrWhiteSpace(dataText) && dataText != "null")
         {
-            using var doc = JsonDocument.Parse(dataText);
+            using var doc = System.Text.Json.JsonDocument.Parse(dataText);
             data = doc.RootElement.Clone();
         }
 
