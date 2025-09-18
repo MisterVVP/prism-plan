@@ -19,6 +19,8 @@ var userEventTableName = Environment.GetEnvironmentVariable("USER_EVENTS_TABLE")
     ?? throw new InvalidOperationException("missing USER_EVENTS_TABLE");
 var readModelUpdaterUrl = Environment.GetEnvironmentVariable("READ_MODEL_UPDATER_URL")
     ?? throw new InvalidOperationException("missing READ_MODEL_UPDATER_URL");
+var readModelUpdaterFunctionKey = Environment.GetEnvironmentVariable("READ_MODEL_UPDATER_FUNCTION_KEY")
+    ?? throw new InvalidOperationException("missing READ_MODEL_UPDATER_FUNCTION_KEY");
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
@@ -51,6 +53,7 @@ var host = new HostBuilder()
         {
             client.BaseAddress = new Uri(readModelUpdaterUrl, UriKind.Absolute);
             client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Add("x-functions-key", readModelUpdaterFunctionKey);
         });
         services.AddSingleton<IEventDispatcher>(sp => new ResilientEventDispatcher(
             sp.GetRequiredService<IEventQueue>(),

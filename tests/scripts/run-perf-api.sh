@@ -38,7 +38,7 @@ tokens="$tokens]"
 # write JSON array to file
 echo "$tokens" > tests/perf/k6/bearers.json
 
-export TEST_BEARER K6_VUS K6_DURATION PRISM_API_LB_BASE
+export TEST_BEARER K6_VUS K6_DURATION PRISM_API_LB_BASE PRISM_API_FUNCTION_KEY
 
 k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.json
 

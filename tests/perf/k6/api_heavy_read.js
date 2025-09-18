@@ -20,7 +20,14 @@ export const options = {
 export default function () {
   const base = __ENV.PRISM_API_LB_BASE || 'http://localhost';
   const bearer = tokens[__VU - 1];
-  const headers = bearer ? { Authorization: `Bearer ${bearer}` } : {};
+  const headers = {};
+  const functionsKey = __ENV.PRISM_API_FUNCTION_KEY || '';
+  if (functionsKey) {
+    headers['x-functions-key'] = functionsKey;
+  }
+  if (bearer) {
+    headers.Authorization = `Bearer ${bearer}`;
+  }
   http.get(`${base}/api/tasks`, { headers, tags: { endpoint: '/api/tasks' }  });
 }
 

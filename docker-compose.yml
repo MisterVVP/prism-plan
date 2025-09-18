@@ -21,6 +21,7 @@ x-prism-api: &prism-api-base
     AzureFunctionsJobHost__Logging__Console__IsEnabled: "true"
     FUNCTIONS_WORKER_RUNTIME: custom
     WEBSITES_INCLUDE_CLOUD_CERTS: "true"
+    AzureWebJobsSecretStorageType: files
   depends_on:
     azurite:
       condition: service_healthy
@@ -113,6 +114,7 @@ services:
       COMMAND_QUEUE: ${COMMAND_QUEUE}
       DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
       READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
+      READ_MODEL_UPDATER_FUNCTION_KEY: ${READ_MODEL_UPDATER_FUNCTION_KEY}
       AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
       AzureWebJobsScriptRoot: /home/site/wwwroot
       AzureFunctionsJobHost__Logging__Console__IsEnabled: true
@@ -141,6 +143,7 @@ services:
       AzureFunctionsJobHost__Logging__Console__IsEnabled: true
       AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
       FUNCTIONS_WORKER_RUNTIME: custom
+      AzureWebJobsSecretStorageType: files
     depends_on:
       azurite:
         condition: service_healthy

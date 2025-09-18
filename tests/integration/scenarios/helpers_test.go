@@ -53,22 +53,26 @@ func getTestBearer(t *testing.T) string {
 	return bearer
 }
 
-func newApiClientInner(t *testing.T, baseUrlEnvVarName string, healthEndpointEnvVarName string) *httpclient.Client {
+func newApiClientInner(t *testing.T, baseUrlEnvVarName string, healthEndpointEnvVarName string, functionsKeyEnvVarName string) *httpclient.Client {
 	bearer := getTestBearer(t)
 	base := os.Getenv(baseUrlEnvVarName)
 	health := os.Getenv(healthEndpointEnvVarName)
 	if _, err := http.Get(base + health); err != nil {
 		t.Fatalf("API not reachable at %s, error: %v", base+health, err)
 	}
-	return httpclient.New(base, bearer)
+	var functionsKey string
+	if functionsKeyEnvVarName != "" {
+		functionsKey = os.Getenv(functionsKeyEnvVarName)
+	}
+	return httpclient.New(base, bearer, functionsKey)
 }
 
 func newPrismApiClient(t *testing.T) *httpclient.Client {
-	return newApiClientInner(t, "PRISM_API_LB_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
+	return newApiClientInner(t, "PRISM_API_LB_BASE", "AZ_FUNC_HEALTH_ENDPOINT", "PRISM_API_FUNCTION_KEY")
 }
 
 func newStreamServiceClient(t *testing.T) *httpclient.Client {
-	return newApiClientInner(t, "STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT")
+	return newApiClientInner(t, "STREAM_SERVICE_BASE", "API_HEALTH_ENDPOINT", "")
 }
 
 // pollTasks polls /api/tasks until cond returns true or timeout. desc is used to
