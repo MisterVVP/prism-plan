@@ -11,4 +11,4 @@ RUN mkdir -p /home/data/Functions/secrets
 COPY --from=build /src/handler ./handler
 COPY host.json ./
 COPY az-funcs/domain-events ./domain-events
-COPY az-funcs/http-domain-events ./http-domain-events
+COPY az-funcs/update-model ./update-model

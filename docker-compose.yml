@@ -80,8 +80,8 @@ services:
     image: haproxy:3.0-alpine
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    ports:
-      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
+    expose:
+      - "${PRISM_API_LB_PORT}"
     depends_on:
       - prism-api-1
       - prism-api-2
@@ -98,8 +98,8 @@ services:
       TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
       SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
       WEBSITES_INCLUDE_CLOUD_CERTS: true
-    ports:
-      - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
+    expose:
+      - "${STREAM_SERVICE_PORT}"
     restart: unless-stopped
 
   domain-service:
@@ -111,6 +111,7 @@ services:
       COMMAND_QUEUE: ${COMMAND_QUEUE}
       DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
       AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
       AzureWebJobsScriptRoot: /home/site/wwwroot
       AzureFunctionsJobHost__Logging__Console__IsEnabled: true
       AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
@@ -138,6 +139,9 @@ services:
       AzureFunctionsJobHost__Logging__Console__IsEnabled: true
       AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
       FUNCTIONS_WORKER_RUNTIME: custom
+      ASPNETCORE_URLS: http://+:9071
+    expose:
+      - "9071"
     depends_on:
       azurite:
         condition: service_healthy

@@ -1,0 +1,11 @@
+{
+  "bindings": [
+    {
+      "type": "queueTrigger",
+      "direction": "in",
+      "name": "event",
+      "queueName": "%DOMAIN_EVENTS_QUEUE%",
+      "connection": "STORAGE_CONNECTION_STRING"
+    }
+  ]
+}

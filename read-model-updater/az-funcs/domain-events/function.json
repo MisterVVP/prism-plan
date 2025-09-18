@@ -1,11 +1,17 @@
 {
   "bindings": [
     {
-      "type": "queueTrigger",
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
       "direction": "in",
-      "name": "event",
-      "queueName": "%DOMAIN_EVENTS_QUEUE%",
-      "connection": "STORAGE_CONNECTION_STRING"
+      "name": "req",
+      "methods": ["post"],
+      "route": "domain-events"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "$return"
     }
   ]
 }
