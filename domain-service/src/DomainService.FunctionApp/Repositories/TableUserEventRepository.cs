@@ -1,6 +1,5 @@
 using Azure.Data.Tables;
 using DomainService.Interfaces;
-using System.Text.Json;
 
 namespace DomainService.Repositories;
 
