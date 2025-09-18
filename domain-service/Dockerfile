@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /src
 COPY . .
 RUN dotnet publish src/DomainService.FunctionApp/DomainService.FunctionApp.csproj -c Release -o /app/publish
