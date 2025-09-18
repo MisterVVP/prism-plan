@@ -15,9 +15,16 @@ import (
 
 // Register wires up all API routes on the provided Echo instance.
 func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, log *log.Logger) {
+	e.GET("/api/healthz", healthz())
 	e.GET("/api/tasks", getTasks(store, auth))
 	e.GET("/api/settings", getSettings(store, auth))
 	e.POST("/api/commands", postCommands(store, auth, deduper, log))
+}
+
+func healthz() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	}
 }
 
 func getTasks(store Storage, auth Authenticator) echo.HandlerFunc {

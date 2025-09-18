@@ -41,6 +41,20 @@ type mockAuth struct{}
 
 func (mockAuth) UserIDFromAuthHeader(string) (string, error) { return "user", nil }
 
+func TestHealthz(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/healthz", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := healthz()(c); err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200 got %d", rec.Code)
+	}
+}
+
 func TestGetTasks(t *testing.T) {
 	e := echo.New()
 	store := &mockStore{tasks: []domain.Task{{ID: "1", Title: "t"}}}

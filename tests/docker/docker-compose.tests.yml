@@ -66,6 +66,7 @@ services:
   prism-api-lb:
     environment:
       PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
+      PRISM_API_FUNCTION_KEY: ${PRISM_API_FUNCTION_KEY}
     image: haproxy:3.0-alpine
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro

@@ -57,12 +57,24 @@ func newApiClientInner(t *testing.T, baseUrlEnvVarName string, healthEndpointEnv
 	bearer := getTestBearer(t)
 	base := os.Getenv(baseUrlEnvVarName)
 	health := os.Getenv(healthEndpointEnvVarName)
-	if _, err := http.Get(base + health); err != nil {
-		t.Fatalf("API not reachable at %s, error: %v", base+health, err)
-	}
 	var functionsKey string
 	if functionsKeyEnvVarName != "" {
 		functionsKey = os.Getenv(functionsKeyEnvVarName)
+	}
+	req, err := http.NewRequest(http.MethodGet, base+health, nil)
+	if err != nil {
+		t.Fatalf("build health request: %v", err)
+	}
+	if functionsKey != "" {
+		req.Header.Set("x-functions-key", functionsKey)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("API not reachable at %s, error: %v", base+health, err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode >= http.StatusBadRequest {
+		t.Fatalf("API health check returned %d for %s", resp.StatusCode, base+health)
 	}
 	return httpclient.New(base, bearer, functionsKey)
 }

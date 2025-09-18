@@ -13,4 +13,5 @@ COPY host.json ./
 COPY az-funcs/tasks ./tasks
 COPY az-funcs/settings ./settings
 COPY az-funcs/commands ./commands
+COPY az-funcs/healthz ./healthz
 COPY secrets/host.json /home/data/Functions/secrets/host.json

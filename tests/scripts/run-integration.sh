@@ -12,7 +12,7 @@ COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/dock
 $COMPOSE up -d
 trap "$COMPOSE down -v" EXIT
 
-tests/docker/wait-for.sh ${PRISM_API_LB_BASE} 30
+tests/docker/wait-for.sh ${PRISM_API_LB_BASE}${AZ_FUNC_HEALTH_ENDPOINT} 30
 tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 30
 cd tests/integration && go test ./...
 
