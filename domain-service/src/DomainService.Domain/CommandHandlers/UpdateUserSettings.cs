@@ -1,4 +1,3 @@
-using DomainService.Domain;
 using DomainService.Domain.Commands;
 using DomainService.Interfaces;
 using MediatR;

@@ -7,7 +7,6 @@ using DomainService.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using DomainService.Services;
-using System;
 
 var connStr = Environment.GetEnvironmentVariable("STORAGE_CONNECTION_STRING")
     ?? throw new InvalidOperationException("missing STORAGE_CONNECTION_STRING");

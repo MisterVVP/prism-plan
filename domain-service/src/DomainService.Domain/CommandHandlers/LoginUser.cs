@@ -2,7 +2,6 @@ using DomainService.Domain.Commands;
 using DomainService.Interfaces;
 using MediatR;
 using System.Text.Json;
-using DomainService.Domain;
 
 namespace DomainService.Domain.CommandHandlers;
 
