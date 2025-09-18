@@ -60,15 +60,11 @@ func newApiClientInner(t *testing.T, baseUrlEnvVarName string, healthEndpointEnv
 	if _, err := http.Get(base + health); err != nil {
 		t.Fatalf("API not reachable at %s, error: %v", base+health, err)
 	}
-	var functionsKey string
-	if functionsKeyEnvVarName != "" {
-		functionsKey = os.Getenv(functionsKeyEnvVarName)
-	}
-	return httpclient.New(base, bearer, functionsKey)
+	return httpclient.New(base, bearer)
 }
 
 func newPrismApiClient(t *testing.T) *httpclient.Client {
-	return newApiClientInner(t, "PRISM_API_LB_BASE", "AZ_FUNC_HEALTH_ENDPOINT", "PRISM_API_FUNCTION_KEY")
+	return newApiClientInner(t, "PRISM_API_LB_BASE", "AZ_FUNC_HEALTH_ENDPOINT")
 }
 
 func newStreamServiceClient(t *testing.T) *httpclient.Client {

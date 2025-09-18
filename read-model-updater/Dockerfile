@@ -12,4 +12,3 @@ COPY --from=build /src/handler ./handler
 COPY host.json ./
 COPY az-funcs/domain-events ./domain-events
 COPY az-funcs/http-domain-events ./http-domain-events
-COPY secrets/host.json /home/data/Functions/secrets/host.json

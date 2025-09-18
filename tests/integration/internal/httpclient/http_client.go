@@ -9,15 +9,14 @@ import (
 
 // Client wraps http.Client with helpers for JSON requests.
 type Client struct {
-	BaseURL      string
-	Bearer       string
-	FunctionsKey string
-	HTTP         *http.Client
+	BaseURL string
+	Bearer  string
+	HTTP    *http.Client
 }
 
 // New creates a new Client.
-func New(baseURL, bearer, functionsKey string) *Client {
-	return &Client{BaseURL: baseURL, Bearer: bearer, FunctionsKey: functionsKey, HTTP: &http.Client{}}
+func New(baseURL, bearer string) *Client {
+	return &Client{BaseURL: baseURL, Bearer: bearer, HTTP: &http.Client{}}
 }
 
 // GetJSON issues a GET request and decodes the JSON response.
@@ -28,9 +27,6 @@ func (c *Client) GetJSON(path string, out any) (*http.Response, error) {
 	}
 	if c.Bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Bearer)
-	}
-	if c.FunctionsKey != "" {
-		req.Header.Set("x-functions-key", c.FunctionsKey)
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
@@ -62,9 +58,6 @@ func (c *Client) PostJSON(path string, body, out any) (*http.Response, error) {
 	req.Header.Set("Content-Type", "application/json")
 	if c.Bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Bearer)
-	}
-	if c.FunctionsKey != "" {
-		req.Header.Set("x-functions-key", c.FunctionsKey)
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
