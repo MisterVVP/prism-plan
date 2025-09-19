@@ -27,6 +27,7 @@ internal sealed class CommandQueueFunction(ISender sender, ILoggerFactory logger
         catch (Exception ex)
         {
             _logger.LogError(ex, "processing command");
+            throw;
         }
     }
 }
