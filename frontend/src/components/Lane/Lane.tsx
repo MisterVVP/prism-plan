@@ -1,7 +1,7 @@
-import TaskCard from '../TaskCard';
 import { useDroppable } from '@dnd-kit/core';
-import type { Task, Category } from '../../types';
-import { palette } from '../../palette';
+import TaskCard from '@components/TaskCard';
+import type { Task, Category } from '@modules/types';
+import { palette } from '@modules/palette';
 import { aria } from '.';
 
 interface Props {

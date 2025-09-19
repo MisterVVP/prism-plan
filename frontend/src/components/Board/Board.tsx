@@ -8,9 +8,9 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useState } from 'react';
-import Lane from '../Lane';
-import TaskDetails from '../TaskDetails';
-import type { Category, Task, Settings } from '../../types';
+import Lane from '@components/Lane';
+import TaskDetails from '@components/TaskDetails';
+import type { Category, Task, Settings } from '@modules/types';
 import { aria } from '.';
 
 interface Props {

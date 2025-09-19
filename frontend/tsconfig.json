@@ -9,7 +9,20 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": "./src",
+    "paths": {
+      "@components/*": ["components/*"],
+      "@hooks/*": ["hooks/*"],
+      "@reducers/*": ["reducers/*"],
+      "@utils/*": ["utils/*"],
+      "@modules/*": ["modules/*"],
+      "@modules": ["modules/index"],
+      "@components": ["components/index"],
+      "@hooks": ["hooks/index"],
+      "@reducers": ["reducers/index"],
+      "@utils": ["utils/index"]
+    }
   },
   "include": ["src"]
 }

@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import TaskCard, { aria } from '.';
-import type { Task } from '../../types';
+import type { Task } from '@modules/types';
 
 vi.mock('@dnd-kit/sortable', () => ({
   useSortable: () => ({

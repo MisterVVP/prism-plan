@@ -1,12 +1,12 @@
 import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import type { Settings } from "../../types";
-import { settingsReducer, settingsInitialState } from "../../reducers";
-import { subscribe } from "../../stream";
+import type { Settings } from '@modules/types';
+import { settingsReducer, settingsInitialState } from '@reducers';
+import { subscribe } from '@modules/stream';
 import {
   fetchWithAccessTokenRetry,
   getStableAccessToken,
-} from "../../utils/auth0";
+} from '@utils';
 
 export function useSettings() {
   const [state, dispatch] = useReducer(settingsReducer, settingsInitialState);

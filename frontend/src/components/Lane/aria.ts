@@ -1,4 +1,4 @@
-import type { Category } from '../../types';
+import type { Category } from '@modules/types';
 
 const labelMap: Record<Category | 'done', string> = {
   critical: 'Critical tasks',
