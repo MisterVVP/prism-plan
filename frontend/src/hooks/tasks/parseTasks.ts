@@ -1,4 +1,4 @@
-import type { Task } from "../../types";
+import type { Task } from '@modules/types';
 
 export function parseTasks(payload: string): Task[] {
   try {

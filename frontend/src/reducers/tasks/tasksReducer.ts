@@ -1,4 +1,4 @@
-import type { Task, Command } from "../../types";
+import type { Task, Command } from '@modules/types';
 
 type Counters = Record<Task["category"], number>;
 

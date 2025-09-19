@@ -1,12 +1,12 @@
 import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import type { Task } from "../../types";
-import { tasksReducer, initialState } from "../../reducers";
-import { subscribe } from "../../stream";
+import type { Task } from '@modules/types';
+import { tasksReducer, initialState } from '@reducers';
+import { subscribe } from '@modules/stream';
 import {
   fetchWithAccessTokenRetry,
   getStableAccessToken,
-} from "../../utils/auth0";
+} from '@utils';
 
 export function useTasks() {
   const [state, dispatch] = useReducer(tasksReducer, initialState);

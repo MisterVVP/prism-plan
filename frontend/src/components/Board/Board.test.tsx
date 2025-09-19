@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import Board, { aria, handleDragEnd } from '.';
-import type { Task } from '../../types';
+import type { Task } from '@modules/types';
 
 describe('Board', () => {
   it('renders categories', () => {

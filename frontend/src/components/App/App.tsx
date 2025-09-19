@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import Board from '../Board';
-import TaskModal from '../TaskModal';
-import { useTasks, useLoginUser, useSettings } from '../../hooks';
-import UserMenu from '../UserMenu';
-import SearchBar from '../SearchBar';
-import AddTaskButton from '../AddTaskButton';
-import { fetchWithAccessTokenRetry } from '../../utils/auth0';
+import Board from '@components/Board';
+import TaskModal from '@components/TaskModal';
+import { useTasks, useLoginUser, useSettings } from '@hooks';
+import UserMenu from '@components/UserMenu';
+import SearchBar from '@components/SearchBar';
+import AddTaskButton from '@components/AddTaskButton';
+import { fetchWithAccessTokenRetry } from '@utils';
 import { aria } from '.';
 
 export default function App() {

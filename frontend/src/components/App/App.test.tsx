@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import App, { aria }  from '.';
+import App, { aria } from '.';
 
-vi.mock('./hooks', () => ({
+vi.mock('@hooks', () => ({
   useTasks: () => ({
     tasks: [],
     addTask: vi.fn(),

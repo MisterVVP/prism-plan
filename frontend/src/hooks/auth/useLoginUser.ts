@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { fetchWithAccessTokenRetry } from "../../utils/auth0";
+import { fetchWithAccessTokenRetry } from '@utils';
 
 export function useLoginUser() {
   const { isAuthenticated, user, getAccessTokenSilently } = useAuth0();
