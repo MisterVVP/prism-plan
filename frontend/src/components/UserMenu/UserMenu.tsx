@@ -1,8 +1,8 @@
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { UserCircleIcon } from '@heroicons/react/24/solid';
-import { aria } from './aria';
-import type { Settings } from '../../types';
+import { aria } from '.';
+import type { Settings } from '@modules/types';
 
 interface UserMenuProps {
   isAuthenticated: boolean;

@@ -1,8 +1,12 @@
 import { useEffect, useReducer } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import type { Task } from "../../types";
-import { tasksReducer, initialState } from "../../reducers";
-import { subscribe } from "../../stream";
+import type { Task } from '@modules/types';
+import { tasksReducer, initialState } from '@reducers';
+import { subscribe } from '@modules/stream';
+import {
+  fetchWithAccessTokenRetry,
+  getStableAccessToken,
+} from '@utils';
 
 export function useTasks() {
   const [state, dispatch] = useReducer(tasksReducer, initialState);
@@ -21,17 +25,13 @@ export function useTasks() {
     if (!isAuthenticated) return;
     async function fetchRemote() {
       try {
-        const token = await getAccessTokenSilently({
-          authorizationParams: {
-            audience,
-            scope: "openid profile email offline_access",
-          },
-        });
-        const res = await fetch(`${apiBaseUrl}/tasks`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const raw = await res.json();
+        const { response } = await fetchWithAccessTokenRetry(
+          getAccessTokenSilently,
+          audience,
+          `${apiBaseUrl}/tasks`
+        );
+        if (response.ok) {
+          const raw = await response.json();
           const data: Task[] = Array.isArray(raw) ? raw : [];
           dispatch({ type: "set-tasks", tasks: data });
         }
@@ -61,12 +61,9 @@ export function useTasks() {
     if (!isAuthenticated) return;
     return subscribe(
       () =>
-        getAccessTokenSilently({
-          authorizationParams: {
-            audience,
-            scope: "openid profile email offline_access",
-          },
-        }),
+        getStableAccessToken(getAccessTokenSilently, audience).then(
+          ({ token }) => token
+        ),
       streamUrl,
       (msg) => {
         if (msg.entityType === "task" && Array.isArray(msg.data)) {
@@ -81,24 +78,22 @@ export function useTasks() {
     let cancelled = false;
     async function flushCommands() {
       try {
-        const token = await getAccessTokenSilently({
-          authorizationParams: {
-            audience,
-            scope: "openid profile email offline_access",
-          },
-        });
-        const res = await fetch(`${apiBaseUrl}/commands`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(commands),
-        });
-        const { idempotencyKeys } = await res.json();
+        const { response } = await fetchWithAccessTokenRetry(
+          getAccessTokenSilently,
+          audience,
+          `${apiBaseUrl}/commands`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(commands),
+          }
+        );
+        const { idempotencyKeys } = await response.json();
         if (!cancelled) {
           dispatch({ type: "set-idempotency-keys", keys: idempotencyKeys });
-          if (res.ok) {
+          if (response.ok) {
             dispatch({ type: "clear-commands" });
           }
         }

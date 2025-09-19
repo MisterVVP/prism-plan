@@ -2,9 +2,9 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useRef } from 'react';
 import type { MouseEvent } from 'react';
-import type { Task } from '../../types';
-import { palette } from '../../palette';
-import { aria } from './aria';
+import type { Task } from '@modules/types';
+import { palette } from '@modules/palette';
+import { aria } from '.';
 
 interface Props {
   task: Task;

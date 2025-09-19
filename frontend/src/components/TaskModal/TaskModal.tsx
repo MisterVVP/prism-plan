@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition, RadioGroup } from '@headlessui/react';
 import { CheckIcon } from '@heroicons/react/20/solid';
-import type { Category, Task } from '../../types';
+import type { Category, Task } from '@modules/types';
 
 interface Props {
   isOpen: boolean;

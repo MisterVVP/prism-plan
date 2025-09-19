@@ -1,4 +1,4 @@
-import type { Settings, Command } from "../../types";
+import type { Settings, Command } from '@modules/types';
 
 interface State {
   settings: Settings;

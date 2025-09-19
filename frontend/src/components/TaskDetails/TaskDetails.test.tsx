@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import TaskDetails from '.';
-import type { Task } from '../../types';
+import type { Task } from '@modules/types';
 
 describe('TaskDetails', () => {
   it('renders task information', () => {

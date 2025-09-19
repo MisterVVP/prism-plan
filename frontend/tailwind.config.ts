@@ -1,5 +1,5 @@
 import type { Config } from 'tailwindcss';
-import { palette } from './src/palette';
+import { palette } from './src/modules/palette';
 
 export default <Config>{
   content: [

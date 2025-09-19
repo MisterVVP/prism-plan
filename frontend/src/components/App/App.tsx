@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import Board from './components/Board';
-import TaskModal from './components/TaskModal';
-import { useTasks, useLoginUser, useSettings } from './hooks';
-import UserMenu from './components/UserMenu';
-import SearchBar from './components/SearchBar';
-import AddTaskButton from './components/AddTaskButton';
-import { aria } from './aria';
+import Board from '@components/Board';
+import TaskModal from '@components/TaskModal';
+import { useTasks, useLoginUser, useSettings } from '@hooks';
+import UserMenu from '@components/UserMenu';
+import SearchBar from '@components/SearchBar';
+import AddTaskButton from '@components/AddTaskButton';
+import { fetchWithAccessTokenRetry } from '@utils';
+import { aria } from '.';
 
 export default function App() {
   const { tasks, addTask, updateTask, completeTask, reopenTask } = useTasks();
@@ -23,25 +24,23 @@ export default function App() {
   const handleLogout = useCallback(async () => {
     if (user?.sub) {
       try {
-        const token = await getAccessTokenSilently({
-          authorizationParams: {
-            audience,
-            scope: 'openid profile email offline_access',
-          },
-        });
         const command = {
           entityType: 'user',
           type: 'logout-user',
         };
-        const res = await fetch(`${baseUrl}/commands`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify([command]),
-        });
-        await res.json();
+        const { response } = await fetchWithAccessTokenRetry(
+          getAccessTokenSilently,
+          audience,
+          `${baseUrl}/commands`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify([command]),
+          }
+        );
+        await response.json();
       } catch (err) {
         console.error(err);
       }
