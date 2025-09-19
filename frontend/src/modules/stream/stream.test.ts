@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { subscribe } from '@modules/stream';
+import { subscribe } from '.';
 
 vi.mock('@auth0/auth0-react', () => ({}));
 
