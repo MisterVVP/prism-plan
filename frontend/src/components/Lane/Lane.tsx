@@ -2,7 +2,7 @@ import TaskCard from '../TaskCard';
 import { useDroppable } from '@dnd-kit/core';
 import type { Task, Category } from '../../types';
 import { palette } from '../../palette';
-import { aria } from './aria';
+import { aria } from '.';
 
 interface Props {
   category: Category | 'done';

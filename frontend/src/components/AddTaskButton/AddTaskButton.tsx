@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { PlusIcon } from '@heroicons/react/24/solid';
-import { aria } from './aria';
+import { aria } from '.';
 
 interface AddTaskButtonProps {
   onAdd: () => void;

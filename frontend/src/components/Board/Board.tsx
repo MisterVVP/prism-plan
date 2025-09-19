@@ -11,7 +11,7 @@ import { useState } from 'react';
 import Lane from '../Lane';
 import TaskDetails from '../TaskDetails';
 import type { Category, Task, Settings } from '../../types';
-import { aria } from './aria';
+import { aria } from '.';
 
 interface Props {
   tasks: Task[];

@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import type { MouseEvent } from 'react';
 import type { Task } from '../../types';
 import { palette } from '../../palette';
-import { aria } from './aria';
+import { aria } from '.';
 
 interface Props {
   task: Task;

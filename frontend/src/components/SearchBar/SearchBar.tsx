@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { aria } from './aria';
+import { aria } from '.';
 
 interface SearchBarProps {
   value: string;
