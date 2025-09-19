@@ -3,6 +3,10 @@ import { useAuth0 } from "@auth0/auth0-react";
 import type { Settings } from "../../types";
 import { settingsReducer, settingsInitialState } from "../../reducers";
 import { subscribe } from "../../stream";
+import {
+  fetchWithAccessTokenRetry,
+  getStableAccessToken,
+} from "../../utils/auth0";
 
 export function useSettings() {
   const [state, dispatch] = useReducer(settingsReducer, settingsInitialState);
@@ -21,17 +25,13 @@ export function useSettings() {
     if (!isAuthenticated) return;
     async function fetchRemote() {
       try {
-        const token = await getAccessTokenSilently({
-          authorizationParams: {
-            audience,
-            scope: "openid profile email offline_access",
-          },
-        });
-        const res = await fetch(`${apiBaseUrl}/settings`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
+        const { response } = await fetchWithAccessTokenRetry(
+          getAccessTokenSilently,
+          audience,
+          `${apiBaseUrl}/settings`
+        );
+        if (response.ok) {
+          const data = await response.json();
           dispatch({ type: "set-settings", settings: data as Settings });
         }
       } catch (err) {
@@ -60,12 +60,9 @@ export function useSettings() {
     if (!isAuthenticated) return;
     return subscribe(
       () =>
-        getAccessTokenSilently({
-          authorizationParams: {
-            audience,
-            scope: "openid profile email offline_access",
-          },
-        }),
+        getStableAccessToken(getAccessTokenSilently, audience).then(
+          ({ token }) => token
+        ),
       streamUrl,
       (msg) => {
         if (msg.entityType === "user-settings") {
@@ -80,24 +77,22 @@ export function useSettings() {
     let cancelled = false;
     async function flushCommands() {
       try {
-        const token = await getAccessTokenSilently({
-          authorizationParams: {
-            audience,
-            scope: "openid profile email offline_access",
-          },
-        });
-        const res = await fetch(`${apiBaseUrl}/commands`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(commands),
-        });
-        const { idempotencyKeys } = await res.json();
+        const { response } = await fetchWithAccessTokenRetry(
+          getAccessTokenSilently,
+          audience,
+          `${apiBaseUrl}/commands`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(commands),
+          }
+        );
+        const { idempotencyKeys } = await response.json();
         if (!cancelled) {
           dispatch({ type: "set-idempotency-keys", keys: idempotencyKeys });
-          if (res.ok) {
+          if (response.ok) {
             dispatch({ type: "clear-commands" });
           }
         }

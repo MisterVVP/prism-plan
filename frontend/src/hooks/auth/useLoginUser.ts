@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
+import { fetchWithAccessTokenRetry } from "../../utils/auth0";
 
 export function useLoginUser() {
   const { isAuthenticated, user, getAccessTokenSilently } = useAuth0();
@@ -32,30 +33,26 @@ export function useLoginUser() {
 
     async function login() {
       try {
-        const tokenResponse = (await getAccessTokenSilently({
-          authorizationParams: {
-            audience,
-            scope: "openid profile email offline_access",
-          },
-          detailedResponse: true,
-        })) as any;
-        const token: string = tokenResponse.access_token || tokenResponse;
-        const expiresIn: number = tokenResponse.expires_in || 0;
         const command = {
           entityType: "user",
           type: "login-user",
           data: { name: user.name, email: user.email },
         };
-        const res = await fetch(`${baseUrl}/commands`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify([command]),
-        });
-        await res.json();
-        const expiresAt = Date.now() + expiresIn * 1000;
+        const { response, token } = await fetchWithAccessTokenRetry(
+          getAccessTokenSilently,
+          audience,
+          `${baseUrl}/commands`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify([command]),
+          }
+        );
+        await response.json();
+        const expiresAt =
+          token.expiresAt ?? Date.now() + (token.expiresIn ?? 0) * 1000;
         localStorage.setItem(
           storageKey,
           JSON.stringify({ userId: user.sub, expiresAt })
