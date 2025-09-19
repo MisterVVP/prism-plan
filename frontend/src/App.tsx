@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import Board from './components/Board';
 import TaskModal from './components/TaskModal';
@@ -8,12 +8,13 @@ import SearchBar from './components/SearchBar';
 import AddTaskButton from './components/AddTaskButton';
 import { aria } from './aria';
 
-export default function App() {
+function AuthenticatedApp() {
   const { tasks, addTask, updateTask, completeTask, reopenTask } = useTasks();
   const { settings, updateSettings } = useSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const { loginWithRedirect, logout, isAuthenticated, user, getAccessTokenSilently } = useAuth0();
+  const { loginWithRedirect, logout, isAuthenticated, user, getAccessTokenSilently } =
+    useAuth0();
   const baseUrl =
     (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
     `${window.location.origin}/api`;
@@ -88,7 +89,10 @@ export default function App() {
         />
       </main>
 
-      <footer {...aria.footer} className="pt-2 text-center text-[10px] text-gray-500 sm:pt-4 sm:text-xs">
+      <footer
+        {...aria.footer}
+        className="pt-2 text-center text-[10px] text-gray-500 sm:pt-4 sm:text-xs"
+      >
         Copyright © 2025 Vladimir Pavlov. All rights reserved.
       </footer>
 
@@ -99,4 +103,39 @@ export default function App() {
       />
     </div>
   );
+}
+
+export default function App() {
+  const { isAuthenticated, isLoading, loginWithRedirect, error } = useAuth0();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      loginWithRedirect();
+    }
+  }, [isLoading, isAuthenticated, loginWithRedirect]);
+
+  if (error) {
+    return (
+      <div
+        role="alert"
+        className="flex min-h-screen items-center justify-center p-4 text-center text-red-600"
+      >
+        {error.message || 'Authentication failed.'}
+      </div>
+    );
+  }
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex min-h-screen items-center justify-center p-4 text-center text-gray-600"
+      >
+        Redirecting to sign in…
+      </div>
+    );
+  }
+
+  return <AuthenticatedApp />;
 }
