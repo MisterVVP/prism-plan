@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -40,6 +41,36 @@ func (m *mockStore) EnqueueCommands(ctx context.Context, userID string, cmds []d
 type mockAuth struct{}
 
 func (mockAuth) UserIDFromAuthHeader(string) (string, error) { return "user", nil }
+
+type noopStore struct{}
+
+func (noopStore) FetchTasks(context.Context, string) ([]domain.Task, error) { return nil, nil }
+
+func (noopStore) FetchSettings(context.Context, string) (domain.Settings, error) {
+	return domain.Settings{}, nil
+}
+
+func (noopStore) EnqueueCommands(context.Context, string, []domain.Command) error { return nil }
+
+type noopDeduper struct{}
+
+func (noopDeduper) Add(context.Context, string, string) (bool, error) { return true, nil }
+
+func (noopDeduper) Remove(context.Context, string, string) error { return nil }
+
+func resetCommandSenderForTests() {
+	globalStore = noopStore{}
+	globalDeduper = noopDeduper{}
+	if jobs != nil {
+		close(jobs)
+	}
+	jobs = nil
+	once = sync.Once{}
+	workerCount = 0
+	jobBuf = 0
+	enqueueTimeout = 0
+	globalLog = nil
+}
 
 func TestGetTasks(t *testing.T) {
 	e := echo.New()
@@ -99,6 +130,53 @@ func setupDeduper(t *testing.T) (Deduper, func()) {
 			t.Logf("redis close: %v", err)
 		}
 		m.Close()
+	}
+}
+
+type blockingStore struct {
+	mockStore
+	calls   chan struct{}
+	unblock chan struct{}
+	done    chan struct{}
+}
+
+func newBlockingStore() *blockingStore {
+	return &blockingStore{
+		calls:   make(chan struct{}, 16),
+		unblock: make(chan struct{}, 16),
+		done:    make(chan struct{}, 16),
+	}
+}
+
+func (b *blockingStore) EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error {
+	b.calls <- struct{}{}
+	<-b.unblock
+	if err := b.mockStore.EnqueueCommands(ctx, userID, cmds); err != nil {
+		return err
+	}
+	b.done <- struct{}{}
+	return nil
+}
+
+func (b *blockingStore) waitForCalls(t *testing.T, n int) {
+	t.Helper()
+	for i := 0; i < n; i++ {
+		select {
+		case <-b.calls:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timeout waiting for enqueue call %d", i+1)
+		}
+	}
+}
+
+func (b *blockingStore) waitForDone(t *testing.T, n int) {
+	t.Helper()
+	for i := 0; i < n; i++ {
+		select {
+		case <-b.done:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timeout waiting for enqueue completion %d", i+1)
+		}
 	}
 }
 
@@ -297,5 +375,87 @@ func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
 	}
 	if len(d.keys) != 2 {
 		t.Fatalf("expected 2 keys added, got %d", len(d.keys))
+	}
+}
+
+func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+
+	t.Setenv("ENQUEUE_BUFFER", "1")
+	t.Setenv("ENQUEUE_WORKERS", "1")
+	t.Setenv("ENQUEUE_TIMEOUT", "1s")
+
+	logger := log.New()
+	deduper, cleanup := setupDeduper(t)
+	defer cleanup()
+
+	store := newBlockingStore()
+	handler := postCommands(store, mockAuth{}, deduper, logger)
+
+	e := echo.New()
+	body := `[{"entityType":"task","type":"create-task"}]`
+
+	req1 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req1.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req1.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec1 := httptest.NewRecorder()
+	if err := handler(e.NewContext(req1, rec1)); err != nil {
+		t.Fatalf("first post: %v", err)
+	}
+	if rec1.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202 got %d", rec1.Code)
+	}
+	store.waitForCalls(t, 1)
+
+	req2 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req2.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec2 := httptest.NewRecorder()
+	if err := handler(e.NewContext(req2, rec2)); err != nil {
+		t.Fatalf("second post: %v", err)
+	}
+	if rec2.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202 got %d", rec2.Code)
+	}
+
+	req3 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req3.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req3.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec3 := httptest.NewRecorder()
+	done := make(chan error, 1)
+	go func() {
+		done <- handler(e.NewContext(req3, rec3))
+	}()
+
+	store.waitForCalls(t, 1) // inline fallback attempted
+
+	store.unblock <- struct{}{}
+	store.waitForDone(t, 1)
+
+	store.waitForCalls(t, 1) // worker picked queued job
+
+	store.unblock <- struct{}{}
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("third post: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for third post completion")
+	}
+
+	if rec3.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202 got %d", rec3.Code)
+	}
+
+	store.waitForDone(t, 1)
+
+	store.unblock <- struct{}{}
+	store.waitForDone(t, 1)
+
+	if len(store.cmds) != 3 {
+		t.Fatalf("expected 3 commands, got %d", len(store.cmds))
 	}
 }
