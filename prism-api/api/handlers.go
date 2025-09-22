@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -123,14 +124,23 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 		case jobs <- job:
 			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		default:
-			for _, k := range added {
-				_ = deduper.Remove(ctx, userID, k)
+			globalLog.Warn("enqueue buffer full; processing inline")
+
+			enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
+			err := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
+			cancel()
+
+			if err != nil {
+				for _, k := range added {
+					if rerr := deduper.Remove(ctx, userID, k); rerr != nil {
+						c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, k)
+					}
+				}
+				c.Logger().Errorf("enqueue inline failed: %v", err)
+				return c.String(http.StatusInternalServerError, "failed to enqueue commands")
 			}
-			errMsg := "queue saturated; please retry"
-			return c.JSON(http.StatusServiceUnavailable, postCommandResponse{
-				IdempotencyKeys: keys,
-				Error:           errMsg,
-			})
+
+			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		}
 	}
 }
