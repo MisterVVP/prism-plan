@@ -1,7 +1,5 @@
 import http from 'k6/http';
-import { SharedArray } from 'k6/data';
-
-const tokens = new SharedArray('tokens', () => JSON.parse(open('./bearers.json')));
+import { buildAuthHeaders } from './utils.js';
 
 export const options = {
   scenarios: {
@@ -19,11 +17,7 @@ export const options = {
 
 export default function () {
   const base = __ENV.PRISM_API_LB_BASE || 'http://localhost';
-  const bearer = tokens[__VU - 1];
-  const headers = {};
-  if (bearer) {
-    headers.Authorization = `Bearer ${bearer}`;
-  }
+  const headers = buildAuthHeaders();
   if (Math.random() < 0.8) {
     http.get(`${base}/api/tasks`, { headers, tags: { endpoint: '/api/tasks' }  });
   } else {
