@@ -174,7 +174,7 @@ services:
 
   fauxzureq:
     image: mistervvp/fauxzureq:latest
-    command: ["--listen=:10001", "--account=devstoreaccount1"]
+    command: ["--listen=:10001", "--account=devstoreaccount1", "--queue-delete-hold-ms=0"]
     ports: ["10001:10001"]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
