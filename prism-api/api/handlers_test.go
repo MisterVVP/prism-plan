@@ -67,11 +67,12 @@ func (noopDeduper) Add(context.Context, string, string) (bool, error) { return t
 func (noopDeduper) Remove(context.Context, string, string) error { return nil }
 
 func resetCommandSenderForTests() {
-	globalStore = noopStore{}
-	globalDeduper = noopDeduper{}
 	if jobs != nil {
 		close(jobs)
+		workerWG.Wait()
 	}
+	globalStore = noopStore{}
+	globalDeduper = noopDeduper{}
 	jobs = nil
 	once = sync.Once{}
 	workerCount = 0

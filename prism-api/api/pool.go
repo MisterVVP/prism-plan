@@ -25,6 +25,7 @@ var (
 	globalStore    Storage
 	globalDeduper  Deduper
 	globalLog      *log.Logger
+	workerWG       sync.WaitGroup
 )
 
 func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
@@ -42,6 +43,7 @@ func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
 
 		jobs = make(chan enqueueJob, jobBuf)
 		for i := 0; i < workerCount; i++ {
+			workerWG.Add(1)
 			go worker(i)
 		}
 		globalLog.Infof("command sender started, workers: %d, buffer: %d, timeout: %v", workerCount, jobBuf, enqueueTimeout)
@@ -49,6 +51,7 @@ func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
 }
 
 func worker(id int) {
+	defer workerWG.Done()
 	for j := range jobs {
 		ctx, cancel := context.WithTimeout(bg, enqueueTimeout)
 		err := globalStore.EnqueueCommands(ctx, j.userID, j.cmds)
