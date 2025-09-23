@@ -18,10 +18,12 @@ import (
 
 // Storage provides access to underlying persistence mechanisms.
 type Storage struct {
-	taskTable     *aztables.Client
-	settingsTable *aztables.Client
-	commandQueue  *azqueue.QueueClient
-	taskPageSize  int32
+	taskTable              *aztables.Client
+	settingsTable          *aztables.Client
+	commandQueue           *azqueue.QueueClient
+	taskPageSize           int32
+	tasksSelectClause      string
+	tasksSelectMetadataFmt aztables.MetadataFormat
 }
 
 // New creates a Storage instance from the given connection string.
@@ -61,7 +63,14 @@ func New(connStr, tasksTable, settingsTable, commandQueue string, taskPageSize i
 	if taskPageSize <= 0 {
 		return nil, fmt.Errorf("invalid task page size: %d", taskPageSize)
 	}
-	return &Storage{taskTable: tt, settingsTable: st, commandQueue: cq, taskPageSize: int32(taskPageSize)}, nil
+	return &Storage{
+		taskTable:              tt,
+		settingsTable:          st,
+		commandQueue:           cq,
+		taskPageSize:           int32(taskPageSize),
+		tasksSelectClause:      "RowKey,Title,Notes,Category,Order,Done",
+		tasksSelectMetadataFmt: aztables.MetadataFormatNone,
+	}, nil
 }
 
 type taskEntity struct {
@@ -138,13 +147,12 @@ func encodeContinuationToken(partitionKey, rowKey *string) (string, error) {
 // FetchTasks retrieves a single page of tasks for the provided user and returns a continuation token when more results are available.
 func (s *Storage) FetchTasks(ctx context.Context, userID, token string) ([]domain.Task, string, error) {
 	filter := "PartitionKey eq '" + userID + "'"
-  selectClause := "RowKey,Title,Notes,Category,Order,Done"
 	nextPartitionKey, nextRowKey, err := decodeContinuationToken(token)
 	if err != nil {
 		return nil, "", &invalidContinuationTokenError{cause: err}
 	}
 	top := s.taskPageSize
-  opts := &aztables.ListEntitiesOptions{Filter: &filter, Select: &selectClause, Top: &top, Format: &aztables.MetadataFormatNone, NextPartitionKey: nextPartitionKey, NextRowKey: nextRowKey}
+	opts := &aztables.ListEntitiesOptions{Filter: &filter, Select: &s.tasksSelectClause, Top: &top, Format: &s.tasksSelectMetadataFmt, NextPartitionKey: nextPartitionKey, NextRowKey: nextRowKey}
 	pager := s.taskTable.NewListEntitiesPager(opts)
 	if !pager.More() {
 		return []domain.Task{}, "", nil
