@@ -431,6 +431,7 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 	store.waitForCalls(t, 1) // inline fallback attempted
 
 	store.unblock <- struct{}{}
+	store.unblock <- struct{}{}
 	store.waitForDone(t, 1)
 
 	store.waitForCalls(t, 1) // worker picked queued job
@@ -450,10 +451,7 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 		t.Fatalf("expected status 202 got %d", rec3.Code)
 	}
 
-	store.waitForDone(t, 1)
-
-	store.unblock <- struct{}{}
-	store.waitForDone(t, 1)
+	store.waitForDone(t, 2)
 
 	if len(store.cmds) != 3 {
 		t.Fatalf("expected 3 commands, got %d", len(store.cmds))

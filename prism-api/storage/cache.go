@@ -2,7 +2,10 @@ package storage
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -22,6 +25,12 @@ type Cache struct {
 	base  backend
 	redis *redis.Client
 	ttl   time.Duration
+
+	mu               sync.Mutex
+	taskSnapshots    map[string]string
+	settingSnapshots map[string]string
+	pendingTasks     map[string]string
+	pendingSettings  map[string]string
 }
 
 // NewCache creates a caching Storage wrapper using the provided Redis client and TTL.
@@ -34,9 +43,13 @@ func NewCache(base backend, client *redis.Client, ttl time.Duration) *Cache {
 	}
 
 	c := &Cache{
-		base:  base,
-		redis: client,
-		ttl:   ttl,
+		base:             base,
+		redis:            client,
+		ttl:              ttl,
+		taskSnapshots:    make(map[string]string),
+		settingSnapshots: make(map[string]string),
+		pendingTasks:     make(map[string]string),
+		pendingSettings:  make(map[string]string),
 	}
 	if s, ok := base.(*Storage); ok {
 		c.Storage = s
@@ -77,8 +90,16 @@ func (c *Cache) EnqueueCommands(ctx context.Context, userID string, cmds []domai
 		return err
 	}
 
+	c.markPending(userID)
 	c.evict(ctx, userID)
 	return nil
+}
+
+func (c *Cache) markPending(userID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.pendingTasks[userID] = c.taskSnapshots[userID]
+	c.pendingSettings[userID] = c.settingSnapshots[userID]
 }
 
 func (c *Cache) loadTasksFromCache(ctx context.Context, userID string) ([]domain.Task, bool) {
@@ -121,22 +142,28 @@ func (c *Cache) loadSettingsFromCache(ctx context.Context, userID string) (domai
 }
 
 func (c *Cache) storeTasks(ctx context.Context, userID string, tasks []domain.Task) {
-	if c.redis == nil || c.ttl == 0 {
-		return
-	}
 	data, err := json.Marshal(tasks)
 	if err != nil {
+		return
+	}
+	if !c.shouldStoreTasks(userID, data) {
+		return
+	}
+	if c.redis == nil || c.ttl == 0 {
 		return
 	}
 	_ = c.redis.Set(ctx, tasksCacheKey(userID), data, c.ttl).Err()
 }
 
 func (c *Cache) storeSettings(ctx context.Context, userID string, settings domain.Settings) {
-	if c.redis == nil || c.ttl == 0 {
-		return
-	}
 	data, err := json.Marshal(settings)
 	if err != nil {
+		return
+	}
+	if !c.shouldStoreSettings(userID, data) {
+		return
+	}
+	if c.redis == nil || c.ttl == 0 {
 		return
 	}
 	_ = c.redis.Set(ctx, settingsCacheKey(userID), data, c.ttl).Err()
@@ -155,4 +182,51 @@ func tasksCacheKey(userID string) string {
 
 func settingsCacheKey(userID string) string {
 	return "settings:" + userID
+}
+
+func (c *Cache) shouldStoreTasks(userID string, data []byte) bool {
+	hash := hashBytes(data)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.taskSnapshots[userID] = hash
+
+	if baseline, pending := c.pendingTasks[userID]; pending {
+		if baseline == "" {
+			c.pendingTasks[userID] = hash
+			return false
+		}
+		if baseline == hash {
+			return false
+		}
+		delete(c.pendingTasks, userID)
+	}
+	return true
+}
+
+func (c *Cache) shouldStoreSettings(userID string, data []byte) bool {
+	hash := hashBytes(data)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.settingSnapshots[userID] = hash
+
+	if baseline, pending := c.pendingSettings[userID]; pending {
+		if baseline == "" {
+			c.pendingSettings[userID] = hash
+			return false
+		}
+		if baseline == hash {
+			return false
+		}
+		delete(c.pendingSettings, userID)
+	}
+	return true
+}
+
+func hashBytes(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
