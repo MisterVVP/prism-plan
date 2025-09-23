@@ -58,15 +58,25 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
-	ttl := 24 * time.Hour
+	dedupeTTL := 24 * time.Hour
 	if v := os.Getenv("DEDUPER_TTL"); v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil || d <= 0 {
 			log.Fatalf("invalid DEDUPER_TTL: %v", err)
 		}
-		ttl = d
+		dedupeTTL = d
 	}
-	deduper := api.NewRedisDeduper(rc, ttl)
+	deduper := api.NewRedisDeduper(rc, dedupeTTL)
+
+	cacheTTL := 5 * time.Minute
+	if v := os.Getenv("CACHE_TTL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			log.Fatalf("invalid CACHE_TTL: %v", err)
+		}
+		cacheTTL = d
+	}
+	cachedStore := storage.NewCache(store, rc, cacheTTL)
 
 	testMode := os.Getenv("AUTH0_TEST_MODE") == "1"
 	var auth *api.Auth
@@ -93,7 +103,7 @@ func main() {
 	}))
 
 	logger := log.New()
-	api.Register(e, store, auth, deduper, logger)
+	api.Register(e, cachedStore, auth, deduper, logger)
 
 	listenAddr := ":8080"
 	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
