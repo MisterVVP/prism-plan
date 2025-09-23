@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
 
@@ -137,12 +138,13 @@ func encodeContinuationToken(partitionKey, rowKey *string) (string, error) {
 // FetchTasks retrieves a single page of tasks for the provided user and returns a continuation token when more results are available.
 func (s *Storage) FetchTasks(ctx context.Context, userID, token string) ([]domain.Task, string, error) {
 	filter := "PartitionKey eq '" + userID + "'"
+  selectClause := "RowKey,Title,Notes,Category,Order,Done"
 	nextPartitionKey, nextRowKey, err := decodeContinuationToken(token)
 	if err != nil {
 		return nil, "", &invalidContinuationTokenError{cause: err}
 	}
 	top := s.taskPageSize
-	opts := &aztables.ListEntitiesOptions{Filter: &filter, Top: &top, NextPartitionKey: nextPartitionKey, NextRowKey: nextRowKey}
+  opts := &aztables.ListEntitiesOptions{Filter: &filter, Select: &selectClause, Top: &top, Format: &aztables.MetadataFormatNone, NextPartitionKey: nextPartitionKey, NextRowKey: nextRowKey}
 	pager := s.taskTable.NewListEntitiesPager(opts)
 	if !pager.More() {
 		return []domain.Task{}, "", nil
@@ -185,7 +187,7 @@ func decodeSettingsEntity(data []byte) (domain.Settings, error) {
 }
 
 func (s *Storage) FetchSettings(ctx context.Context, userID string) (domain.Settings, error) {
-	ent, err := s.settingsTable.GetEntity(ctx, userID, userID, nil)
+	ent, err := s.settingsTable.GetEntity(ctx, userID, userID, &aztables.GetEntityOptions{Format: to.Ptr(aztables.MetadataFormatNone)})
 	if err != nil {
 		return domain.Settings{}, err
 	}

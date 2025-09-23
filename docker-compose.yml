@@ -23,6 +23,8 @@ x-prism-api: &prism-api-base
   depends_on:
     azurite:
       condition: service_healthy
+    fauxzureq:
+      condition: service_healthy
     storage-init:
       condition: service_completed_successfully
 
@@ -75,6 +77,24 @@ services:
       - "7074"
     restart: unless-stopped
 
+  prism-api-4:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7075
+    expose:
+      - "7075"
+    restart: unless-stopped
+
+  prism-api-5:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      ASPNETCORE_URLS: http://+:7076
+    expose:
+      - "7076"
+    restart: unless-stopped
+
   prism-api-lb:
     environment:
       PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
@@ -87,6 +107,8 @@ services:
       - prism-api-1
       - prism-api-2
       - prism-api-3
+      - prism-api-4
+      - prism-api-5
 
   stream-service:
     build: ./stream-service
@@ -119,6 +141,8 @@ services:
     depends_on:
       azurite:
         condition: service_healthy
+      fauxzureq:
+        condition: service_healthy
       storage-init:
         condition: service_completed_successfully
     restart: unless-stopped
@@ -146,6 +170,8 @@ services:
     depends_on:
       azurite:
         condition: service_healthy
+      fauxzureq:
+        condition: service_healthy
       storage-init:
         condition: service_completed_successfully
       redis:
@@ -162,11 +188,20 @@ services:
     command: ["azurite", "-s", "-l", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0","--queueHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
     ports:
       - "10000:10000"
-      - "10001:10001"
       - "10002:10002"
     volumes:
       - azurite_data:/data
     restart: unless-stopped
+
+  fauxzureq:
+    image: mistervvp/fauxzureq:latest
+    command: ["--listen=:10001", "--account=devstoreaccount1", "--queue-delete-hold-ms=0"]
+    ports: ["10001:10001"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   storage-init:
     build: ./storage-init
@@ -181,6 +216,8 @@ services:
       COMMAND_QUEUE: ${COMMAND_QUEUE}
       DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
     depends_on:
+      fauxzureq:
+        condition: service_healthy
       azurite:
         condition: service_healthy
     restart: "no"
