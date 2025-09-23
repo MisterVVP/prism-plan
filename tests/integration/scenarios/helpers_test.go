@@ -1,7 +1,9 @@
 package scenarios
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -24,6 +26,39 @@ type task struct {
 	Done     bool   `json:"done"`
 	Category string `json:"category"`
 	Order    int    `json:"order"`
+}
+
+type taskPage struct {
+	Tasks         []task `json:"tasks"`
+	NextPageToken string `json:"nextPageToken"`
+}
+
+func fetchAllTasks(t *testing.T, client *httpclient.Client) ([]task, error) {
+	t.Helper()
+	var (
+		tasks []task
+		page  taskPage
+		token string
+	)
+	for {
+		path := "/api/tasks"
+		if token != "" {
+			path += "?pageToken=" + url.QueryEscape(token)
+		}
+		resp, err := client.GetJSON(path, &page)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		}
+		tasks = append(tasks, page.Tasks...)
+		if page.NextPageToken == "" {
+			break
+		}
+		token = page.NextPageToken
+	}
+	return tasks, nil
 }
 
 func getPollTimeout(t *testing.T) time.Duration {
@@ -81,8 +116,7 @@ func pollTasks(t *testing.T, client *httpclient.Client, desc string, cond func([
 		err   error
 	)
 	for {
-		tasks = nil
-		_, err = client.GetJSON("/api/tasks", &tasks)
+		tasks, err = fetchAllTasks(t, client)
 		if err == nil && cond(tasks) {
 			return tasks
 		}

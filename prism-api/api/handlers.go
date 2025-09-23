@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -21,6 +22,11 @@ func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, 
 	e.POST("/api/commands", postCommands(store, auth, deduper, log))
 }
 
+type tasksResponse struct {
+	Tasks         []domain.Task `json:"tasks"`
+	NextPageToken string        `json:"nextPageToken,omitempty"`
+}
+
 func getTasks(store Storage, auth Authenticator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
@@ -28,12 +34,21 @@ func getTasks(store Storage, auth Authenticator) echo.HandlerFunc {
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}
-		tasks, err := store.FetchTasks(ctx, userID)
+		pageToken := c.QueryParam("pageToken")
+		tasks, nextToken, err := store.FetchTasks(ctx, userID, pageToken)
 		if err != nil {
+			var invalidTokenErr InvalidContinuationTokenError
+			if errors.As(err, &invalidTokenErr) {
+				return c.String(http.StatusBadRequest, "invalid page token")
+			}
 			c.Logger().Error(err)
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
-		return c.JSON(http.StatusOK, tasks)
+		resp := tasksResponse{Tasks: tasks}
+		if nextToken != "" {
+			resp.NextPageToken = nextToken
+		}
+		return c.JSON(http.StatusOK, resp)
 	}
 }
 

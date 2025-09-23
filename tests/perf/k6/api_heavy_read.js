@@ -1,5 +1,4 @@
-import http from 'k6/http';
-import { buildAuthHeaders } from './utils.js';
+import { buildAuthHeaders, fetchAllTasks } from './utils.js';
 
 export const options = {
   scenarios: {
@@ -18,6 +17,6 @@ export const options = {
 export default function () {
   const base = __ENV.PRISM_API_LB_BASE || 'http://localhost';
   const headers = buildAuthHeaders();
-  http.get(`${base}/api/tasks`, { headers, tags: { endpoint: '/api/tasks' }  });
+  fetchAllTasks(base, headers);
 }
 
