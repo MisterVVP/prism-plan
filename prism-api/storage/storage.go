@@ -7,6 +7,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
 
@@ -69,7 +70,13 @@ type taskEntity struct {
 // FetchTasks retrieves all tasks for the provided user.
 func (s *Storage) FetchTasks(ctx context.Context, userID string) ([]domain.Task, error) {
 	filter := "PartitionKey eq '" + userID + "'"
-	pager := s.taskTable.NewListEntitiesPager(&aztables.ListEntitiesOptions{Filter: &filter})
+	selectClause := "RowKey,Title,Notes,Category,Order,Done"
+	options := aztables.ListEntitiesOptions{
+		Filter: to.Ptr(filter),
+		Select: to.Ptr(selectClause),
+		Format: to.Ptr(aztables.MetadataFormatNone),
+	}
+	pager := s.taskTable.NewListEntitiesPager(&options)
 	tasks := []domain.Task{}
 	for pager.More() {
 		resp, err := pager.NextPage(ctx)
@@ -106,7 +113,7 @@ func decodeSettingsEntity(data []byte) (domain.Settings, error) {
 }
 
 func (s *Storage) FetchSettings(ctx context.Context, userID string) (domain.Settings, error) {
-	ent, err := s.settingsTable.GetEntity(ctx, userID, userID, nil)
+	ent, err := s.settingsTable.GetEntity(ctx, userID, userID, &aztables.GetEntityOptions{Format: to.Ptr(aztables.MetadataFormatNone)})
 	if err != nil {
 		return domain.Settings{}, err
 	}
