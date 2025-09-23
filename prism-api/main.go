@@ -29,7 +29,18 @@ func main() {
 	if connStr == "" || tasksTableName == "" || settingsTableName == "" || commandQueueName == "" {
 		log.Fatal("missing storage config")
 	}
-	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName)
+	taskPageSize := 30
+	if v := os.Getenv("TASKS_PAGE_SIZE"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			log.Fatalf("invalid TASKS_PAGE_SIZE: %v", err)
+		}
+		if n <= 0 {
+			log.Fatalf("invalid TASKS_PAGE_SIZE: must be greater than zero")
+		}
+		taskPageSize = n
+	}
+	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName, taskPageSize)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}

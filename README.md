@@ -45,7 +45,7 @@ Use the following variables to configure storage resources:
 - `TASK_EVENTS_TABLE`: table acting as the event store for tasks
 - `TASKS_TABLE`: table containing the read model queried by the API
 
-Fetch tasks from `/api/tasks` and post commands to `/api/commands`.
+Fetch tasks from `/api/tasks`—the response includes a `nextPageToken` when more items are available—and post commands to `/api/commands`.
 
 ## Testing
 
