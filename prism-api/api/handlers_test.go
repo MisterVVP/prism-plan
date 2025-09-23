@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -408,6 +410,49 @@ func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
 	}
 	if len(d.keys) != 2 {
 		t.Fatalf("expected 2 keys added, got %d", len(d.keys))
+	}
+}
+
+func TestPostCommandsAcceptsGzipBody(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+
+	logger := log.New()
+	store := &mockStore{}
+	handler := GzipRequestMiddleware()(postCommands(store, mockAuth{}, noopDeduper{}, logger))
+
+	payload := `[{"entityType":"task","type":"create-task"}]`
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write([]byte(payload)); err != nil {
+		t.Fatalf("gzip write: %v", err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatalf("gzip close: %v", err)
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/commands", bytes.NewReader(buf.Bytes()))
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderContentEncoding, "gzip")
+	rec := httptest.NewRecorder()
+
+	if err := handler(e.NewContext(req, rec)); err != nil {
+		t.Fatalf("post gzip: %v", err)
+	}
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202 got %d", rec.Code)
+	}
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for len(store.cmds) == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if len(store.cmds) != 1 {
+		t.Fatalf("expected 1 command enqueued, got %d", len(store.cmds))
 	}
 }
 

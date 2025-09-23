@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"crypto/tls"
 	"fmt"
 	"os"
@@ -98,10 +99,12 @@ func main() {
 	}
 
 	e := echo.New()
+	e.Use(api.GzipRequestMiddleware())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
+	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{Level: gzip.BestSpeed}))
 
 	logger := log.New()
 	api.Register(e, store, auth, deduper, logger)
