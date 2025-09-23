@@ -2,6 +2,7 @@ package httpclient
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -25,6 +26,7 @@ func (c *Client) GetJSON(path string, out any) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Accept", "application/json")
 	if c.Bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Bearer)
 	}
@@ -45,17 +47,38 @@ func (c *Client) GetJSON(path string, out any) (*http.Response, error) {
 
 // PostJSON issues a POST request with a JSON body and decodes the response.
 func (c *Client) PostJSON(path string, body, out any) (*http.Response, error) {
-	buf := new(bytes.Buffer)
+	var reader io.Reader
 	if body != nil {
-		if err := json.NewEncoder(buf).Encode(body); err != nil {
+		jsonBuf := new(bytes.Buffer)
+		encoder := json.NewEncoder(jsonBuf)
+		encoder.SetEscapeHTML(false)
+		if err := encoder.Encode(body); err != nil {
 			return nil, err
 		}
+
+		var gzBuf bytes.Buffer
+		gzWriter, err := gzip.NewWriterLevel(&gzBuf, gzip.BestSpeed)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := gzWriter.Write(jsonBuf.Bytes()); err != nil {
+			gzWriter.Close()
+			return nil, err
+		}
+		if err := gzWriter.Close(); err != nil {
+			return nil, err
+		}
+		reader = bytes.NewReader(gzBuf.Bytes())
 	}
-	req, err := http.NewRequest(http.MethodPost, c.BaseURL+path, buf)
+	req, err := http.NewRequest(http.MethodPost, c.BaseURL+path, reader)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	if reader != nil {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
 	if c.Bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Bearer)
 	}

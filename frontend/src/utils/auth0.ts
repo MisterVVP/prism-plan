@@ -2,6 +2,7 @@ import type {
   GetTokenSilentlyOptions,
   GetTokenSilentlyVerboseResponse,
 } from "@auth0/auth0-react";
+import { gzip } from "pako";
 
 const DEFAULT_SCOPE = "openid profile email offline_access";
 const TOKEN_ACTIVATION_TOLERANCE_MS = 1000;
@@ -94,12 +95,12 @@ export async function fetchWithAccessTokenRetry(
       options?.tokenOptions
     );
 
-    const headers = new Headers(init.headers ?? {});
+    const { body, headers } = await prepareRequest(init);
     if (!headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${token.token}`);
     }
 
-    const response = await fetch(input, { ...init, headers });
+    const response = await fetch(input, { ...init, body, headers });
 
     if (response.status !== 401) {
       return { response, token };
@@ -142,6 +143,42 @@ async function isTokenActivationError(response: Response): Promise<boolean> {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const JSON_MIME = "application/json";
+const GZIP_ENCODING = "gzip";
+
+async function prepareRequest(
+  init: RequestInit
+): Promise<{ body: BodyInit | null | undefined; headers: Headers }> {
+  const headers = new Headers(init.headers ?? {});
+  if (!headers.has("Accept")) {
+    headers.set("Accept", JSON_MIME);
+  }
+
+  if (!init.body) {
+    return { body: init.body, headers };
+  }
+
+  const contentType = headers.get("Content-Type");
+  if (!contentType || !contentType.toLowerCase().includes(JSON_MIME)) {
+    return { body: init.body, headers };
+  }
+
+  if (typeof init.body === "string") {
+    const compressed = gzip(init.body, { level: 1 });
+    headers.set("Content-Encoding", GZIP_ENCODING);
+    return { body: compressed, headers };
+  }
+
+  if (init.body instanceof Blob) {
+    const text = await init.body.text();
+    const compressed = gzip(text, { level: 1 });
+    headers.set("Content-Encoding", GZIP_ENCODING);
+    return { body: compressed, headers };
+  }
+
+  return { body: init.body, headers };
 }
 
 export { DEFAULT_SCOPE };

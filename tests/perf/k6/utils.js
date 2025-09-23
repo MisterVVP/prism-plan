@@ -1,5 +1,6 @@
 import http from 'k6/http';
 import { SharedArray } from 'k6/data';
+import { gzip } from './vendor/pako-gzip.mjs';
 
 const tokens = new SharedArray('tokens', () => {
   try {
@@ -42,10 +43,14 @@ function resolveBearer() {
 
 export function buildAuthHeaders() {
   const bearer = resolveBearer();
-  if (!bearer) {
-    return {};
+  const headers = {
+    Accept: 'application/json',
+    'Accept-Encoding': 'gzip',
+  };
+  if (bearer) {
+    headers.Authorization = `Bearer ${bearer}`;
   }
-  return { Authorization: `Bearer ${bearer}` };
+  return headers;
 }
 
 export function fetchAllTasks(base, headers) {
@@ -79,5 +84,18 @@ export function fetchAllTasks(base, headers) {
     seenTokens.add(nextToken);
     pageToken = nextToken;
   }
+}
+
+function toArrayBuffer(view) {
+  if (view.byteOffset === 0 && view.byteLength === view.buffer.byteLength) {
+    return view.buffer;
+  }
+  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+}
+
+export function gzipJSONPayload(payload) {
+  const json = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  const compressed = gzip(json, { level: 1 });
+  return toArrayBuffer(compressed);
 }
 
