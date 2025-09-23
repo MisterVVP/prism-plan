@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { buildAuthHeaders, gzipJSONPayload } from './utils.js';
+import { buildAuthHeaders } from './utils.js';
 
 export const options = {
   scenarios: {
@@ -18,10 +18,6 @@ export const options = {
 export default function () {
   const base = __ENV.PRISM_API_LB_BASE || 'http://localhost';
   const headers = buildAuthHeaders();
-  const postHeaders = Object.assign(
-    { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip' },
-    headers
-  );
   const cmd = [
     {
       idempotencyKey: `k6-${__VU}-${Date.now()}-${Math.random()}`,
@@ -30,9 +26,10 @@ export default function () {
       data: { title: 'k6 task' },
     },
   ];
-  const body = gzipJSONPayload(cmd);
+  const body = JSON.stringify(cmd);
   http.post(`${base}/api/commands`, body, {
-    headers: postHeaders,
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    compression: 'gzip',
     tags: { endpoint: '/api/commands' },
   });
 }

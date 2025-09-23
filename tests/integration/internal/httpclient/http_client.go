@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 )
 
 // Client wraps http.Client with helpers for JSON requests.
@@ -27,6 +28,7 @@ func (c *Client) GetJSON(path string, out any) (*http.Response, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
 	if c.Bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Bearer)
 	}
@@ -34,13 +36,8 @@ func (c *Client) GetJSON(path string, out any) (*http.Response, error) {
 	if err != nil {
 		return resp, err
 	}
-	defer resp.Body.Close()
-	if out != nil {
-		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-			return resp, err
-		}
-	} else {
-		_, _ = io.Copy(io.Discard, resp.Body)
+	if err := decodeJSONBody(resp, out); err != nil {
+		return resp, err
 	}
 	return resp, nil
 }
@@ -76,6 +73,7 @@ func (c *Client) PostJSON(path string, body, out any) (*http.Response, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
 	if reader != nil {
 		req.Header.Set("Content-Encoding", "gzip")
 	}
@@ -86,13 +84,48 @@ func (c *Client) PostJSON(path string, body, out any) (*http.Response, error) {
 	if err != nil {
 		return resp, err
 	}
-	defer resp.Body.Close()
-	if out != nil {
-		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-			return resp, err
-		}
-	} else {
-		_, _ = io.Copy(io.Discard, resp.Body)
+	if err := decodeJSONBody(resp, out); err != nil {
+		return resp, err
 	}
 	return resp, nil
+}
+
+func decodeJSONBody(resp *http.Response, out any) error {
+	defer resp.Body.Close()
+
+	reader := resp.Body
+	var gz *gzip.Reader
+	if hasGzipEncoding(resp.Header.Get("Content-Encoding")) {
+		var err error
+		gz, err = gzip.NewReader(resp.Body)
+		if err != nil {
+			return err
+		}
+		reader = gz
+		defer gz.Close()
+	}
+
+	if out != nil {
+		if err := json.NewDecoder(reader).Decode(out); err != nil {
+			return err
+		}
+	}
+
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func hasGzipEncoding(header string) bool {
+	if header == "" {
+		return false
+	}
+	for _, part := range strings.Split(header, ",") {
+		if strings.EqualFold(strings.TrimSpace(part), "gzip") {
+			return true
+		}
+	}
+	return false
 }
