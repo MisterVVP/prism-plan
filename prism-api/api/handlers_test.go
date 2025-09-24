@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -65,17 +64,9 @@ func (noopDeduper) Add(context.Context, string, string) (bool, error) { return t
 func (noopDeduper) Remove(context.Context, string, string) error { return nil }
 
 func resetCommandSenderForTests() {
+	shutdownCommandSender()
 	globalStore = noopStore{}
 	globalDeduper = noopDeduper{}
-	if jobs != nil {
-		close(jobs)
-	}
-	jobs = nil
-	once = sync.Once{}
-	workerCount = 0
-	jobBuf = 0
-	enqueueTimeout = 0
-	globalLog = nil
 }
 
 func TestGetTasks(t *testing.T) {
