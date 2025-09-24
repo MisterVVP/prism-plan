@@ -46,9 +46,9 @@ Use these to set things up and run locally:
 
 - Formatting / linting: stick with the conventions already in repo (e.g. for C#: whatever our .editorconfig / `.csproj` rules; for Go: gofmt / go vet; for JS/TS: ESLint / prettier if set up)  
 - Naming:  
-- Files/modules: lower-case kebab or snake case (as seen)  
-- Types / classes: PascalCase in C#; Go style for Go (e.g. CamelCase for structs / methods)  
-- Variables: follow language idioms (e.g. `camelCase` in JS/TS)  
+  - Files/modules: lower-case kebab or snake case (as seen)  
+  - Types / classes: PascalCase in C#; Go style for Go (e.g. CamelCase for structs / methods)  
+  - Variables: follow language idioms (e.g. `camelCase` in JS/TS)  
 - Layout: keep services (domain, read model) separated; only shared code goes to shared folder or scripts  
 - Comments / docs: when writing or modifying key logic (events, projections, domain logic), leave comments/descriptions especially around edge cases or async/event sourcing patterns  
 
@@ -84,7 +84,6 @@ Use these to set things up and run locally:
 - Performance: read model updates should be idempotent & fast; for Azure Functions / HTTP endpoints, aim for low cold start; cache or throttle where needed.  
 
 ## ✅ What Success Looks Like
-
 When an agent (or you) finishes a task or PR, check:
 - All new + existing tests pass (unit, integration)  
 - No lint/format/auth issues  
@@ -92,3 +91,4 @@ When an agent (or you) finishes a task or PR, check:
 - Changes documented (README or comments) for major modules or behaviors  
 - No regressions in performance or error rates (where measurable)  
 - Deployment scripts / infra changes validated locally
+- Last but not least, avoid introducing new packages, modules and libraries and strive to implement things via existing ones (E.g. when you need to implement gzip in golang API written with echo - you must use echo-native gzip middleware instead of building your own!!!)
