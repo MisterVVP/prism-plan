@@ -21,6 +21,7 @@ export default function () {
   if (Math.random() < 0.8) {
     fetchAllTasks(base, headers);
   } else {
+    const postHeaders = Object.assign({ 'Content-Type': 'application/json' }, headers);
     const cmd = [
       {
         idempotencyKey: `k6-${__VU}-${Date.now()}-${Math.random()}`,
@@ -29,12 +30,6 @@ export default function () {
         data: { title: 'k6 task' },
       },
     ];
-    const body = JSON.stringify(cmd);
-    http.post(`${base}/api/commands`, body, {
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      compression: 'gzip',
-      tags: { endpoint: '/api/commands' },
-    });
+    http.post(`${base}/api/commands`, JSON.stringify(cmd), { headers: postHeaders, tags: { endpoint: '/api/commands' }  });
   }
 }
-

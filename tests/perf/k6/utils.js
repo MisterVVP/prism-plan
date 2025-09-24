@@ -42,14 +42,10 @@ function resolveBearer() {
 
 export function buildAuthHeaders() {
   const bearer = resolveBearer();
-  const headers = {
-    Accept: 'application/json',
-    'Accept-Encoding': 'gzip',
-  };
-  if (bearer) {
-    headers.Authorization = `Bearer ${bearer}`;
+  if (!bearer) {
+    return {};
   }
-  return headers;
+  return { Authorization: `Bearer ${bearer}` };
 }
 
 export function fetchAllTasks(base, headers) {
@@ -84,4 +80,3 @@ export function fetchAllTasks(base, headers) {
     pageToken = nextToken;
   }
 }
-
