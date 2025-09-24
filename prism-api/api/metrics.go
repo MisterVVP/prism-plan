@@ -1,13 +1,19 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
+	tasksSpanName    = "GET /api/tasks"
 	tasksEventName   = "prism.api.tasks.request"
 	tasksEventDomain = "app"
 	tasksEventBody   = "tasks request completed"
@@ -15,6 +21,8 @@ const (
 
 type taskRequestMetrics struct {
 	logger            *log.Logger
+	span              trace.Span
+	spanContext       trace.SpanContext
 	start             time.Time
 	authDuration      time.Duration
 	fetchDuration     time.Duration
@@ -25,11 +33,24 @@ type taskRequestMetrics struct {
 	errorStage        string
 }
 
-func newTaskRequestMetrics(logger *log.Logger) *taskRequestMetrics {
-	return &taskRequestMetrics{
-		logger: logger,
-		start:  time.Now(),
+func newTaskRequestMetrics(ctx context.Context, logger *log.Logger) (*taskRequestMetrics, context.Context) {
+	if ctx == nil {
+		ctx = context.Background()
 	}
+	start := time.Now()
+	tracer := otel.Tracer("prism-api/api/tasks")
+	spanCtx, span := tracer.Start(ctx, tasksSpanName, trace.WithSpanKind(trace.SpanKindServer), trace.WithTimestamp(start))
+	span.SetAttributes(
+		attribute.String("http.route", "/api/tasks"),
+		attribute.String("http.method", http.MethodGet),
+	)
+
+	return &taskRequestMetrics{
+		logger:      logger,
+		span:        span,
+		spanContext: span.SpanContext(),
+		start:       start,
+	}, spanCtx
 }
 
 func (m *taskRequestMetrics) ObserveAuth(duration time.Duration) {
@@ -76,7 +97,7 @@ func (m *taskRequestMetrics) SetErrorStage(stage string) {
 }
 
 func (m *taskRequestMetrics) Log(status int, err error) {
-	if m == nil || m.logger == nil {
+	if m == nil {
 		return
 	}
 
@@ -110,6 +131,42 @@ func (m *taskRequestMetrics) Log(status int, err error) {
 	eventTime := time.Now()
 	severityText, severityNumber := severityForStatus(status, err)
 
+	if m.span != nil {
+		spanContext := m.span.SpanContext()
+		kv := attributesToKeyValues(attributes)
+		eventKV := append(kv,
+			attribute.String("event.name", tasksEventName),
+			attribute.String("event.domain", tasksEventDomain),
+			attribute.String("body", tasksEventBody),
+			attribute.String("severity_text", severityText),
+			attribute.Int("severity_number", severityNumber),
+		)
+
+		if err != nil {
+			m.span.RecordError(err)
+		}
+
+		if severityNumber >= 17 || status >= http.StatusBadRequest || err != nil {
+			msg := http.StatusText(status)
+			if msg == "" && err != nil {
+				msg = err.Error()
+			}
+			m.span.SetStatus(codes.Error, msg)
+		} else {
+			m.span.SetStatus(codes.Ok, "")
+		}
+
+		m.span.SetAttributes(kv...)
+		m.span.AddEvent("observability.event", trace.WithTimestamp(eventTime), trace.WithAttributes(eventKV...))
+		m.span.End(trace.WithTimestamp(eventTime))
+		m.spanContext = spanContext
+		m.span = nil
+	}
+
+	if m.logger == nil {
+		return
+	}
+
 	fields := log.Fields{
 		"time_unix_nano":          eventTime.UnixNano(),
 		"observed_time_unix_nano": eventTime.UnixNano(),
@@ -119,6 +176,13 @@ func (m *taskRequestMetrics) Log(status int, err error) {
 		"event.name":              tasksEventName,
 		"event.domain":            tasksEventDomain,
 		"attributes":              attributes,
+	}
+
+	if m.spanContext.HasTraceID() {
+		fields["trace_id"] = m.spanContext.TraceID().String()
+	}
+	if m.spanContext.HasSpanID() {
+		fields["span_id"] = m.spanContext.SpanID().String()
 	}
 
 	m.logger.WithFields(fields).Info("observability.event")
@@ -144,4 +208,35 @@ func severityForStatus(status int, err error) (string, int) {
 	default:
 		return "INFO", 9
 	}
+}
+
+func attributesToKeyValues(attrs map[string]any) []attribute.KeyValue {
+	if len(attrs) == 0 {
+		return nil
+	}
+
+	out := make([]attribute.KeyValue, 0, len(attrs))
+	for key, val := range attrs {
+		switch v := val.(type) {
+		case string:
+			out = append(out, attribute.String(key, v))
+		case bool:
+			out = append(out, attribute.Bool(key, v))
+		case int:
+			out = append(out, attribute.Int(key, v))
+		case int64:
+			out = append(out, attribute.Int64(key, v))
+		case uint:
+			out = append(out, attribute.Int(key, int(v)))
+		case uint64:
+			out = append(out, attribute.Int64(key, int64(v)))
+		case float64:
+			out = append(out, attribute.Float64(key, v))
+		case float32:
+			out = append(out, attribute.Float64(key, float64(v)))
+		default:
+			// skip unsupported types to avoid panics when exporting spans
+		}
+	}
+	return out
 }

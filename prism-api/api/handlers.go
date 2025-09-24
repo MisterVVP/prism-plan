@@ -31,7 +31,12 @@ type tasksResponse struct {
 func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
 		ctx := c.Request().Context()
-		metrics := newTaskRequestMetrics(logger)
+		metrics, spanCtx := newTaskRequestMetrics(ctx, logger)
+		if spanCtx != nil {
+			req := c.Request().WithContext(spanCtx)
+			c.SetRequest(req)
+			ctx = spanCtx
+		}
 		defer func() {
 			metrics.Log(c.Response().Status, err)
 		}()

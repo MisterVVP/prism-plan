@@ -214,6 +214,9 @@ func (b *blockingStore) waitForDone(t *testing.T, n int) {
 }
 
 func TestPostCommandsIdempotency(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+
 	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
@@ -237,6 +240,14 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	if err := handler(c2); err != nil {
 		t.Fatalf("second post: %v", err)
 	}
+	deadline := time.Now().Add(50 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if len(store.cmds) == 1 {
+			break
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
+
 	if len(store.cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(store.cmds))
 	}
