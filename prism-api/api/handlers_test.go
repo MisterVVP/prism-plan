@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 
@@ -428,7 +430,7 @@ func TestPostCommandsAcceptsGzipBody(t *testing.T) {
 
 	logger := log.New()
 	store := &mockStore{}
-	handler := GzipRequestMiddleware()(postCommands(store, mockAuth{}, noopDeduper{}, logger))
+	handler := middleware.Decompress()(postCommands(store, mockAuth{}, noopDeduper{}, logger))
 
 	payload := `[{"entityType":"task","type":"create-task"}]`
 	var buf bytes.Buffer
@@ -449,41 +451,6 @@ func TestPostCommandsAcceptsGzipBody(t *testing.T) {
 
 	if err := handler(e.NewContext(req, rec)); err != nil {
 		t.Fatalf("post gzip: %v", err)
-	}
-
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("expected status 202 got %d", rec.Code)
-	}
-
-	deadline := time.Now().Add(500 * time.Millisecond)
-	for len(store.cmds) == 0 && time.Now().Before(deadline) {
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	if len(store.cmds) != 1 {
-		t.Fatalf("expected 1 command enqueued, got %d", len(store.cmds))
-	}
-}
-
-func TestPostCommandsFallsBackWhenBodyAlreadyInflated(t *testing.T) {
-	resetCommandSenderForTests()
-	t.Cleanup(resetCommandSenderForTests)
-
-	logger := log.New()
-	store := &mockStore{}
-	handler := GzipRequestMiddleware()(postCommands(store, mockAuth{}, noopDeduper{}, logger))
-
-	payload := `[{"entityType":"task","type":"create-task"}]`
-
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(payload))
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set(echo.HeaderContentEncoding, "gzip")
-	rec := httptest.NewRecorder()
-
-	if err := handler(e.NewContext(req, rec)); err != nil {
-		t.Fatalf("post fallback: %v", err)
 	}
 
 	if rec.Code != http.StatusAccepted {
@@ -579,5 +546,50 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 
 	if len(store.cmds) != 3 {
 		t.Fatalf("expected 3 commands, got %d", len(store.cmds))
+	}
+}
+
+func TestAPIResponsesAreGzipped(t *testing.T) {
+	e := echo.New()
+	e.Use(middleware.Decompress())
+	e.Use(middleware.Gzip())
+
+	store := &mockStore{settings: domain.Settings{TasksPerCategory: 5, ShowDoneTasks: true}}
+	logger := log.New()
+	Register(e, store, mockAuth{}, noopDeduper{}, logger)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAcceptEncoding, "gzip")
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200 got %d", rec.Code)
+	}
+
+	if enc := rec.Header().Get(echo.HeaderContentEncoding); enc != middleware.GZIPEncoding {
+		t.Fatalf("expected gzip content encoding, got %q", enc)
+	}
+
+	gz, err := gzip.NewReader(rec.Body)
+	if err != nil {
+		t.Fatalf("gzip reader: %v", err)
+	}
+	defer gz.Close()
+
+	payload, err := io.ReadAll(gz)
+	if err != nil {
+		t.Fatalf("read gzip: %v", err)
+	}
+
+	var settings domain.Settings
+	if err := json.Unmarshal(payload, &settings); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+
+	if settings != store.settings {
+		t.Fatalf("unexpected settings: %#v", settings)
 	}
 }
