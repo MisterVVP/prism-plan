@@ -18,7 +18,19 @@ import (
 	"prism-api/storage"
 )
 
+func configureJSONLogger(logger *log.Logger) {
+	if logger == nil {
+		return
+	}
+	logger.SetFormatter(&log.JSONFormatter{
+		TimestampFormat:   time.RFC3339Nano,
+		DisableHTMLEscape: true,
+	})
+	logger.SetOutput(os.Stdout)
+}
+
 func main() {
+	configureJSONLogger(log.StandardLogger())
 	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
 		log.SetLevel(log.DebugLevel)
 	}
@@ -106,6 +118,8 @@ func main() {
 	e.Use(middleware.Gzip())
 
 	logger := log.New()
+	configureJSONLogger(logger)
+	logger.SetLevel(log.GetLevel())
 	api.Register(e, store, auth, deduper, logger)
 
 	listenAddr := ":8080"
