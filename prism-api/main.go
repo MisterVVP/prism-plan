@@ -98,10 +98,12 @@ func main() {
 	}
 
 	e := echo.New()
+	e.Use(middleware.Decompress())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
+	e.Use(middleware.Gzip())
 
 	logger := log.New()
 	api.Register(e, store, auth, deduper, logger)

@@ -33,4 +33,3 @@ export default function () {
     http.post(`${base}/api/commands`, JSON.stringify(cmd), { headers: postHeaders, tags: { endpoint: '/api/commands' }  });
   }
 }
-

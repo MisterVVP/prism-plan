@@ -80,4 +80,3 @@ export function fetchAllTasks(base, headers) {
     pageToken = nextToken;
   }
 }
-
