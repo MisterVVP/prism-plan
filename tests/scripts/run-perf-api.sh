@@ -8,9 +8,36 @@ set -a
 # shellcheck source=tests/docker/env.test
 source "$ENV_FILE"
 set +a
+
 COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
+RESULT_DIR="tests/perf/results"
+SUMMARY_FILE_REL="$RESULT_DIR/task_request_metrics.json"
+SUMMARY_FILE="$(pwd)/$SUMMARY_FILE_REL"
+
+collect_logs_and_teardown() {
+  local exit_code=$?
+  set +e
+
+  if [ -n "${COMPOSE:-}" ]; then
+    if [ -n "${SUMMARY_FILE:-}" ]; then
+      echo "Collecting task request observability events..."
+      if $COMPOSE logs --no-color --no-log-prefix prism-api-1 prism-api-2 prism-api-3 prism-api-4 prism-api-5 \
+        | (cd tests/utils && go run ./cmd/collect-otel-events -out "$SUMMARY_FILE"); then
+        echo "Aggregated task metrics saved to $SUMMARY_FILE_REL"
+      else
+        echo "Failed to collect task metrics from OpenTelemetry logs" >&2
+      fi
+    fi
+
+    $COMPOSE down -v
+  fi
+
+  return "$exit_code"
+}
+
+trap collect_logs_and_teardown EXIT
+
 $COMPOSE up -d
-trap '$COMPOSE down -v' EXIT
 
 tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${AZ_FUNC_HEALTH_ENDPOINT}" 30
 tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
@@ -45,12 +72,4 @@ k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.
 k6 run tests/perf/k6/api_heavy_read.js --summary-export=k6-summary-heavy_read.json
 
 k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary-mixed_read_write.json
-
-RESULT_DIR=tests/perf/results
-SUMMARY_FILE="$RESULT_DIR/task_request_metrics.json"
 mkdir -p "$RESULT_DIR"
-
-$COMPOSE logs --no-color --no-log-prefix prism-api-1 prism-api-2 prism-api-3 prism-api-4 prism-api-5 \
-  | (cd tests/utils && go run ./cmd/collect-otel-events -out ../perf/results/task_request_metrics.json)
-
-echo "Aggregated task metrics saved to $SUMMARY_FILE"
