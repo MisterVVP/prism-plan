@@ -1,17 +1,20 @@
 package api
 
 import (
+	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 )
 
 // GzipRequestMiddleware decompresses gzip-encoded request bodies so handlers can
-// work with plain JSON payloads. Requests with invalid gzip payloads are
-// rejected with a 400 response.
+// work with plain JSON payloads. If upstream infrastructure already decoded the
+// body it gracefully falls back to the raw payload.
 func GzipRequestMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -20,21 +23,57 @@ func GzipRequestMiddleware() echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			body := req.Body
-			gr, err := gzip.NewReader(body)
+			compressed, err := io.ReadAll(req.Body)
 			if err != nil {
-				_ = body.Close()
+				return echo.NewHTTPError(http.StatusBadRequest, "invalid body")
+			}
+			_ = req.Body.Close()
+
+			if len(compressed) == 0 {
+				resetBody(req, compressed)
+				req.Header.Del(echo.HeaderContentEncoding)
+				return next(c)
+			}
+
+			gz, err := gzip.NewReader(bytes.NewReader(compressed))
+			if err != nil {
+				// If infrastructure already removed compression, fall back to the raw body.
+				if errors.Is(err, gzip.ErrHeader) {
+					if len(compressed) > postCommandMaxSize {
+						return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "request body too large")
+					}
+					resetBody(req, compressed)
+					req.Header.Del(echo.HeaderContentEncoding)
+					return next(c)
+				}
+				return echo.NewHTTPError(http.StatusBadRequest, "invalid gzip body")
+			}
+			decompressed, err := io.ReadAll(io.LimitReader(gz, postCommandMaxSize+1))
+			_ = gz.Close()
+			if err != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "invalid gzip body")
 			}
 
-			req.Body = &gzipReadCloser{Reader: gr, body: body}
-			req.ContentLength = -1
+			if len(decompressed) > postCommandMaxSize {
+				return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "request body too large")
+			}
+
+			resetBody(req, decompressed)
 			req.Header.Del(echo.HeaderContentEncoding)
-			req.Header.Del(echo.HeaderContentLength)
 
 			return next(c)
 		}
 	}
+}
+
+func resetBody(req *http.Request, payload []byte) {
+	req.Body = io.NopCloser(bytes.NewReader(payload))
+	req.ContentLength = int64(len(payload))
+	if len(payload) == 0 {
+		req.Header.Set(echo.HeaderContentLength, "0")
+		return
+	}
+	req.Header.Set(echo.HeaderContentLength, strconv.Itoa(len(payload)))
 }
 
 func hasGzipEncoding(header string) bool {
@@ -47,22 +86,4 @@ func hasGzipEncoding(header string) bool {
 		}
 	}
 	return false
-}
-
-type gzipReadCloser struct {
-	*gzip.Reader
-	body io.Closer
-}
-
-func (g *gzipReadCloser) Close() error {
-	var err error
-	if g.Reader != nil {
-		err = g.Reader.Close()
-	}
-	if g.body != nil {
-		if cerr := g.body.Close(); cerr != nil && err == nil {
-			err = cerr
-		}
-	}
-	return err
 }
