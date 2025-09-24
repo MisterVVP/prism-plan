@@ -1,9 +1,16 @@
 package api
 
 import (
+	"net/http"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	tasksEventName   = "prism.api.tasks.request"
+	tasksEventDomain = "app"
+	tasksEventBody   = "tasks request completed"
 )
 
 type taskRequestMetrics struct {
@@ -73,32 +80,48 @@ func (m *taskRequestMetrics) Log(status int, err error) {
 		return
 	}
 
-	fields := log.Fields{
-		"route":               "/api/tasks",
-		"status":              status,
-		"total_ms":            durationToMillis(time.Since(m.start)),
-		"page_token_provided": m.pageTokenProvided,
-		"tasks_returned":      m.tasksReturned,
-		"has_next_page":       m.hasNextPage,
+	totalMillis := durationToMillis(time.Since(m.start))
+	attributes := map[string]any{
+		"http.route":                      "/api/tasks",
+		"http.status_code":                status,
+		"prism.tasks.total_ms":            totalMillis,
+		"prism.tasks.page_token_provided": m.pageTokenProvided,
+		"prism.tasks.tasks_returned":      m.tasksReturned,
+		"prism.tasks.has_next_page":       m.hasNextPage,
+		"prism.tasks.request_start_ns":    m.start.UnixNano(),
 	}
 
 	if m.authDuration > 0 {
-		fields["auth_ms"] = durationToMillis(m.authDuration)
+		attributes["prism.tasks.auth_ms"] = durationToMillis(m.authDuration)
 	}
 	if m.fetchDuration > 0 {
-		fields["fetch_ms"] = durationToMillis(m.fetchDuration)
+		attributes["prism.tasks.fetch_ms"] = durationToMillis(m.fetchDuration)
 	}
 	if m.encodeDuration > 0 {
-		fields["encode_ms"] = durationToMillis(m.encodeDuration)
+		attributes["prism.tasks.encode_ms"] = durationToMillis(m.encodeDuration)
 	}
 	if m.errorStage != "" {
-		fields["error_stage"] = m.errorStage
+		attributes["prism.tasks.error_stage"] = m.errorStage
 	}
 	if err != nil {
-		fields["error"] = err.Error()
+		attributes["error.message"] = err.Error()
 	}
 
-	m.logger.WithFields(fields).Info("tasks.request.metrics")
+	eventTime := time.Now()
+	severityText, severityNumber := severityForStatus(status, err)
+
+	fields := log.Fields{
+		"time_unix_nano":          eventTime.UnixNano(),
+		"observed_time_unix_nano": eventTime.UnixNano(),
+		"severity_text":           severityText,
+		"severity_number":         severityNumber,
+		"body":                    tasksEventBody,
+		"event.name":              tasksEventName,
+		"event.domain":            tasksEventDomain,
+		"attributes":              attributes,
+	}
+
+	m.logger.WithFields(fields).Info("observability.event")
 }
 
 func durationToMillis(d time.Duration) float64 {
@@ -106,4 +129,19 @@ func durationToMillis(d time.Duration) float64 {
 		return 0
 	}
 	return float64(d) / float64(time.Millisecond)
+}
+
+func severityForStatus(status int, err error) (string, int) {
+	if err != nil && status == 0 {
+		status = http.StatusInternalServerError
+	}
+
+	switch {
+	case status >= http.StatusInternalServerError || err != nil:
+		return "ERROR", 17
+	case status >= http.StatusBadRequest:
+		return "WARN", 13
+	default:
+		return "INFO", 9
+	}
 }

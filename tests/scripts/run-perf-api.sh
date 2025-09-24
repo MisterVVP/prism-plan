@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 ROOT_DIR=$(dirname "$0")/..
 cd "$ROOT_DIR"/..
 
@@ -29,7 +29,7 @@ for i in $(seq 1 "$K6_VUS"); do
   if [ "$i" -eq "$K6_VUS" ]; then
     tokens="$tokens\"$tok\""
   else
-    tokens="$tokens\"$tok\","
+    tokens="$tokens\"$tok\"," 
   fi
 done
 
@@ -45,3 +45,12 @@ k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.
 k6 run tests/perf/k6/api_heavy_read.js --summary-export=k6-summary-heavy_read.json
 
 k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary-mixed_read_write.json
+
+RESULT_DIR=tests/perf/results
+SUMMARY_FILE="$RESULT_DIR/task_request_metrics.json"
+mkdir -p "$RESULT_DIR"
+
+$COMPOSE logs --no-color --no-log-prefix prism-api-1 prism-api-2 prism-api-3 prism-api-4 prism-api-5 \
+  | (cd tests/utils && go run ./cmd/collect-otel-events -out ../perf/results/task_request_metrics.json)
+
+echo "Aggregated task metrics saved to $SUMMARY_FILE"
