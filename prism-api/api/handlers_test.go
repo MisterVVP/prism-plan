@@ -86,7 +86,7 @@ func TestGetTasks(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	if err := getTasks(store, mockAuth{})(c); err != nil {
+	if err := getTasks(store, mockAuth{}, log.New())(c); err != nil {
 		t.Fatalf("handler returned error: %v", err)
 	}
 	if rec.Code != http.StatusOK {
@@ -120,7 +120,7 @@ func TestGetTasksInvalidToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	if err := getTasks(store, mockAuth{})(c); err != nil {
+	if err := getTasks(store, mockAuth{}, log.New())(c); err != nil {
 		t.Fatalf("handler returned error: %v", err)
 	}
 	if rec.Code != http.StatusBadRequest {
