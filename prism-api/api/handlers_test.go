@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -20,13 +19,17 @@ import (
 )
 
 type mockStore struct {
-	tasks    []domain.Task
-	cmds     []domain.Command
-	settings domain.Settings
+	tasks     []domain.Task
+	cmds      []domain.Command
+	settings  domain.Settings
+	nextToken string
+	err       error
+	lastToken string
 }
 
-func (m *mockStore) FetchTasks(ctx context.Context, userID string) ([]domain.Task, error) {
-	return m.tasks, nil
+func (m *mockStore) FetchTasks(ctx context.Context, userID, token string) ([]domain.Task, string, error) {
+	m.lastToken = token
+	return m.tasks, m.nextToken, m.err
 }
 
 func (m *mockStore) FetchSettings(ctx context.Context, userID string) (domain.Settings, error) {
@@ -44,7 +47,9 @@ func (mockAuth) UserIDFromAuthHeader(string) (string, error) { return "user", ni
 
 type noopStore struct{}
 
-func (noopStore) FetchTasks(context.Context, string) ([]domain.Task, error) { return nil, nil }
+func (noopStore) FetchTasks(context.Context, string, string) ([]domain.Task, string, error) {
+	return nil, "", nil
+}
 
 func (noopStore) FetchSettings(context.Context, string) (domain.Settings, error) {
 	return domain.Settings{}, nil
@@ -59,39 +64,58 @@ func (noopDeduper) Add(context.Context, string, string) (bool, error) { return t
 func (noopDeduper) Remove(context.Context, string, string) error { return nil }
 
 func resetCommandSenderForTests() {
+	shutdownCommandSender()
 	globalStore = noopStore{}
 	globalDeduper = noopDeduper{}
-	if jobs != nil {
-		close(jobs)
-	}
-	jobs = nil
-	once = sync.Once{}
-	workerCount = 0
-	jobBuf = 0
-	enqueueTimeout = 0
-	globalLog = nil
 }
 
 func TestGetTasks(t *testing.T) {
 	e := echo.New()
-	store := &mockStore{tasks: []domain.Task{{ID: "1", Title: "t"}}}
-	req := httptest.NewRequest(http.MethodGet, "/api/tasks", nil)
+	store := &mockStore{tasks: []domain.Task{{ID: "1", Title: "t"}}, nextToken: "next-token"}
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks?pageToken=tok", nil)
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	if err := getTasks(store, mockAuth{})(c); err != nil {
+	if err := getTasks(store, mockAuth{}, log.New())(c); err != nil {
 		t.Fatalf("handler returned error: %v", err)
 	}
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status 200 got %d", rec.Code)
 	}
-	var tasks []domain.Task
-	if err := json.Unmarshal(rec.Body.Bytes(), &tasks); err != nil {
+	if store.lastToken != "tok" {
+		t.Fatalf("expected token to be forwarded, got %q", store.lastToken)
+	}
+	var resp tasksResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("invalid json: %v", err)
 	}
-	if len(tasks) != 1 || tasks[0].ID != "1" {
-		t.Fatalf("unexpected tasks: %#v", tasks)
+	if len(resp.Tasks) != 1 || resp.Tasks[0].ID != "1" {
+		t.Fatalf("unexpected tasks: %#v", resp.Tasks)
+	}
+	if resp.NextPageToken != "next-token" {
+		t.Fatalf("unexpected next token: %#v", resp.NextPageToken)
+	}
+}
+
+type invalidTokenErr struct{}
+
+func (invalidTokenErr) Error() string             { return "invalid" }
+func (invalidTokenErr) InvalidContinuationToken() {}
+
+func TestGetTasksInvalidToken(t *testing.T) {
+	e := echo.New()
+	store := &mockStore{err: invalidTokenErr{}}
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks?pageToken=bad", nil)
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := getTasks(store, mockAuth{}, log.New())(c); err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 got %d", rec.Code)
 	}
 }
 
@@ -181,6 +205,9 @@ func (b *blockingStore) waitForDone(t *testing.T, n int) {
 }
 
 func TestPostCommandsIdempotency(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+
 	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
@@ -204,6 +231,14 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	if err := handler(c2); err != nil {
 		t.Fatalf("second post: %v", err)
 	}
+	deadline := time.Now().Add(50 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if len(store.cmds) == 1 {
+			break
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
+
 	if len(store.cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(store.cmds))
 	}

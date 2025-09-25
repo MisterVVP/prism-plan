@@ -25,16 +25,56 @@ export function useTasks() {
     if (!isAuthenticated) return;
     async function fetchRemote() {
       try {
-        const { response } = await fetchWithAccessTokenRetry(
-          getAccessTokenSilently,
-          audience,
-          `${apiBaseUrl}/tasks`
-        );
-        if (response.ok) {
+        const aggregated: Task[] = [];
+        let pageToken: string | undefined;
+        const seenTokens = new Set<string>();
+        while (true) {
+          const url = new URL(`${apiBaseUrl}/tasks`);
+          if (pageToken) {
+            url.searchParams.set("pageToken", pageToken);
+          }
+          const { response } = await fetchWithAccessTokenRetry(
+            getAccessTokenSilently,
+            audience,
+            url.toString()
+          );
+          if (!response.ok) {
+            break;
+          }
           const raw = await response.json();
-          const data: Task[] = Array.isArray(raw) ? raw : [];
-          dispatch({ type: "set-tasks", tasks: data });
+          let pageTasks: Task[] = [];
+          let nextToken: string | undefined;
+          if (Array.isArray(raw)) {
+            pageTasks = raw as Task[];
+          } else if (raw && typeof raw === "object") {
+            const maybe = raw as { tasks?: unknown; nextPageToken?: unknown };
+            if (Array.isArray(maybe.tasks)) {
+              pageTasks = maybe.tasks as Task[];
+            }
+            if (typeof maybe.nextPageToken === "string") {
+              const trimmed = maybe.nextPageToken.trim();
+              if (trimmed) {
+                nextToken = trimmed;
+              }
+            }
+          } else {
+            break;
+          }
+          aggregated.push(...pageTasks);
+          if (!nextToken) {
+            pageToken = undefined;
+            break;
+          }
+          if (seenTokens.has(nextToken)) {
+            console.warn(
+              "Detected repeated pagination token while fetching tasks."
+            );
+            break;
+          }
+          seenTokens.add(nextToken);
+          pageToken = nextToken;
         }
+        dispatch({ type: "set-tasks", tasks: aggregated });
       } catch (err) {
         if (
           err instanceof Error &&

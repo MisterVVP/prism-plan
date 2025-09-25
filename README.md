@@ -45,7 +45,7 @@ Use the following variables to configure storage resources:
 - `TASK_EVENTS_TABLE`: table acting as the event store for tasks
 - `TASKS_TABLE`: table containing the read model queried by the API
 
-Fetch tasks from `/api/tasks` and post commands to `/api/commands`.
+Fetch tasks from `/api/tasks`—the response includes a `nextPageToken` when more items are available—and post commands to `/api/commands`.
 
 ## Testing
 
@@ -94,4 +94,4 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
    - If required, this problem can be solved by replacing timestamps with sequences stored in one of our storages or configure all infra to sync with a single NTP, e.g. (AWS one)[https://aws.amazon.com/about-aws/whats-new/2022/11/amazon-time-sync-internet-public-ntp-service/]
 
 ### Know issues
-1. Perf tests fail due to azurite scalability problems. This is expected and good, because I'm not planning to set up paid azure storage account for this
+1. Perf tests fail due to azurite scalability problems. This is expected and good, because I'm not planning to set up paid azure storage account for this.

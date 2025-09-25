@@ -48,6 +48,8 @@ jobs:
   perf:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_performance == 'true' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    env:
+      ARTIFACTS_DIR: ${{ github.workspace }}/artifacts/perf
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -64,13 +66,24 @@ jobs:
           tests/scripts/run-perf-api.sh
           tests/scripts/run-perf-sse.sh
           set +a
-      - name: Upload API performance summary
+      - name: Upload API performance summaries
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: k6-summary
-          path: k6-summary.json
+          name: k6-summaries
+          path: k6-summary-*.json
+          if-no-files-found: warn
       - name: Upload SSE performance summary
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: sse-summary
           path: tests/perf_sse_summary.txt
+          if-no-files-found: warn
+      - name: Upload observability wide events summary
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-observability-events
+          path: ${{ env.ARTIFACTS_DIR }}/task-request-metrics.json
+          if-no-files-found: warn

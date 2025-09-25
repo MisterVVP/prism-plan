@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -16,24 +18,68 @@ import (
 
 // Register wires up all API routes on the provided Echo instance.
 func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, log *log.Logger) {
-	e.GET("/api/tasks", getTasks(store, auth))
+	e.GET("/api/tasks", getTasks(store, auth, log))
 	e.GET("/api/settings", getSettings(store, auth))
 	e.POST("/api/commands", postCommands(store, auth, deduper, log))
 }
 
-func getTasks(store Storage, auth Authenticator) echo.HandlerFunc {
-	return func(c echo.Context) error {
+type tasksResponse struct {
+	Tasks         []domain.Task `json:"tasks"`
+	NextPageToken string        `json:"nextPageToken,omitempty"`
+}
+
+func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.HandlerFunc {
+	return func(c echo.Context) (err error) {
 		ctx := c.Request().Context()
-		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
-		if err != nil {
-			return c.String(http.StatusUnauthorized, err.Error())
+		metrics, spanCtx := newTaskRequestMetrics(ctx, logger)
+		if spanCtx != nil {
+			req := c.Request().WithContext(spanCtx)
+			c.SetRequest(req)
+			ctx = spanCtx
 		}
-		tasks, err := store.FetchTasks(ctx, userID)
-		if err != nil {
-			c.Logger().Error(err)
-			return c.String(http.StatusInternalServerError, err.Error())
+		defer func() {
+			metrics.Log(c.Response().Status, err)
+		}()
+
+		authStart := time.Now()
+		userID, authErr := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
+		metrics.ObserveAuth(time.Since(authStart))
+		if authErr != nil {
+			metrics.SetErrorStage("auth")
+			err = c.String(http.StatusUnauthorized, authErr.Error())
+			return err
 		}
-		return c.JSON(http.StatusOK, tasks)
+		pageToken := c.QueryParam("pageToken")
+		metrics.SetPageTokenProvided(pageToken != "")
+
+		fetchStart := time.Now()
+		tasks, nextToken, fetchErr := store.FetchTasks(ctx, userID, pageToken)
+		metrics.ObserveFetch(time.Since(fetchStart))
+		if fetchErr != nil {
+			var invalidTokenErr InvalidContinuationTokenError
+			if errors.As(fetchErr, &invalidTokenErr) {
+				metrics.SetErrorStage("invalid_page_token")
+				err = c.String(http.StatusBadRequest, "invalid page token")
+				return err
+			}
+			metrics.SetErrorStage("storage")
+			c.Logger().Error(fetchErr)
+			err = c.String(http.StatusInternalServerError, fetchErr.Error())
+			return err
+		}
+		metrics.SetTasksReturned(len(tasks))
+		resp := tasksResponse{Tasks: tasks}
+		if nextToken != "" {
+			metrics.SetHasNextPage(true)
+			resp.NextPageToken = nextToken
+		}
+		encodeStart := time.Now()
+		err = c.JSON(http.StatusOK, resp)
+		metrics.ObserveEncode(time.Since(encodeStart))
+		if err != nil {
+			metrics.SetErrorStage("encode_response")
+		}
+		return err
 	}
 }
 

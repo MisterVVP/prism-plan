@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"os"
@@ -18,7 +19,19 @@ import (
 	"prism-api/storage"
 )
 
+func configureJSONLogger(logger *log.Logger) {
+	if logger == nil {
+		return
+	}
+	logger.SetFormatter(&log.JSONFormatter{
+		TimestampFormat:   time.RFC3339Nano,
+		DisableHTMLEscape: true,
+	})
+	logger.SetOutput(os.Stdout)
+}
+
 func main() {
+	configureJSONLogger(log.StandardLogger())
 	if dbg, err := strconv.ParseBool(os.Getenv("DEBUG")); err == nil && dbg {
 		log.SetLevel(log.DebugLevel)
 	}
@@ -29,9 +42,28 @@ func main() {
 	if connStr == "" || tasksTableName == "" || settingsTableName == "" || commandQueueName == "" {
 		log.Fatal("missing storage config")
 	}
-	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName)
+	taskPageSize := 30
+	if v := os.Getenv("TASKS_PAGE_SIZE"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			log.Fatalf("invalid TASKS_PAGE_SIZE: %v", err)
+		}
+		if n <= 0 {
+			log.Fatalf("invalid TASKS_PAGE_SIZE: must be greater than zero")
+		}
+		taskPageSize = n
+	}
+	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName, taskPageSize)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
+	}
+
+	warmupCtx, cancelWarmup := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancelWarmup()
+	if err := store.Warmup(warmupCtx); err != nil {
+		log.WithError(err).Warn("storage warmup failed")
+	} else {
+		log.Info("storage warmup completed")
 	}
 
 	redisConn := os.Getenv("REDIS_CONNECTION_STRING")
@@ -87,12 +119,16 @@ func main() {
 	}
 
 	e := echo.New()
+	e.Use(middleware.Decompress())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
+	e.Use(middleware.Gzip())
 
 	logger := log.New()
+	configureJSONLogger(logger)
+	logger.SetLevel(log.GetLevel())
 	api.Register(e, store, auth, deduper, logger)
 
 	listenAddr := ":8080"

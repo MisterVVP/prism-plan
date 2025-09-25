@@ -1,3 +1,4 @@
+import http from 'k6/http';
 import { SharedArray } from 'k6/data';
 
 const tokens = new SharedArray('tokens', () => {
@@ -47,3 +48,35 @@ export function buildAuthHeaders() {
   return { Authorization: `Bearer ${bearer}` };
 }
 
+export function fetchAllTasks(base, headers) {
+  let pageToken = '';
+  const seenTokens = new Set();
+  while (true) {
+    const query = pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : '';
+    const res = http.get(`${base}/api/tasks${query}`, {
+      headers,
+      tags: { endpoint: '/api/tasks' },
+    });
+    if (res.status !== 200) {
+      return;
+    }
+    let payload;
+    try {
+      payload = JSON.parse(res.body);
+    } catch (err) {
+      return;
+    }
+    const nextToken =
+      typeof payload.nextPageToken === 'string'
+        ? payload.nextPageToken.trim()
+        : '';
+    if (!nextToken) {
+      return;
+    }
+    if (seenTokens.has(nextToken)) {
+      return;
+    }
+    seenTokens.add(nextToken);
+    pageToken = nextToken;
+  }
+}

@@ -2,26 +2,32 @@ package storage
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
 
 	"prism-api/domain"
 )
 
-// Storage provides access to underlying persistence mechanisms.
 type Storage struct {
-	taskTable     *aztables.Client
-	settingsTable *aztables.Client
-	commandQueue  *azqueue.QueueClient
+	taskTable              *aztables.Client
+	settingsTable          *aztables.Client
+	commandQueue           *azqueue.QueueClient
+	taskPageSize           int32
+	tasksSelectClause      string
+	tasksSelectMetadataFmt aztables.MetadataFormat
 }
 
-// New creates a Storage instance from the given connection string.
-func New(connStr, tasksTable, settingsTable, commandQueue string) (*Storage, error) {
+func New(connStr, tasksTable, settingsTable, commandQueue string, taskPageSize int) (*Storage, error) {
 	tablesClientOptions := aztables.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Retry: policy.RetryOptions{
@@ -54,7 +60,17 @@ func New(connStr, tasksTable, settingsTable, commandQueue string) (*Storage, err
 	if err != nil {
 		return nil, err
 	}
-	return &Storage{taskTable: tt, settingsTable: st, commandQueue: cq}, nil
+	if taskPageSize <= 0 {
+		return nil, fmt.Errorf("invalid task page size: %d", taskPageSize)
+	}
+	return &Storage{
+		taskTable:              tt,
+		settingsTable:          st,
+		commandQueue:           cq,
+		taskPageSize:           int32(taskPageSize),
+		tasksSelectClause:      "RowKey,Title,Notes,Category,Order,Done",
+		tasksSelectMetadataFmt: aztables.MetadataFormatNone,
+	}, nil
 }
 
 type taskEntity struct {
@@ -66,32 +82,104 @@ type taskEntity struct {
 	Done     bool   `json:"Done"`
 }
 
-// FetchTasks retrieves all tasks for the provided user.
-func (s *Storage) FetchTasks(ctx context.Context, userID string) ([]domain.Task, error) {
-	filter := "PartitionKey eq '" + userID + "'"
-	pager := s.taskTable.NewListEntitiesPager(&aztables.ListEntitiesOptions{Filter: &filter})
-	tasks := []domain.Task{}
-	for pager.More() {
-		resp, err := pager.NextPage(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for _, e := range resp.Entities {
-			var ent taskEntity
-			if err := json.Unmarshal(e, &ent); err != nil {
-				return nil, err
-			}
-			tasks = append(tasks, domain.Task{
-				ID:       ent.RowKey,
-				Title:    ent.Title,
-				Notes:    ent.Notes,
-				Category: ent.Category,
-				Order:    ent.Order,
-				Done:     ent.Done,
-			})
-		}
+type continuationToken struct {
+	PartitionKey string `json:"pk"`
+	RowKey       string `json:"rk"`
+}
+
+type invalidContinuationTokenError struct {
+	cause error
+}
+
+func (e *invalidContinuationTokenError) Error() string {
+	if e == nil {
+		return "invalid continuation token"
 	}
-	return tasks, nil
+	if e.cause == nil {
+		return "invalid continuation token"
+	}
+	return "invalid continuation token: " + e.cause.Error()
+}
+
+func (e *invalidContinuationTokenError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
+func (e *invalidContinuationTokenError) InvalidContinuationToken() {}
+
+func decodeContinuationToken(token string) (*string, *string, error) {
+	if token == "" {
+		return nil, nil, nil
+	}
+	data, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return nil, nil, err
+	}
+	var ct continuationToken
+	if err := json.Unmarshal(data, &ct); err != nil {
+		return nil, nil, err
+	}
+	if ct.PartitionKey == "" || ct.RowKey == "" {
+		return nil, nil, fmt.Errorf("missing continuation components")
+	}
+	pk := ct.PartitionKey
+	rk := ct.RowKey
+	return &pk, &rk, nil
+}
+
+func encodeContinuationToken(partitionKey, rowKey *string) (string, error) {
+	if partitionKey == nil || rowKey == nil {
+		return "", nil
+	}
+	if len(*partitionKey) == 0 || len(*rowKey) == 0 {
+		return "", nil
+	}
+	data, err := json.Marshal(continuationToken{PartitionKey: *partitionKey, RowKey: *rowKey})
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(data), nil
+}
+
+func (s *Storage) FetchTasks(ctx context.Context, userID, token string) ([]domain.Task, string, error) {
+	filter := "PartitionKey eq '" + userID + "'"
+	nextPartitionKey, nextRowKey, err := decodeContinuationToken(token)
+	if err != nil {
+		return nil, "", &invalidContinuationTokenError{cause: err}
+	}
+	top := s.taskPageSize
+	opts := &aztables.ListEntitiesOptions{Filter: &filter, Select: &s.tasksSelectClause, Top: &top, Format: &s.tasksSelectMetadataFmt, NextPartitionKey: nextPartitionKey, NextRowKey: nextRowKey}
+	pager := s.taskTable.NewListEntitiesPager(opts)
+	if !pager.More() {
+		return []domain.Task{}, "", nil
+	}
+	resp, err := pager.NextPage(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	tasks := make([]domain.Task, 0, len(resp.Entities))
+	for _, e := range resp.Entities {
+		var ent taskEntity
+		if err := json.Unmarshal(e, &ent); err != nil {
+			return nil, "", err
+		}
+		tasks = append(tasks, domain.Task{
+			ID:       ent.RowKey,
+			Title:    ent.Title,
+			Notes:    ent.Notes,
+			Category: ent.Category,
+			Order:    ent.Order,
+			Done:     ent.Done,
+		})
+	}
+	nextToken, err := encodeContinuationToken(resp.NextPartitionKey, resp.NextRowKey)
+	if err != nil {
+		return nil, "", err
+	}
+	return tasks, nextToken, nil
 }
 
 func decodeSettingsEntity(data []byte) (domain.Settings, error) {
@@ -106,14 +194,34 @@ func decodeSettingsEntity(data []byte) (domain.Settings, error) {
 }
 
 func (s *Storage) FetchSettings(ctx context.Context, userID string) (domain.Settings, error) {
-	ent, err := s.settingsTable.GetEntity(ctx, userID, userID, nil)
+	ent, err := s.settingsTable.GetEntity(ctx, userID, userID, &aztables.GetEntityOptions{Format: to.Ptr(aztables.MetadataFormatNone)})
 	if err != nil {
 		return domain.Settings{}, err
 	}
 	return decodeSettingsEntity(ent.Value)
 }
 
-// EnqueueCommands sends the given commands to the command queue.
+func (s *Storage) Warmup(ctx context.Context) error {
+	const warmupUserID = "__warmup__"
+
+	if _, _, err := s.FetchTasks(ctx, warmupUserID, ""); err != nil {
+		return err
+	}
+
+	if _, err := s.FetchSettings(ctx, warmupUserID); err != nil {
+		var respErr *azcore.ResponseError
+		if !errors.As(err, &respErr) || respErr.StatusCode != http.StatusNotFound {
+			return err
+		}
+	}
+
+	if _, err := s.commandQueue.GetProperties(ctx, nil); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error {
 	for _, cmd := range cmds {
 		env := domain.CommandEnvelope{UserID: userID, Command: cmd}

@@ -3,16 +3,41 @@ set -euo pipefail
 ROOT_DIR=$(dirname "$0")/..
 cd "$ROOT_DIR"/..
 
+REPO_ROOT=$(pwd)
+ENV_FILE="$REPO_ROOT/tests/docker/env.test"
 
-ENV_FILE=tests/docker/env.test
+if [[ -n "${MSYSTEM:-}" ]]; then
+  excludes="API_HEALTH_ENDPOINT;AZ_FUNC_HEALTH_ENDPOINT"
+  if [[ -n "${MSYS2_ENV_CONV_EXCL:-}" ]]; then
+    export MSYS2_ENV_CONV_EXCL="${MSYS2_ENV_CONV_EXCL};${excludes}"
+  else
+    export MSYS2_ENV_CONV_EXCL="$excludes"
+  fi
+fi
+
 set -a
-source $ENV_FILE
+# shellcheck source=tests/docker/env.test
+source "$ENV_FILE"
 set +a
-COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
-$COMPOSE up -d
-trap "$COMPOSE down -v" EXIT
 
-tests/docker/wait-for.sh ${PRISM_API_LB_BASE} 30
-tests/docker/wait-for.sh ${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT} 30
-cd tests/integration && go test ./...
+COMPOSE=(
+  docker compose
+  --env-file "$ENV_FILE"
+  -f "$REPO_ROOT/docker-compose.yml"
+  -f "$REPO_ROOT/tests/docker/docker-compose.tests.yml"
+)
+
+cleanup() {
+  "${COMPOSE[@]}" down -v
+}
+trap cleanup EXIT
+
+"${COMPOSE[@]}" up -d
+
+tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${AZ_FUNC_HEALTH_ENDPOINT}" 30
+tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
+
+pushd tests/integration > /dev/null
+go test ./...
+popd > /dev/null
 

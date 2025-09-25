@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { buildAuthHeaders } from './utils.js';
+import { buildAuthHeaders, fetchAllTasks } from './utils.js';
 
 export const options = {
   scenarios: {
@@ -19,7 +19,7 @@ export default function () {
   const base = __ENV.PRISM_API_LB_BASE || 'http://localhost';
   const headers = buildAuthHeaders();
   if (Math.random() < 0.8) {
-    http.get(`${base}/api/tasks`, { headers, tags: { endpoint: '/api/tasks' }  });
+    fetchAllTasks(base, headers);
   } else {
     const postHeaders = Object.assign({ 'Content-Type': 'application/json' }, headers);
     const cmd = [
@@ -33,4 +33,3 @@ export default function () {
     http.post(`${base}/api/commands`, JSON.stringify(cmd), { headers: postHeaders, tags: { endpoint: '/api/commands' }  });
   }
 }
-

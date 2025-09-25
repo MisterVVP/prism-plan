@@ -25,7 +25,27 @@ var (
 	globalStore    Storage
 	globalDeduper  Deduper
 	globalLog      *log.Logger
+	workerWG       sync.WaitGroup
 )
+
+// shutdownCommandSender stops worker goroutines and clears shared state. It is intended for tests.
+func shutdownCommandSender() {
+	if jobs != nil {
+		close(jobs)
+		jobs = nil
+	}
+
+	workerWG.Wait()
+
+	globalStore = nil
+	globalDeduper = nil
+	globalLog = nil
+	workerCount = 0
+	jobBuf = 0
+	enqueueTimeout = 0
+	once = sync.Once{}
+	workerWG = sync.WaitGroup{}
+}
 
 func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
 	once.Do(func() {
@@ -42,6 +62,7 @@ func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
 
 		jobs = make(chan enqueueJob, jobBuf)
 		for i := 0; i < workerCount; i++ {
+			workerWG.Add(1)
 			go worker(i)
 		}
 		globalLog.Infof("command sender started, workers: %d, buffer: %d, timeout: %v", workerCount, jobBuf, enqueueTimeout)
@@ -49,6 +70,7 @@ func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
 }
 
 func worker(id int) {
+	defer workerWG.Done()
 	for j := range jobs {
 		ctx, cancel := context.WithTimeout(bg, enqueueTimeout)
 		err := globalStore.EnqueueCommands(ctx, j.userID, j.cmds)
