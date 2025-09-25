@@ -18,7 +18,6 @@ import (
 	"prism-api/domain"
 )
 
-// Storage provides access to underlying persistence mechanisms.
 type Storage struct {
 	taskTable              *aztables.Client
 	settingsTable          *aztables.Client
@@ -28,7 +27,6 @@ type Storage struct {
 	tasksSelectMetadataFmt aztables.MetadataFormat
 }
 
-// New creates a Storage instance from the given connection string.
 func New(connStr, tasksTable, settingsTable, commandQueue string, taskPageSize int) (*Storage, error) {
 	tablesClientOptions := aztables.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
@@ -146,7 +144,6 @@ func encodeContinuationToken(partitionKey, rowKey *string) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(data), nil
 }
 
-// FetchTasks retrieves a single page of tasks for the provided user and returns a continuation token when more results are available.
 func (s *Storage) FetchTasks(ctx context.Context, userID, token string) ([]domain.Task, string, error) {
 	filter := "PartitionKey eq '" + userID + "'"
 	nextPartitionKey, nextRowKey, err := decodeContinuationToken(token)
@@ -204,9 +201,6 @@ func (s *Storage) FetchSettings(ctx context.Context, userID string) (domain.Sett
 	return decodeSettingsEntity(ent.Value)
 }
 
-// Warmup issues a small set of read operations against the underlying storage services to
-// establish initial connections and amortize the cost of Azurite cold starts before serving
-// real traffic.
 func (s *Storage) Warmup(ctx context.Context) error {
 	const warmupUserID = "__warmup__"
 
@@ -228,7 +222,6 @@ func (s *Storage) Warmup(ctx context.Context) error {
 	return nil
 }
 
-// EnqueueCommands sends the given commands to the command queue.
 func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error {
 	for _, cmd := range cmds {
 		env := domain.CommandEnvelope{UserID: userID, Command: cmd}

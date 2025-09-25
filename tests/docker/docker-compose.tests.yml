@@ -170,7 +170,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    command: ["azurite", "-s", "-l", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
+    command: ["azurite", "-s", "-l", "--inMemoryPersistence", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
     ports:
       - "10000:10000"
       - "10002:10002"
