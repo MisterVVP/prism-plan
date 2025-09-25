@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"os"
@@ -55,6 +56,14 @@ func main() {
 	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName, taskPageSize)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
+	}
+
+	warmupCtx, cancelWarmup := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancelWarmup()
+	if err := store.Warmup(warmupCtx); err != nil {
+		log.WithError(err).Warn("storage warmup failed")
+	} else {
+		log.Info("storage warmup completed")
 	}
 
 	redisConn := os.Getenv("REDIS_CONNECTION_STRING")

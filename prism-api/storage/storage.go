@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -200,6 +202,30 @@ func (s *Storage) FetchSettings(ctx context.Context, userID string) (domain.Sett
 		return domain.Settings{}, err
 	}
 	return decodeSettingsEntity(ent.Value)
+}
+
+// Warmup issues a small set of read operations against the underlying storage services to
+// establish initial connections and amortize the cost of Azurite cold starts before serving
+// real traffic.
+func (s *Storage) Warmup(ctx context.Context) error {
+	const warmupUserID = "__warmup__"
+
+	if _, _, err := s.FetchTasks(ctx, warmupUserID, ""); err != nil {
+		return err
+	}
+
+	if _, err := s.FetchSettings(ctx, warmupUserID); err != nil {
+		var respErr *azcore.ResponseError
+		if !errors.As(err, &respErr) || respErr.StatusCode != http.StatusNotFound {
+			return err
+		}
+	}
+
+	if _, err := s.commandQueue.GetProperties(ctx, nil); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // EnqueueCommands sends the given commands to the command queue.
