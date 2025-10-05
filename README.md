@@ -25,7 +25,10 @@ Make sure to set up env variables in .env file (see .env.example)
       docker-compose up --build
    ```
 
-   A self-signed certificate will be generated to serve the frontend over HTTPS. Storage tables and queues are provisioned by a `storage-init` service before the other containers start.
+A self-signed certificate will be generated to serve the frontend over HTTPS. Storage tables and queues are provisioned by a `storage-init` service before the other containers start.
+
+## Custom Azure table and Queue storage emulator
+Self-written emulator called fauxzureq is used to replace Azurite in performance tests. Code will be open-source in future, but right now it is too experimental to make public.
 
 ## 📦 Environment variables
 The frontend uses the current origin for API requests, so no extra configuration is needed when the API is served from the same host. Override the API location by setting `VITE_API_BASE_URL` along with the Auth0 variables in `frontend/.env`. With Docker Compose Nginx terminates TLS and proxies `/api` calls to the Go backend so the API is available over HTTPS at `https://localhost:8080/api`.
@@ -92,6 +95,3 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
    - If required, the problem could be solved by adding additional checks for other fields, storing more granular timestamps or implementing retry events. Right now the read-model-updater simply returns error.
 2. Relying on the API node’s clock still carries some risk: if two instances drift even slightly, a later command processed by a skewed node could be dropped as “stale.”
    - If required, this problem can be solved by replacing timestamps with sequences stored in one of our storages or configure all infra to sync with a single NTP, e.g. (AWS one)[https://aws.amazon.com/about-aws/whats-new/2022/11/amazon-time-sync-internet-public-ntp-service/]
-
-### Know issues
-1. Perf tests fail due to azurite scalability problems. This is expected and good, because I'm not planning to set up paid azure storage account for this.

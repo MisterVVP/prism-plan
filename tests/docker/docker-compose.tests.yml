@@ -170,15 +170,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    command: ["azurite", "-s", "-l", "--inMemoryPersistence", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
+    command: ["azurite", "-s", "-l", "--inMemoryPersistence", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0"]
     ports:
       - "10000:10000"
-      - "10002:10002"
 
   fauxzureq:
     image: mistervvp/fauxzureq:latest
-    command: ["--listen=:10001", "--account=devstoreaccount1", "--queue-delete-hold-ms=0"]
-    ports: ["10001:10001"]
+    command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0"]
+    ports: ["10001:10001", "10002:10002"]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
       interval: 5s
