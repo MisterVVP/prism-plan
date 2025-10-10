@@ -175,7 +175,7 @@ services:
       - "10000:10000"
 
   fauxzureq:
-    image: mistervvp/fauxzureq:latest
+    image: mistervvp/fauxzureq:pmcache
     command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0"]
     ports: ["10001:10001", "10002:10002"]
     healthcheck:
