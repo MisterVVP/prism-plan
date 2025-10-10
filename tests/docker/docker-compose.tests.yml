@@ -164,32 +164,7 @@ services:
         condition: service_healthy
 
   azurite:
-    image: mcr.microsoft.com/azure-storage/azurite
-    healthcheck:
-      test: nc 127.0.0.1 10000 -z
-      interval: 5s
-      timeout: 3s
-      retries: 5
     command: ["azurite", "-s", "-l", "--inMemoryPersistence", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0"]
-    ports:
-      - "10000:10000"
-
-  poor-man-s-cache:
-    image: mistervvp/poor-man-s-cache:latest
-    ports:
-      - "9001:9001"
-
-  fauxzureq:
-    image: mistervvp/fauxzureq:pmcache
-    command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0"]
-    ports: ["10001:10001", "10002:10002"]
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    depends_on:
-      - poor-man-s-cache
 
 volumes:
   azurite_data:
