@@ -192,8 +192,10 @@ services:
       - azurite_data:/data
     restart: unless-stopped
 
-  pmcache:
-    image: mistervvp/poor-man-s-cache:latest
+  fauxzureq:
+    image: mistervvp/fauxzureq:dev
+    command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0", "--http-log=false"]
+    ports: ["10001:10001", "10002:10002"]
     sysctls:
         - net.ipv4.tcp_rmem=16384 4194304 536870912
         - net.ipv4.tcp_wmem=16384 4194304 536870912
@@ -205,29 +207,11 @@ services:
       nofile:
         soft: "1048576"
         hard: "1048576"
-    environment:
-      - SERVER_PORT=9001
-      - METRICS_PORT=8080
-      - METRICS_HOST=0.0.0.0
-      - NUM_SHARDS=128
-      - CONN_QUEUE_LIMIT=1048576
-      - SOCK_BUF_SIZE=4194304
-      - ENABLE_COMPRESSION=true
-    expose:
-      - "9001"
-      - "8080"
-
-  fauxzureq:
-    image: mistervvp/fauxzureq:pmcache
-    command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0", "--http-log=false", "--pmcache-host=pmcache"]
-    ports: ["10001:10001", "10002:10002"]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
       interval: 5s
       timeout: 3s
       retries: 5
-    depends_on:
-      - pmcache
 
   storage-init:
     build: ./storage-init
