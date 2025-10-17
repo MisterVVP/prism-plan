@@ -193,7 +193,7 @@ services:
     restart: unless-stopped
 
   fauxzureq:
-    image: mistervvp/fauxzureq:dev
+    image: mistervvp/fauxzureq:codex-improve-tablewrite-performance-and-add-tests-pdz1sj
     command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0", "--http-log=false"]
     ports: ["10001:10001", "10002:10002"]
     sysctls:
