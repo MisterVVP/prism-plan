@@ -373,6 +373,32 @@ func (d *flakeyDeduper) Remove(ctx context.Context, userID, key string) error {
 	return nil
 }
 
+type batchDeduperStub struct {
+	t        *testing.T
+	results  []bool
+	err      error
+	removed  []string
+	lastKeys []string
+}
+
+func (b *batchDeduperStub) Add(ctx context.Context, userID, key string) (bool, error) {
+	b.t.Fatalf("unexpected Add call for key %s", key)
+	return false, nil
+}
+
+func (b *batchDeduperStub) Remove(ctx context.Context, userID, key string) error {
+	b.removed = append(b.removed, key)
+	return nil
+}
+
+func (b *batchDeduperStub) AddMany(ctx context.Context, userID string, keys []string) ([]bool, error) {
+	b.lastKeys = append([]string(nil), keys...)
+	if len(b.results) != len(keys) {
+		b.t.Fatalf("unexpected keys length: got %d, want %d", len(keys), len(b.results))
+	}
+	return append([]bool(nil), b.results...), b.err
+}
+
 func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
 	logger := log.New()
 	d := newFlakeyDeduper(1)
@@ -492,5 +518,92 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 
 	if len(store.cmds) != 3 {
 		t.Fatalf("expected 3 commands, got %d", len(store.cmds))
+	}
+}
+
+func TestPostCommandsUsesBatchDeduper(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+
+	logger := log.New()
+	deduper := &batchDeduperStub{t: t, results: []bool{true, false, true}}
+	e := echo.New()
+	store := &mockStore{}
+	handler := postCommands(store, mockAuth{}, deduper, logger)
+	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"idempotencyKey":"k2","entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
+	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := handler(c); err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202 got %d", rec.Code)
+	}
+	if len(deduper.lastKeys) != 3 {
+		t.Fatalf("expected 3 keys passed to AddMany, got %d", len(deduper.lastKeys))
+	}
+
+	var resp struct {
+		IdempotencyKeys []string `json:"idempotencyKeys"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if len(resp.IdempotencyKeys) != 3 {
+		t.Fatalf("expected 3 idempotency keys, got %d", len(resp.IdempotencyKeys))
+	}
+
+	deadline := time.Now().Add(50 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if len(store.cmds) == 2 {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if len(store.cmds) != 2 {
+		t.Fatalf("expected 2 commands enqueued, got %d", len(store.cmds))
+	}
+	if store.cmds[0].ID != deduper.lastKeys[0] {
+		t.Fatalf("unexpected command id %s", store.cmds[0].ID)
+	}
+	if store.cmds[1].ID != deduper.lastKeys[2] {
+		t.Fatalf("unexpected second command id %s", store.cmds[1].ID)
+	}
+	if len(deduper.removed) != 0 {
+		t.Fatalf("expected no removals, got %v", deduper.removed)
+	}
+}
+
+func TestPostCommandsBatchDeduperError(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+
+	logger := log.New()
+	deduper := &batchDeduperStub{t: t, results: []bool{true, false}, err: errors.New("batch failure")}
+	e := echo.New()
+	store := &mockStore{}
+	handler := postCommands(store, mockAuth{}, deduper, logger)
+	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"idempotencyKey":"k2","entityType":"task","type":"create-task"}]`
+	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := handler(c); err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 got %d", rec.Code)
+	}
+	if len(deduper.removed) != 1 || deduper.removed[0] != "k1" {
+		t.Fatalf("expected removal of k1, got %v", deduper.removed)
+	}
+	if len(store.cmds) != 0 {
+		t.Fatalf("expected no commands enqueued, got %d", len(store.cmds))
 	}
 }

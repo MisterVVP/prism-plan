@@ -99,6 +99,10 @@ func getSettings(store Storage, auth Authenticator) echo.HandlerFunc {
 	}
 }
 
+type batchDeduper interface {
+	AddMany(ctx context.Context, userID string, keys []string) ([]bool, error)
+}
+
 func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.Logger) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
@@ -139,21 +143,62 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 			}
 			cmds[i].ID = cmds[i].IdempotencyKey
 			keys[i] = cmds[i].IdempotencyKey
+		}
 
-			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
-			if err != nil {
-				for _, key := range added {
-					_ = deduper.Remove(ctx, userID, key)
+		var addedMask []bool
+		var addErr error
+		usedBatch := false
+		if batch, ok := deduper.(batchDeduper); ok && len(cmds) > 0 {
+			addedMask, addErr = batch.AddMany(ctx, userID, keys)
+			usedBatch = true
+		} else if len(cmds) > 0 {
+			addedMask = make([]bool, len(cmds))
+			for i := range cmds {
+				addedMask[i], addErr = deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
+				if addErr != nil {
+					break
 				}
-				_ = deduper.Remove(ctx, userID, cmds[i].IdempotencyKey)
-				return c.String(http.StatusInternalServerError, err.Error())
+				if addedMask[i] {
+					added = append(added, cmds[i].IdempotencyKey)
+					cmds[i].Timestamp = nextTimestamp()
+					filtered = append(filtered, cmds[i])
+				}
 			}
-			if !addedNow {
-				continue
+		}
+
+		if addErr != nil {
+			if len(addedMask) == 0 {
+				addedMask = make([]bool, len(keys))
 			}
-			added = append(added, cmds[i].IdempotencyKey)
-			cmds[i].Timestamp = nextTimestamp()
-			filtered = append(filtered, cmds[i])
+			for i, addedNow := range addedMask {
+				if !addedNow {
+					continue
+				}
+				if err := deduper.Remove(ctx, userID, keys[i]); err != nil {
+					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, keys[i])
+				}
+			}
+			return c.String(http.StatusInternalServerError, addErr.Error())
+		}
+
+		if len(addedMask) != len(cmds) {
+			for _, key := range keys {
+				if err := deduper.Remove(ctx, userID, key); err != nil {
+					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, key)
+				}
+			}
+			return c.String(http.StatusInternalServerError, "failed to reserve idempotency keys")
+		}
+
+		if usedBatch {
+			for i, addedNow := range addedMask {
+				if !addedNow {
+					continue
+				}
+				added = append(added, keys[i])
+				cmds[i].Timestamp = nextTimestamp()
+				filtered = append(filtered, cmds[i])
+			}
 		}
 
 		if len(filtered) == 0 {

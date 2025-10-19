@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -118,6 +119,20 @@ func decodeContinuationToken(token string) (*string, *string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
+	if len(data) >= 8 {
+		pkLen := int(binary.BigEndian.Uint32(data[0:4]))
+		rkLen := int(binary.BigEndian.Uint32(data[4:8]))
+		expected := 8 + pkLen + rkLen
+		if pkLen > 0 && rkLen > 0 && expected == len(data) {
+			pk := string(data[8 : 8+pkLen])
+			rk := string(data[8+pkLen : expected])
+			if pk != "" && rk != "" {
+				return &pk, &rk, nil
+			}
+		}
+	}
+
 	var ct continuationToken
 	if err := json.Unmarshal(data, &ct); err != nil {
 		return nil, nil, err
@@ -137,10 +152,15 @@ func encodeContinuationToken(partitionKey, rowKey *string) (string, error) {
 	if len(*partitionKey) == 0 || len(*rowKey) == 0 {
 		return "", nil
 	}
-	data, err := json.Marshal(continuationToken{PartitionKey: *partitionKey, RowKey: *rowKey})
-	if err != nil {
-		return "", err
-	}
+
+	pk := []byte(*partitionKey)
+	rk := []byte(*rowKey)
+	data := make([]byte, 8+len(pk)+len(rk))
+	binary.BigEndian.PutUint32(data[0:4], uint32(len(pk)))
+	binary.BigEndian.PutUint32(data[4:8], uint32(len(rk)))
+	copy(data[8:], pk)
+	copy(data[8+len(pk):], rk)
+
 	return base64.RawURLEncoding.EncodeToString(data), nil
 }
 

@@ -82,3 +82,24 @@ func TestDecodeContinuationTokenInvalid(t *testing.T) {
 		t.Fatal("expected error for missing components")
 	}
 }
+
+func TestDecodeContinuationTokenLegacyJSON(t *testing.T) {
+	pk := "legacy-pk"
+	rk := "legacy-rk"
+	legacy := continuationToken{PartitionKey: pk, RowKey: rk}
+	data, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatalf("marshal legacy token: %v", err)
+	}
+	token := base64.RawURLEncoding.EncodeToString(data)
+	dpk, drk, err := decodeContinuationToken(token)
+	if err != nil {
+		t.Fatalf("decode legacy token: %v", err)
+	}
+	if dpk == nil || *dpk != pk {
+		t.Fatalf("unexpected partition key: %v", dpk)
+	}
+	if drk == nil || *drk != rk {
+		t.Fatalf("unexpected row key: %v", drk)
+	}
+}
