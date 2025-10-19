@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -65,8 +66,40 @@ func (noopDeduper) Remove(context.Context, string, string) error { return nil }
 
 func resetCommandSenderForTests() {
 	shutdownCommandSender()
-	globalStore = noopStore{}
-	globalDeduper = noopDeduper{}
+}
+
+var outboxEnvKeys = []string{
+	"OUTBOX_DIR",
+	"OUTBOX_BUFFER",
+	"OUTBOX_WORKERS",
+	"OUTBOX_BATCH",
+	"OUTBOX_HANDOFF_TIMEOUT",
+	"OUTBOX_SYNC_EVERY",
+	"OUTBOX_SYNC_INTERVAL",
+	"OUTBOX_RETRY_INITIAL",
+	"OUTBOX_RETRY_MAX",
+	"OUTBOX_SEGMENT_MB",
+}
+
+func configureOutboxForTest(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	os.Setenv("OUTBOX_DIR", dir)
+	os.Setenv("OUTBOX_BUFFER", "16")
+	os.Setenv("OUTBOX_WORKERS", "2")
+	os.Setenv("OUTBOX_BATCH", "2")
+	os.Setenv("OUTBOX_HANDOFF_TIMEOUT", "5ms")
+	os.Setenv("OUTBOX_SYNC_EVERY", "1")
+	os.Setenv("OUTBOX_SYNC_INTERVAL", "0")
+	os.Setenv("OUTBOX_RETRY_INITIAL", "5ms")
+	os.Setenv("OUTBOX_RETRY_MAX", "50ms")
+	t.Cleanup(clearHandlerOutboxEnv)
+}
+
+func clearHandlerOutboxEnv() {
+	for _, key := range outboxEnvKeys {
+		os.Unsetenv(key)
+	}
 }
 
 func TestGetTasks(t *testing.T) {
@@ -207,6 +240,7 @@ func (b *blockingStore) waitForDone(t *testing.T, n int) {
 func TestPostCommandsIdempotency(t *testing.T) {
 	resetCommandSenderForTests()
 	t.Cleanup(resetCommandSenderForTests)
+	configureOutboxForTest(t)
 
 	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
@@ -277,6 +311,10 @@ func (e *errStore) EnqueueCommands(ctx context.Context, userID string, cmds []do
 }
 
 func TestPostCommandsRetryOnError(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+	configureOutboxForTest(t)
+
 	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
@@ -307,6 +345,10 @@ func TestPostCommandsRetryOnError(t *testing.T) {
 }
 
 func TestPostCommandsReturnKeysForAll(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+	configureOutboxForTest(t)
+
 	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
@@ -435,6 +477,10 @@ func (e *batchRollbackError) RollbackIndexes() []int {
 }
 
 func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+	configureOutboxForTest(t)
+
 	logger := log.New()
 	d := newFlakeyDeduper(1)
 	e := echo.New()
@@ -474,14 +520,15 @@ func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
 	}
 }
 
-func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
+func TestPostCommandsBackpressureWhenQueueFull(t *testing.T) {
 	resetCommandSenderForTests()
 	t.Cleanup(resetCommandSenderForTests)
+	configureOutboxForTest(t)
 
-	t.Setenv("ENQUEUE_BUFFER", "1")
-	t.Setenv("ENQUEUE_WORKERS", "1")
-	t.Setenv("ENQUEUE_TIMEOUT", "1s")
-	t.Setenv("ENQUEUE_HANDOFF_TIMEOUT", "0s")
+	os.Setenv("OUTBOX_BUFFER", "1")
+	os.Setenv("OUTBOX_WORKERS", "1")
+	os.Setenv("OUTBOX_BATCH", "1")
+	os.Setenv("OUTBOX_HANDOFF_TIMEOUT", "5ms")
 
 	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
@@ -520,46 +567,26 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 	req3.Header.Set(echo.HeaderAuthorization, "Bearer token")
 	req3.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec3 := httptest.NewRecorder()
-	done := make(chan error, 1)
-	go func() {
-		done <- handler(e.NewContext(req3, rec3))
-	}()
-
-	store.waitForCalls(t, 1) // inline fallback attempted
+	if err := handler(e.NewContext(req3, rec3)); err != nil {
+		t.Fatalf("third post: %v", err)
+	}
+	if rec3.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected status 429 got %d", rec3.Code)
+	}
+	if rec3.Header().Get(echo.HeaderRetryAfter) == "" {
+		t.Fatalf("expected Retry-After header to be set")
+	}
 
 	store.unblock <- struct{}{}
 	store.waitForDone(t, 1)
-
-	store.waitForCalls(t, 1) // worker picked queued job
-
-	store.unblock <- struct{}{}
-
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("third post: %v", err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timeout waiting for third post completion")
-	}
-
-	if rec3.Code != http.StatusAccepted {
-		t.Fatalf("expected status 202 got %d", rec3.Code)
-	}
-
-	store.waitForDone(t, 1)
-
 	store.unblock <- struct{}{}
 	store.waitForDone(t, 1)
-
-	if len(store.cmds) != 3 {
-		t.Fatalf("expected 3 commands, got %d", len(store.cmds))
-	}
 }
 
 func TestPostCommandsUsesBatchDeduper(t *testing.T) {
 	resetCommandSenderForTests()
 	t.Cleanup(resetCommandSenderForTests)
+	configureOutboxForTest(t)
 
 	logger := log.New()
 	deduper := &batchDeduperStub{t: t, results: []bool{true, false, true}}

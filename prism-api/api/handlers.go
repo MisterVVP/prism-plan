@@ -21,6 +21,7 @@ func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, 
 	e.GET("/api/tasks", getTasks(store, auth, log))
 	e.GET("/api/settings", getSettings(store, auth))
 	e.POST("/api/commands", postCommands(store, auth, deduper, log))
+	e.GET("/api/health/outbox", getOutboxHealth(log))
 }
 
 type tasksResponse struct {
@@ -232,32 +233,52 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 			added = append(added, keys[idx])
 		}
 
-		job := enqueueJob{
-			userID: userID,
-			cmds:   filtered,
-			added:  added,
-		}
+		job := enqueueJob{userID: userID, cmds: filtered, added: added}
 
-		if tryEnqueueJob(job) {
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
-		}
-
-		globalLog.Warn("enqueue buffer saturated; processing inline")
-
-		enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
-		enqueueErr := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
-		cancel()
-
-		if enqueueErr != nil {
+		if err := enqueueCommands(job); err != nil {
 			for _, k := range added {
 				if rerr := deduper.Remove(ctx, userID, k); rerr != nil {
 					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, k)
 				}
 			}
-			c.Logger().Errorf("enqueue inline failed: %v", enqueueErr)
+			if errors.Is(err, errOutboxSaturated) {
+				c.Response().Header().Set(echo.HeaderRetryAfter, "0.1")
+				return c.String(http.StatusTooManyRequests, "command pipeline is saturated")
+			}
+			c.Logger().Errorf("command outbox enqueue failed: %v", err)
 			return c.String(http.StatusInternalServerError, "failed to enqueue commands")
 		}
 
 		return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+	}
+}
+
+type outboxHealthResponse struct {
+	QueueDepth         int       `json:"queueDepth"`
+	Buffered           int       `json:"buffered"`
+	OldestAgeMillis    int64     `json:"oldestAgeMillis"`
+	Delivered          uint64    `json:"delivered"`
+	DrainRatePerSecond float64   `json:"drainRatePerSecond"`
+	StartedAt          time.Time `json:"startedAt"`
+}
+
+func getOutboxHealth(logger *log.Logger) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		stats, err := getOutboxStats()
+		if err != nil {
+			if logger != nil {
+				logger.WithError(err).Warn("outbox stats unavailable")
+			}
+			return c.String(http.StatusServiceUnavailable, err.Error())
+		}
+		resp := outboxHealthResponse{
+			QueueDepth:         stats.QueueDepth,
+			Buffered:           stats.Buffered,
+			OldestAgeMillis:    stats.OldestAge.Milliseconds(),
+			Delivered:          stats.Delivered,
+			DrainRatePerSecond: stats.DrainRate,
+			StartedAt:          stats.StartedAt,
+		}
+		return c.JSON(http.StatusOK, resp)
 	}
 }
