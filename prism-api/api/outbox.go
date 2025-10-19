@@ -230,7 +230,14 @@ func (o *commandOutbox) enqueue(job enqueueJob) error {
 		return err
 	}
 
+	o.mu.Lock()
+	o.inflight[rec.Offset] = rec
+	o.mu.Unlock()
+
 	if err := o.dispatchLocked(rec); err != nil {
+		o.mu.Lock()
+		delete(o.inflight, rec.Offset)
+		o.mu.Unlock()
 		if rbErr := o.wal.rollbackRecordLocked(rec); rbErr != nil {
 			o.logger.WithError(rbErr).Error("wal rollback failed")
 		}
@@ -241,10 +248,6 @@ func (o *commandOutbox) enqueue(job enqueueJob) error {
 		return err
 	}
 	o.wal.mu.Unlock()
-
-	o.mu.Lock()
-	o.inflight[rec.Offset] = rec
-	o.mu.Unlock()
 
 	return nil
 }
