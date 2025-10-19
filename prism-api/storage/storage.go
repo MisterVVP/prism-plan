@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -19,16 +20,41 @@ import (
 	"prism-api/domain"
 )
 
+type queueClient interface {
+	EnqueueMessage(ctx context.Context, content string, o *azqueue.EnqueueMessageOptions) (azqueue.EnqueueMessagesResponse, error)
+	GetProperties(ctx context.Context, o *azqueue.GetQueuePropertiesOptions) (azqueue.GetQueuePropertiesResponse, error)
+}
+
 type Storage struct {
 	taskTable              *aztables.Client
 	settingsTable          *aztables.Client
-	commandQueue           *azqueue.QueueClient
+	commandQueue           queueClient
 	taskPageSize           int32
 	tasksSelectClause      string
 	tasksSelectMetadataFmt aztables.MetadataFormat
+	queueConcurrency       int
 }
 
-func New(connStr, tasksTable, settingsTable, commandQueue string, taskPageSize int) (*Storage, error) {
+// Option configures optional storage behaviors.
+type Option func(*Storage)
+
+// WithQueueConcurrency limits the number of concurrent queue requests issued when enqueuing commands.
+func WithQueueConcurrency(n int) Option {
+	return func(s *Storage) {
+		if n > 0 {
+			s.queueConcurrency = n
+		}
+	}
+}
+
+const defaultQueueConcurrency = 8
+
+// DefaultQueueConcurrency returns the default number of concurrent queue requests used when enqueuing commands.
+func DefaultQueueConcurrency() int {
+	return defaultQueueConcurrency
+}
+
+func New(connStr, tasksTable, settingsTable, commandQueue string, taskPageSize int, opts ...Option) (*Storage, error) {
 	tablesClientOptions := aztables.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Retry: policy.RetryOptions{
@@ -64,14 +90,27 @@ func New(connStr, tasksTable, settingsTable, commandQueue string, taskPageSize i
 	if taskPageSize <= 0 {
 		return nil, fmt.Errorf("invalid task page size: %d", taskPageSize)
 	}
-	return &Storage{
+	store := &Storage{
 		taskTable:              tt,
 		settingsTable:          st,
 		commandQueue:           cq,
 		taskPageSize:           int32(taskPageSize),
 		tasksSelectClause:      "RowKey,Title,Notes,Category,Order,Done",
 		tasksSelectMetadataFmt: aztables.MetadataFormatNone,
-	}, nil
+		queueConcurrency:       defaultQueueConcurrency,
+	}
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt(store)
+		}
+	}
+
+	if store.queueConcurrency <= 0 {
+		store.queueConcurrency = defaultQueueConcurrency
+	}
+
+	return store, nil
 }
 
 type taskEntity struct {
@@ -243,15 +282,84 @@ func (s *Storage) Warmup(ctx context.Context) error {
 }
 
 func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error {
-	for _, cmd := range cmds {
+	if len(cmds) == 0 {
+		return nil
+	}
+
+	payloads := make([]string, len(cmds))
+	for i, cmd := range cmds {
 		env := domain.CommandEnvelope{UserID: userID, Command: cmd}
 		data, err := json.Marshal(env)
 		if err != nil {
 			return err
 		}
-		if _, err := s.commandQueue.EnqueueMessage(ctx, string(data), nil); err != nil {
-			return err
+		payloads[i] = string(data)
+	}
+
+	workers := s.queueConcurrency
+	if workers <= 1 {
+		for _, payload := range payloads {
+			if _, err := s.commandQueue.EnqueueMessage(ctx, payload, nil); err != nil {
+				return err
+			}
 		}
+		return nil
+	}
+	if workers > len(payloads) {
+		workers = len(payloads)
+	}
+
+	parentCtx := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	jobs := make(chan string, workers)
+	var wg sync.WaitGroup
+	var firstErr error
+	var once sync.Once
+
+	worker := func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case payload, ok := <-jobs:
+				if !ok {
+					return
+				}
+				if _, err := s.commandQueue.EnqueueMessage(ctx, payload, nil); err != nil {
+					once.Do(func() {
+						firstErr = err
+						cancel()
+					})
+					return
+				}
+			}
+		}
+	}
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go worker()
+	}
+
+loop:
+	for _, payload := range payloads {
+		select {
+		case <-ctx.Done():
+			break loop
+		case jobs <- payload:
+		}
+	}
+	close(jobs)
+	wg.Wait()
+
+	if firstErr != nil {
+		return firstErr
+	}
+	if err := parentCtx.Err(); err != nil {
+		return err
 	}
 	return nil
 }

@@ -53,7 +53,26 @@ func main() {
 		}
 		taskPageSize = n
 	}
-	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName, taskPageSize)
+	queueConcurrency := storage.DefaultQueueConcurrency()
+	if v := os.Getenv("COMMAND_QUEUE_CONCURRENCY"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			log.Fatalf("invalid COMMAND_QUEUE_CONCURRENCY: %v", err)
+		}
+		if n <= 0 {
+			log.Fatalf("invalid COMMAND_QUEUE_CONCURRENCY: must be greater than zero")
+		}
+		queueConcurrency = n
+	}
+
+	store, err := storage.New(
+		connStr,
+		tasksTableName,
+		settingsTableName,
+		commandQueueName,
+		taskPageSize,
+		storage.WithQueueConcurrency(queueConcurrency),
+	)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}
