@@ -15,6 +15,34 @@ type RedisDeduper struct {
 	ttl    time.Duration
 }
 
+type addManyError struct {
+	err          error
+	rollbackIdxs []int
+}
+
+func (e *addManyError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e *addManyError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *addManyError) RollbackIndexes() []int {
+	if e == nil {
+		return nil
+	}
+	idxs := make([]int, len(e.rollbackIdxs))
+	copy(idxs, e.rollbackIdxs)
+	return idxs
+}
+
 // NewRedisDeduper creates a deduper using the provided Redis client and TTL.
 func NewRedisDeduper(client *redis.Client, ttl time.Duration) *RedisDeduper {
 	return &RedisDeduper{client: client, ttl: ttl}
@@ -53,7 +81,30 @@ func (r *RedisDeduper) AddMany(ctx context.Context, userID string, keys []string
 		return nil
 	})
 	if err != nil {
-		return results, err
+		rollbackIdxs := make([]int, 0, len(keys))
+		if len(cmds) != len(keys) {
+			for i := range keys {
+				rollbackIdxs = append(rollbackIdxs, i)
+			}
+			return results, &addManyError{err: err, rollbackIdxs: rollbackIdxs}
+		}
+		for i, cmd := range cmds {
+			boolCmd, ok := cmd.(*redis.BoolCmd)
+			if !ok {
+				rollbackIdxs = append(rollbackIdxs, i)
+				continue
+			}
+			val, cmdErr := boolCmd.Result()
+			if cmdErr != nil {
+				rollbackIdxs = append(rollbackIdxs, i)
+				continue
+			}
+			results[i] = val
+			if val {
+				rollbackIdxs = append(rollbackIdxs, i)
+			}
+		}
+		return results, &addManyError{err: err, rollbackIdxs: rollbackIdxs}
 	}
 	if len(cmds) != len(keys) {
 		return results, fmt.Errorf("deduper pipeline mismatch: expected %d results, got %d", len(keys), len(cmds))

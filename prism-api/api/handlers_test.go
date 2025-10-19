@@ -377,6 +377,7 @@ type batchDeduperStub struct {
 	t        *testing.T
 	results  []bool
 	err      error
+	rollback []int
 	removed  []string
 	lastKeys []string
 }
@@ -396,7 +397,41 @@ func (b *batchDeduperStub) AddMany(ctx context.Context, userID string, keys []st
 	if len(b.results) != len(keys) {
 		b.t.Fatalf("unexpected keys length: got %d, want %d", len(keys), len(b.results))
 	}
-	return append([]bool(nil), b.results...), b.err
+	if b.err == nil {
+		return append([]bool(nil), b.results...), nil
+	}
+	if len(b.rollback) == 0 {
+		return append([]bool(nil), b.results...), b.err
+	}
+	return append([]bool(nil), b.results...), &batchRollbackError{err: b.err, idx: append([]int(nil), b.rollback...)}
+}
+
+type batchRollbackError struct {
+	err error
+	idx []int
+}
+
+func (e *batchRollbackError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e *batchRollbackError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func (e *batchRollbackError) RollbackIndexes() []int {
+	if e == nil {
+		return nil
+	}
+	out := make([]int, len(e.idx))
+	copy(out, e.idx)
+	return out
 }
 
 func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
@@ -584,7 +619,7 @@ func TestPostCommandsBatchDeduperError(t *testing.T) {
 	t.Cleanup(resetCommandSenderForTests)
 
 	logger := log.New()
-	deduper := &batchDeduperStub{t: t, results: []bool{true, false}, err: errors.New("batch failure")}
+	deduper := &batchDeduperStub{t: t, results: []bool{true, false}, err: errors.New("batch failure"), rollback: []int{1}}
 	e := echo.New()
 	store := &mockStore{}
 	handler := postCommands(store, mockAuth{}, deduper, logger)
@@ -601,8 +636,46 @@ func TestPostCommandsBatchDeduperError(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("expected status 500 got %d", rec.Code)
 	}
-	if len(deduper.removed) != 1 || deduper.removed[0] != "k1" {
-		t.Fatalf("expected removal of k1, got %v", deduper.removed)
+	if len(deduper.removed) != 2 {
+		t.Fatalf("expected removal of both keys, got %v", deduper.removed)
+	}
+	removed := map[string]int{}
+	for _, key := range deduper.removed {
+		removed[key]++
+	}
+	if removed["k1"] != 1 || removed["k2"] != 1 {
+		t.Fatalf("expected single removal of k1 and k2, got %v", deduper.removed)
+	}
+	if len(store.cmds) != 0 {
+		t.Fatalf("expected no commands enqueued, got %d", len(store.cmds))
+	}
+}
+
+func TestPostCommandsBatchDeduperErrorRemovesFailedKey(t *testing.T) {
+	resetCommandSenderForTests()
+	t.Cleanup(resetCommandSenderForTests)
+
+	logger := log.New()
+	deduper := &batchDeduperStub{t: t, results: []bool{false, false}, err: errors.New("batch failure"), rollback: []int{1}}
+	e := echo.New()
+	store := &mockStore{}
+	handler := postCommands(store, mockAuth{}, deduper, logger)
+	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"idempotencyKey":"k2","entityType":"task","type":"create-task"}]`
+	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := handler(c); err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 got %d", rec.Code)
+	}
+	t.Logf("removed keys: %v", deduper.removed)
+	if len(deduper.removed) != 1 || deduper.removed[0] != "k2" {
+		t.Fatalf("expected removal of only k2, got %v", deduper.removed)
 	}
 	if len(store.cmds) != 0 {
 		t.Fatalf("expected no commands enqueued, got %d", len(store.cmds))

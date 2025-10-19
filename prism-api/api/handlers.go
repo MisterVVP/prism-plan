@@ -147,6 +147,7 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 
 		var addedMask []bool
 		var addErr error
+		failedIndex := -1
 		usedBatch := false
 		if batch, ok := deduper.(batchDeduper); ok && len(cmds) > 0 {
 			addedMask, addErr = batch.AddMany(ctx, userID, keys)
@@ -156,6 +157,7 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 			for i := range cmds {
 				addedMask[i], addErr = deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
 				if addErr != nil {
+					failedIndex = i
 					break
 				}
 				if addedMask[i] {
@@ -170,12 +172,36 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 			if len(addedMask) == 0 {
 				addedMask = make([]bool, len(keys))
 			}
+			rollback := make(map[string]struct{}, len(keys))
 			for i, addedNow := range addedMask {
-				if !addedNow {
-					continue
+				if addedNow {
+					rollback[keys[i]] = struct{}{}
 				}
-				if err := deduper.Remove(ctx, userID, keys[i]); err != nil {
-					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, keys[i])
+			}
+			if !usedBatch && failedIndex >= 0 && failedIndex < len(keys) {
+				rollback[keys[failedIndex]] = struct{}{}
+			}
+			if usedBatch {
+				var idxErr interface{ RollbackIndexes() []int }
+				if errors.As(addErr, &idxErr) {
+					for _, idx := range idxErr.RollbackIndexes() {
+						if idx >= 0 && idx < len(keys) {
+							rollback[keys[idx]] = struct{}{}
+						}
+					}
+				} else if len(rollback) == 0 {
+					for _, key := range keys {
+						rollback[key] = struct{}{}
+					}
+				}
+			} else if failedIndex == -1 && len(rollback) == 0 {
+				for _, key := range keys {
+					rollback[key] = struct{}{}
+				}
+			}
+			for key := range rollback {
+				if err := deduper.Remove(ctx, userID, key); err != nil {
+					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, key)
 				}
 			}
 			return c.String(http.StatusInternalServerError, addErr.Error())
