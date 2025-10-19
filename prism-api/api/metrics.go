@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"net/http"
+	"runtime"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -32,6 +34,35 @@ type taskRequestMetrics struct {
 	hasNextPage       bool
 	errorStage        string
 }
+
+type taskLogRecord struct {
+	status            int
+	total             time.Duration
+	auth              time.Duration
+	fetch             time.Duration
+	encode            time.Duration
+	requestStartNS    int64
+	tasksReturned     int
+	pageTokenProvided bool
+	hasNextPage       bool
+	errorStage        string
+	errorMessage      string
+}
+
+type taskLogEvent struct {
+	logger         *log.Logger
+	record         taskLogRecord
+	eventTime      time.Time
+	severityText   string
+	severityNumber int
+	traceID        string
+	spanID         string
+}
+
+var (
+	taskLogQueueOnce sync.Once
+	taskLogQueue     chan taskLogEvent
+)
 
 func newTaskRequestMetrics(ctx context.Context, logger *log.Logger) (*taskRequestMetrics, context.Context) {
 	if ctx == nil {
@@ -101,31 +132,20 @@ func (m *taskRequestMetrics) Log(status int, err error) {
 		return
 	}
 
-	totalMillis := durationToMillis(time.Since(m.start))
-	attributes := map[string]any{
-		"http.route":                      "/api/tasks",
-		"http.status_code":                status,
-		"prism.tasks.total_ms":            totalMillis,
-		"prism.tasks.page_token_provided": m.pageTokenProvided,
-		"prism.tasks.tasks_returned":      m.tasksReturned,
-		"prism.tasks.has_next_page":       m.hasNextPage,
-		"prism.tasks.request_start_ns":    m.start.UnixNano(),
-	}
-
-	if m.authDuration > 0 {
-		attributes["prism.tasks.auth_ms"] = durationToMillis(m.authDuration)
-	}
-	if m.fetchDuration > 0 {
-		attributes["prism.tasks.fetch_ms"] = durationToMillis(m.fetchDuration)
-	}
-	if m.encodeDuration > 0 {
-		attributes["prism.tasks.encode_ms"] = durationToMillis(m.encodeDuration)
-	}
-	if m.errorStage != "" {
-		attributes["prism.tasks.error_stage"] = m.errorStage
+	record := taskLogRecord{
+		status:            status,
+		total:             time.Since(m.start),
+		auth:              m.authDuration,
+		fetch:             m.fetchDuration,
+		encode:            m.encodeDuration,
+		requestStartNS:    m.start.UnixNano(),
+		tasksReturned:     m.tasksReturned,
+		pageTokenProvided: m.pageTokenProvided,
+		hasNextPage:       m.hasNextPage,
+		errorStage:        m.errorStage,
 	}
 	if err != nil {
-		attributes["error.message"] = err.Error()
+		record.errorMessage = err.Error()
 	}
 
 	eventTime := time.Now()
@@ -133,7 +153,7 @@ func (m *taskRequestMetrics) Log(status int, err error) {
 
 	if m.span != nil {
 		spanContext := m.span.SpanContext()
-		kv := attributesToKeyValues(attributes)
+		kv := record.keyValues()
 		eventKV := append(kv,
 			attribute.String("event.name", tasksEventName),
 			attribute.String("event.domain", tasksEventDomain),
@@ -167,25 +187,24 @@ func (m *taskRequestMetrics) Log(status int, err error) {
 		return
 	}
 
-	fields := log.Fields{
-		"time_unix_nano":          eventTime.UnixNano(),
-		"observed_time_unix_nano": eventTime.UnixNano(),
-		"severity_text":           severityText,
-		"severity_number":         severityNumber,
-		"body":                    tasksEventBody,
-		"event.name":              tasksEventName,
-		"event.domain":            tasksEventDomain,
-		"attributes":              attributes,
+	event := taskLogEvent{
+		logger:         m.logger,
+		record:         record,
+		eventTime:      eventTime,
+		severityText:   severityText,
+		severityNumber: severityNumber,
 	}
 
 	if m.spanContext.HasTraceID() {
-		fields["trace_id"] = m.spanContext.TraceID().String()
+		event.traceID = m.spanContext.TraceID().String()
 	}
 	if m.spanContext.HasSpanID() {
-		fields["span_id"] = m.spanContext.SpanID().String()
+		event.spanID = m.spanContext.SpanID().String()
 	}
 
-	m.logger.WithFields(fields).Info("observability.event")
+	if !enqueueTaskLogEvent(event) {
+		event.log()
+	}
 }
 
 func durationToMillis(d time.Duration) float64 {
@@ -210,33 +229,123 @@ func severityForStatus(status int, err error) (string, int) {
 	}
 }
 
-func attributesToKeyValues(attrs map[string]any) []attribute.KeyValue {
-	if len(attrs) == 0 {
-		return nil
+func (r *taskLogRecord) keyValues() []attribute.KeyValue {
+	kv := []attribute.KeyValue{
+		attribute.String("http.route", "/api/tasks"),
+		attribute.Int("http.status_code", r.status),
+		attribute.Float64("prism.tasks.total_ms", durationToMillis(r.total)),
+		attribute.Bool("prism.tasks.page_token_provided", r.pageTokenProvided),
+		attribute.Int("prism.tasks.tasks_returned", r.tasksReturned),
+		attribute.Bool("prism.tasks.has_next_page", r.hasNextPage),
+		attribute.Int64("prism.tasks.request_start_ns", r.requestStartNS),
 	}
 
-	out := make([]attribute.KeyValue, 0, len(attrs))
-	for key, val := range attrs {
-		switch v := val.(type) {
-		case string:
-			out = append(out, attribute.String(key, v))
-		case bool:
-			out = append(out, attribute.Bool(key, v))
-		case int:
-			out = append(out, attribute.Int(key, v))
-		case int64:
-			out = append(out, attribute.Int64(key, v))
-		case uint:
-			out = append(out, attribute.Int(key, int(v)))
-		case uint64:
-			out = append(out, attribute.Int64(key, int64(v)))
-		case float64:
-			out = append(out, attribute.Float64(key, v))
-		case float32:
-			out = append(out, attribute.Float64(key, float64(v)))
-		default:
-			// skip unsupported types to avoid panics when exporting spans
-		}
+	if r.auth > 0 {
+		kv = append(kv, attribute.Float64("prism.tasks.auth_ms", durationToMillis(r.auth)))
 	}
-	return out
+	if r.fetch > 0 {
+		kv = append(kv, attribute.Float64("prism.tasks.fetch_ms", durationToMillis(r.fetch)))
+	}
+	if r.encode > 0 {
+		kv = append(kv, attribute.Float64("prism.tasks.encode_ms", durationToMillis(r.encode)))
+	}
+	if r.errorStage != "" {
+		kv = append(kv, attribute.String("prism.tasks.error_stage", r.errorStage))
+	}
+	if r.errorMessage != "" {
+		kv = append(kv, attribute.String("error.message", r.errorMessage))
+	}
+	return kv
+}
+
+func (r *taskLogRecord) attributesMap() map[string]any {
+	attrs := map[string]any{
+		"http.route":                      "/api/tasks",
+		"http.status_code":                r.status,
+		"prism.tasks.total_ms":            durationToMillis(r.total),
+		"prism.tasks.page_token_provided": r.pageTokenProvided,
+		"prism.tasks.tasks_returned":      r.tasksReturned,
+		"prism.tasks.has_next_page":       r.hasNextPage,
+		"prism.tasks.request_start_ns":    r.requestStartNS,
+	}
+	if r.auth > 0 {
+		attrs["prism.tasks.auth_ms"] = durationToMillis(r.auth)
+	}
+	if r.fetch > 0 {
+		attrs["prism.tasks.fetch_ms"] = durationToMillis(r.fetch)
+	}
+	if r.encode > 0 {
+		attrs["prism.tasks.encode_ms"] = durationToMillis(r.encode)
+	}
+	if r.errorStage != "" {
+		attrs["prism.tasks.error_stage"] = r.errorStage
+	}
+	if r.errorMessage != "" {
+		attrs["error.message"] = r.errorMessage
+	}
+	return attrs
+}
+
+func (e *taskLogEvent) log() {
+	if e.logger == nil {
+		return
+	}
+	e.logger.WithFields(e.fields()).Info("observability.event")
+}
+
+func (e *taskLogEvent) fields() log.Fields {
+	fields := log.Fields{
+		"time_unix_nano":          e.eventTime.UnixNano(),
+		"observed_time_unix_nano": e.eventTime.UnixNano(),
+		"severity_text":           e.severityText,
+		"severity_number":         e.severityNumber,
+		"body":                    tasksEventBody,
+		"event.name":              tasksEventName,
+		"event.domain":            tasksEventDomain,
+		"attributes":              e.record.attributesMap(),
+	}
+
+	if e.traceID != "" {
+		fields["trace_id"] = e.traceID
+	}
+	if e.spanID != "" {
+		fields["span_id"] = e.spanID
+	}
+
+	return fields
+}
+
+func enqueueTaskLogEvent(event taskLogEvent) bool {
+	if event.logger == nil {
+		return true
+	}
+
+	taskLogQueueOnce.Do(initTaskLogQueue)
+
+	select {
+	case taskLogQueue <- event:
+		return true
+	default:
+		return false
+	}
+}
+
+func initTaskLogQueue() {
+	workers := envInt("TASK_METRICS_LOG_WORKERS", runtime.NumCPU())
+	if workers < 1 {
+		workers = 1
+	}
+	buffer := envInt("TASK_METRICS_LOG_QUEUE", workers*1024)
+	if buffer < 1 {
+		buffer = workers * 1024
+	}
+
+	taskLogQueue = make(chan taskLogEvent, buffer)
+	for i := 0; i < workers; i++ {
+		go func() {
+			for event := range taskLogQueue {
+				event.log()
+			}
+		}()
+	}
 }
