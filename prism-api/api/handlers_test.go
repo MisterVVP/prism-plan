@@ -446,6 +446,7 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 	t.Setenv("ENQUEUE_BUFFER", "1")
 	t.Setenv("ENQUEUE_WORKERS", "1")
 	t.Setenv("ENQUEUE_TIMEOUT", "1s")
+	t.Setenv("ENQUEUE_HANDOFF_TIMEOUT", "0s")
 
 	logger := log.New()
 	deduper, cleanup := setupDeduper(t)

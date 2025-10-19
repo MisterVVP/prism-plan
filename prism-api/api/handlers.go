@@ -211,27 +211,26 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 			added:  append([]string(nil), added...),
 		}
 
-		select {
-		case jobs <- job:
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
-		default:
-			globalLog.Warn("enqueue buffer full; processing inline")
-
-			enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
-			err := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
-			cancel()
-
-			if err != nil {
-				for _, k := range added {
-					if rerr := deduper.Remove(ctx, userID, k); rerr != nil {
-						c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, k)
-					}
-				}
-				c.Logger().Errorf("enqueue inline failed: %v", err)
-				return c.String(http.StatusInternalServerError, "failed to enqueue commands")
-			}
-
+		if tryEnqueueJob(job) {
 			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		}
+
+		globalLog.Warn("enqueue buffer saturated; processing inline")
+
+		enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
+		enqueueErr := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
+		cancel()
+
+		if enqueueErr != nil {
+			for _, k := range added {
+				if rerr := deduper.Remove(ctx, userID, k); rerr != nil {
+					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, k)
+				}
+			}
+			c.Logger().Errorf("enqueue inline failed: %v", enqueueErr)
+			return c.String(http.StatusInternalServerError, "failed to enqueue commands")
+		}
+
+		return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 	}
 }
