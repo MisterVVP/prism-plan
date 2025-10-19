@@ -134,8 +134,9 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 		}
 
 		keys := make([]string, len(cmds))
-		filtered := make([]domain.Command, 0, len(cmds))
+		filtered := cmds[:0]
 		added := make([]string, 0, len(cmds))
+		addedIdxs := make([]int, 0, len(cmds))
 
 		for i := range cmds {
 			if cmds[i].IdempotencyKey == "" {
@@ -152,30 +153,30 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 		if batch, ok := deduper.(batchDeduper); ok && len(cmds) > 0 {
 			addedMask, addErr = batch.AddMany(ctx, userID, keys)
 			usedBatch = true
+			for i, addedNow := range addedMask {
+				if addedNow {
+					addedIdxs = append(addedIdxs, i)
+				}
+			}
 		} else if len(cmds) > 0 {
-			addedMask = make([]bool, len(cmds))
 			for i := range cmds {
-				addedMask[i], addErr = deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
+				var addedNow bool
+				addedNow, addErr = deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
 				if addErr != nil {
 					failedIndex = i
 					break
 				}
-				if addedMask[i] {
-					added = append(added, cmds[i].IdempotencyKey)
-					cmds[i].Timestamp = nextTimestamp()
-					filtered = append(filtered, cmds[i])
+				if addedNow {
+					addedIdxs = append(addedIdxs, i)
 				}
 			}
 		}
 
 		if addErr != nil {
-			if len(addedMask) == 0 {
-				addedMask = make([]bool, len(keys))
-			}
 			rollback := make(map[string]struct{}, len(keys))
-			for i, addedNow := range addedMask {
-				if addedNow {
-					rollback[keys[i]] = struct{}{}
+			for _, idx := range addedIdxs {
+				if idx >= 0 && idx < len(keys) {
+					rollback[keys[idx]] = struct{}{}
 				}
 			}
 			if !usedBatch && failedIndex >= 0 && failedIndex < len(keys) {
@@ -189,12 +190,12 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 							rollback[keys[idx]] = struct{}{}
 						}
 					}
-				} else if len(rollback) == 0 {
+				} else if len(rollback) == 0 || len(addedMask) != len(cmds) {
 					for _, key := range keys {
 						rollback[key] = struct{}{}
 					}
 				}
-			} else if failedIndex == -1 && len(rollback) == 0 {
+			} else if len(rollback) == 0 {
 				for _, key := range keys {
 					rollback[key] = struct{}{}
 				}
@@ -207,7 +208,7 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 			return c.String(http.StatusInternalServerError, addErr.Error())
 		}
 
-		if len(addedMask) != len(cmds) {
+		if usedBatch && len(addedMask) != len(cmds) {
 			for _, key := range keys {
 				if err := deduper.Remove(ctx, userID, key); err != nil {
 					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, key)
@@ -216,25 +217,25 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 			return c.String(http.StatusInternalServerError, "failed to reserve idempotency keys")
 		}
 
-		if usedBatch {
-			for i, addedNow := range addedMask {
-				if !addedNow {
-					continue
-				}
-				added = append(added, keys[i])
-				cmds[i].Timestamp = nextTimestamp()
-				filtered = append(filtered, cmds[i])
-			}
+		if len(addedIdxs) == 0 {
+			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		}
 
-		if len(filtered) == 0 {
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+		filtered = filtered[:0]
+		added = added[:0]
+		for _, idx := range addedIdxs {
+			if idx < 0 || idx >= len(cmds) {
+				continue
+			}
+			cmds[idx].Timestamp = nextTimestamp()
+			filtered = append(filtered, cmds[idx])
+			added = append(added, keys[idx])
 		}
 
 		job := enqueueJob{
 			userID: userID,
-			cmds:   append([]domain.Command(nil), filtered...),
-			added:  append([]string(nil), added...),
+			cmds:   filtered,
+			added:  added,
 		}
 
 		if tryEnqueueJob(job) {

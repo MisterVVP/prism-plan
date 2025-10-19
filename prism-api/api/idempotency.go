@@ -49,7 +49,7 @@ func NewRedisDeduper(client *redis.Client, ttl time.Duration) *RedisDeduper {
 }
 
 func (r *RedisDeduper) key(userID, key string) string {
-	return fmt.Sprintf("%s:%s", userID, key)
+	return userID + ":" + key
 }
 
 // Add records the key if it does not already exist. It returns true when the
@@ -74,9 +74,10 @@ func (r *RedisDeduper) AddMany(ctx context.Context, userID string, keys []string
 	}
 
 	results := make([]bool, len(keys))
+	prefix := userID + ":"
 	cmds, err := r.client.Pipelined(ctx, func(pipe redis.Pipeliner) error {
 		for _, key := range keys {
-			pipe.SetNX(ctx, r.key(userID, key), 1, r.ttl)
+			pipe.SetNX(ctx, prefix+key, 1, r.ttl)
 		}
 		return nil
 	})
