@@ -38,10 +38,7 @@ func TestTaskRequestMetricsLogProducesObservabilityEvent(t *testing.T) {
 		t.Fatalf("force flush spans: %v", err)
 	}
 
-	entry := hook.LastEntry()
-	if entry == nil {
-		t.Fatal("expected log entry")
-	}
+	entry := waitForLogEntry(t, hook, time.Second)
 	if entry.Message != "observability.event" {
 		t.Fatalf("unexpected message: %s", entry.Message)
 	}
@@ -240,4 +237,19 @@ func attributesToMap(attrs []attribute.KeyValue) map[string]any {
 		out[string(kv.Key)] = kv.Value.AsInterface()
 	}
 	return out
+}
+
+func waitForLogEntry(t *testing.T, hook *test.Hook, timeout time.Duration) *log.Entry {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for {
+		if entry := hook.LastEntry(); entry != nil {
+			return entry
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("expected log entry within %v", timeout)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
