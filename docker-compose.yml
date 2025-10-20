@@ -51,8 +51,8 @@ services:
     environment:
       <<: *prism-api-env
       PORT: "${PRISM_API_PORT1}"
-    expose:
-      - "${PRISM_API_PORT1}"
+    ports:
+      - "${PRISM_API_PORT1}:${PRISM_API_PORT1}"
     restart: unless-stopped
 
   prism-api-2:

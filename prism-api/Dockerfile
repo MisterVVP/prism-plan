@@ -9,5 +9,5 @@ RUN go build -o prism-api .
 FROM alpine
 WORKDIR /app
 COPY --from=build /src/prism-api ./prism-api
-EXPOSE 80
+
 ENTRYPOINT ["./prism-api"]

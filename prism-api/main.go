@@ -151,11 +151,9 @@ func main() {
 	logger.SetLevel(log.GetLevel())
 	api.Register(e, store, auth, deduper, logger)
 
-	listenAddr := ":8080"
 	if port := os.Getenv("PORT"); port != "" {
-		listenAddr = ":" + port
+		e.Logger.Fatal(e.Start(":" + port))
 	} else {
 		log.Fatal("PORT is empty")
 	}
-	e.Logger.Fatal(e.Start(listenAddr))
 }
