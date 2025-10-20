@@ -43,7 +43,7 @@ func main() {
 		log.Fatal("missing storage config")
 	}
 
-	taskPageSize := 30
+	taskPageSize := 10
 	if v := os.Getenv("TASKS_PAGE_SIZE"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil {

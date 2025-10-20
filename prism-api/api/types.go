@@ -7,7 +7,7 @@ import (
 
 // Storage abstracts persistence for handlers.
 type Storage interface {
-	FetchTasks(ctx context.Context, userID, continuationToken string) ([]domain.Task, string, error)
+	FetchTasks(ctx context.Context, userID, continuationToken string, limit int) ([]domain.Task, string, error)
 	FetchSettings(ctx context.Context, userID string) (domain.Settings, error)
 	EnqueueCommands(ctx context.Context, userID string, cmds []domain.Command) error
 }

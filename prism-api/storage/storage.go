@@ -54,6 +54,8 @@ func DefaultQueueConcurrency() int {
 	return defaultQueueConcurrency
 }
 
+const maxTaskPageSize = int32(1000)
+
 func New(connStr, tasksTable, settingsTable, commandQueue string, taskPageSize int, opts ...Option) (*Storage, error) {
 	tablesClientOptions := aztables.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
@@ -108,6 +110,13 @@ func New(connStr, tasksTable, settingsTable, commandQueue string, taskPageSize i
 
 	if store.queueConcurrency <= 0 {
 		store.queueConcurrency = defaultQueueConcurrency
+	}
+
+	if store.taskPageSize <= 0 {
+		store.taskPageSize = 1
+	}
+	if store.taskPageSize > maxTaskPageSize {
+		store.taskPageSize = maxTaskPageSize
 	}
 
 	return store, nil
@@ -203,13 +212,32 @@ func encodeContinuationToken(partitionKey, rowKey *string) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(data), nil
 }
 
-func (s *Storage) FetchTasks(ctx context.Context, userID, token string) ([]domain.Task, string, error) {
+func resolveTaskPageSize(requested int, defaultSize int32) int32 {
+	if defaultSize <= 0 {
+		defaultSize = 1
+	}
+	if defaultSize > maxTaskPageSize {
+		defaultSize = maxTaskPageSize
+	}
+	if requested <= 0 {
+		return defaultSize
+	}
+	if requested > int(maxTaskPageSize) {
+		return maxTaskPageSize
+	}
+	if requested < 1 {
+		return defaultSize
+	}
+	return int32(requested)
+}
+
+func (s *Storage) FetchTasks(ctx context.Context, userID, token string, limit int) ([]domain.Task, string, error) {
 	filter := "PartitionKey eq '" + userID + "'"
 	nextPartitionKey, nextRowKey, err := decodeContinuationToken(token)
 	if err != nil {
 		return nil, "", &invalidContinuationTokenError{cause: err}
 	}
-	top := s.taskPageSize
+	top := resolveTaskPageSize(limit, s.taskPageSize)
 	opts := &aztables.ListEntitiesOptions{Filter: &filter, Select: &s.tasksSelectClause, Top: &top, Format: &s.tasksSelectMetadataFmt, NextPartitionKey: nextPartitionKey, NextRowKey: nextRowKey}
 	pager := s.taskTable.NewListEntitiesPager(opts)
 	if !pager.More() {
@@ -263,7 +291,7 @@ func (s *Storage) FetchSettings(ctx context.Context, userID string) (domain.Sett
 func (s *Storage) Warmup(ctx context.Context) error {
 	const warmupUserID = "__warmup__"
 
-	if _, _, err := s.FetchTasks(ctx, warmupUserID, ""); err != nil {
+	if _, _, err := s.FetchTasks(ctx, warmupUserID, "", 0); err != nil {
 		return err
 	}
 

@@ -25,10 +25,12 @@ type mockStore struct {
 	nextToken string
 	err       error
 	lastToken string
+	lastLimit int
 }
 
-func (m *mockStore) FetchTasks(ctx context.Context, userID, token string) ([]domain.Task, string, error) {
+func (m *mockStore) FetchTasks(ctx context.Context, userID, token string, limit int) ([]domain.Task, string, error) {
 	m.lastToken = token
+	m.lastLimit = limit
 	return m.tasks, m.nextToken, m.err
 }
 
@@ -47,7 +49,7 @@ func (mockAuth) UserIDFromAuthHeader(string) (string, error) { return "user", ni
 
 type noopStore struct{}
 
-func (noopStore) FetchTasks(context.Context, string, string) ([]domain.Task, string, error) {
+func (noopStore) FetchTasks(context.Context, string, string, int) ([]domain.Task, string, error) {
 	return nil, "", nil
 }
 
@@ -86,6 +88,9 @@ func TestGetTasks(t *testing.T) {
 	if store.lastToken != "tok" {
 		t.Fatalf("expected token to be forwarded, got %q", store.lastToken)
 	}
+	if store.lastLimit != 0 {
+		t.Fatalf("expected default page size when none provided, got %d", store.lastLimit)
+	}
 	var resp tasksResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("invalid json: %v", err)
@@ -95,6 +100,53 @@ func TestGetTasks(t *testing.T) {
 	}
 	if resp.NextPageToken != "next-token" {
 		t.Fatalf("unexpected next token: %#v", resp.NextPageToken)
+	}
+}
+
+func TestGetTasksPageSizeProvided(t *testing.T) {
+	e := echo.New()
+	store := &mockStore{tasks: []domain.Task{{ID: "1", Title: "t"}}}
+	req := httptest.NewRequest(http.MethodGet, "/api/tasks?pageSize=120", nil)
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := getTasks(store, mockAuth{}, log.New())(c); err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200 got %d", rec.Code)
+	}
+	if store.lastLimit != 120 {
+		t.Fatalf("expected page size to be forwarded, got %d", store.lastLimit)
+	}
+}
+
+func TestGetTasksInvalidPageSize(t *testing.T) {
+	testCases := map[string]string{
+		"non_numeric": "/api/tasks?pageSize=abc",
+		"negative":    "/api/tasks?pageSize=-5",
+		"zero":        "/api/tasks?pageSize=0",
+	}
+	for name, target := range testCases {
+		t.Run(name, func(t *testing.T) {
+			e := echo.New()
+			store := &mockStore{}
+			req := httptest.NewRequest(http.MethodGet, target, nil)
+			req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			if err := getTasks(store, mockAuth{}, log.New())(c); err != nil {
+				t.Fatalf("handler returned error: %v", err)
+			}
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected status 400 got %d", rec.Code)
+			}
+			if store.lastLimit != 0 {
+				t.Fatalf("expected store to not be called with invalid page size, got limit %d", store.lastLimit)
+			}
+		})
 	}
 }
 

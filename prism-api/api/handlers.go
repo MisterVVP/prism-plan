@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -60,8 +62,20 @@ func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.Handle
 		pageToken := c.QueryParam("pageToken")
 		metrics.SetPageTokenProvided(pageToken != "")
 
+		pageSizeParam := strings.TrimSpace(c.QueryParam("pageSize"))
+		pageSize := 0
+		if pageSizeParam != "" {
+			var parseErr error
+			pageSize, parseErr = strconv.Atoi(pageSizeParam)
+			if parseErr != nil || pageSize <= 0 {
+				metrics.SetErrorStage("invalid_page_size")
+				err = c.String(http.StatusBadRequest, "invalid page size")
+				return err
+			}
+		}
+
 		fetchStart := time.Now()
-		tasks, nextToken, fetchErr := store.FetchTasks(ctx, userID, pageToken)
+		tasks, nextToken, fetchErr := store.FetchTasks(ctx, userID, pageToken, pageSize)
 		metrics.ObserveFetch(time.Since(fetchStart))
 		if fetchErr != nil {
 			var invalidTokenErr InvalidContinuationTokenError
