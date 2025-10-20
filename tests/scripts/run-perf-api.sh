@@ -55,7 +55,7 @@ trap collect_logs_and_teardown EXIT
 
 $COMPOSE up -d
 
-tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${AZ_FUNC_HEALTH_ENDPOINT}" 30
+tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${API_HEALTH_ENDPOINT}" 30
 tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
 
 K6_VUS=${K6_VUS:-10}

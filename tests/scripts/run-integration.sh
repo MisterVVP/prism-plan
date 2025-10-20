@@ -7,7 +7,7 @@ REPO_ROOT=$(pwd)
 ENV_FILE="$REPO_ROOT/tests/docker/env.test"
 
 if [[ -n "${MSYSTEM:-}" ]]; then
-  excludes="API_HEALTH_ENDPOINT;AZ_FUNC_HEALTH_ENDPOINT"
+  excludes="API_HEALTH_ENDPOINT"
   if [[ -n "${MSYS2_ENV_CONV_EXCL:-}" ]]; then
     export MSYS2_ENV_CONV_EXCL="${MSYS2_ENV_CONV_EXCL};${excludes}"
   else
@@ -34,7 +34,7 @@ trap cleanup EXIT
 
 "${COMPOSE[@]}" up -d
 
-tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${AZ_FUNC_HEALTH_ENDPOINT}" 30
+tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${API_HEALTH_ENDPOINT}" 30
 tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
 
 pushd tests/integration > /dev/null
