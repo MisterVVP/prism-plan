@@ -42,6 +42,7 @@ func main() {
 	if connStr == "" || tasksTableName == "" || settingsTableName == "" || commandQueueName == "" {
 		log.Fatal("missing storage config")
 	}
+
 	taskPageSize := 30
 	if v := os.Getenv("TASKS_PAGE_SIZE"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -151,9 +152,10 @@ func main() {
 	api.Register(e, store, auth, deduper, logger)
 
 	listenAddr := ":8080"
-	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
-		listenAddr = ":" + val
+	if port := os.Getenv("PORT"); port != "" {
+		listenAddr = ":" + port
+	} else {
+		log.Fatal("PORT is empty")
 	}
-
 	e.Logger.Fatal(e.Start(listenAddr))
 }

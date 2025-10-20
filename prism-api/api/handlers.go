@@ -21,11 +21,19 @@ func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, 
 	e.GET("/api/tasks", getTasks(store, auth, log))
 	e.GET("/api/settings", getSettings(store, auth))
 	e.POST("/api/commands", postCommands(store, auth, deduper, log))
+	e.GET("/healthz", healthz(store))
 }
 
 type tasksResponse struct {
 	Tasks         []domain.Task `json:"tasks"`
 	NextPageToken string        `json:"nextPageToken,omitempty"`
+}
+
+func healthz(_ Storage) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		//TODO: implement healthcheck
+		return c.NoContent(http.StatusOK)
+	}
 }
 
 func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.HandlerFunc {
