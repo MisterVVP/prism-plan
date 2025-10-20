@@ -1,6 +1,9 @@
 import http from 'k6/http';
 import { SharedArray } from 'k6/data';
 
+const MAX_PAGE_SIZE = 1000;
+const DEFAULT_PAGE_SIZE = 250;
+
 const tokens = new SharedArray('tokens', () => {
   try {
     const contents = open('./bearers.json');
@@ -49,10 +52,18 @@ export function buildAuthHeaders() {
 }
 
 export function fetchAllTasks(base, headers) {
+  const resolvedPageSize = resolvePageSize();
   let pageToken = '';
   const seenTokens = new Set();
   while (true) {
-    const query = pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : '';
+    const params = [];
+    if (resolvedPageSize > 0) {
+      params.push(`pageSize=${resolvedPageSize}`);
+    }
+    if (pageToken) {
+      params.push(`pageToken=${encodeURIComponent(pageToken)}`);
+    }
+    const query = params.length ? `?${params.join('&')}` : '';
     const res = http.get(`${base}/api/tasks${query}`, {
       headers,
       tags: { endpoint: '/api/tasks' },
@@ -79,4 +90,15 @@ export function fetchAllTasks(base, headers) {
     seenTokens.add(nextToken);
     pageToken = nextToken;
   }
+}
+
+function resolvePageSize() {
+  const raw = Number(__ENV.K6_TASK_PAGE_SIZE);
+  if (Number.isFinite(raw) && raw > 0) {
+    const floored = Math.floor(raw);
+    if (floored > 0) {
+      return Math.min(floored, MAX_PAGE_SIZE);
+    }
+  }
+  return DEFAULT_PAGE_SIZE;
 }

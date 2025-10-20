@@ -103,3 +103,28 @@ func TestDecodeContinuationTokenLegacyJSON(t *testing.T) {
 		t.Fatalf("unexpected row key: %v", drk)
 	}
 }
+
+func TestResolveTaskPageSize(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		name        string
+		requested   int
+		defaultSize int32
+		want        int32
+	}{
+		{name: "use_default_when_missing", requested: 0, defaultSize: 30, want: 30},
+		{name: "respect_smaller_request", requested: 10, defaultSize: 30, want: 10},
+		{name: "clamp_to_max", requested: 5000, defaultSize: 30, want: maxTaskPageSize},
+		{name: "sanitize_negative", requested: -10, defaultSize: 25, want: 25},
+		{name: "sanitize_default_zero", requested: 0, defaultSize: 0, want: 1},
+		{name: "clamp_large_default", requested: 0, defaultSize: 2000, want: maxTaskPageSize},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			if got := resolveTaskPageSize(tc.requested, tc.defaultSize); got != tc.want {
+				t.Fatalf("resolveTaskPageSize(%d, %d) = %d, want %d", tc.requested, tc.defaultSize, got, tc.want)
+			}
+		})
+	}
+}
