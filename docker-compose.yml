@@ -99,6 +99,7 @@ services:
       PRISM_API_PORT3: ${PRISM_API_PORT3}
       PRISM_API_PORT4: ${PRISM_API_PORT4}
       PRISM_API_PORT5: ${PRISM_API_PORT5}
+      API_HEALTH_ENDPOINT: ${API_HEALTH_ENDPOINT:-/healthz}
     image: haproxy:3.0-alpine
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
