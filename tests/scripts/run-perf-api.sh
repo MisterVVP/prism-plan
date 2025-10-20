@@ -84,11 +84,18 @@ echo "$tokens" > tests/perf/k6/bearers.json
 
 export TEST_BEARER K6_VUS K6_DURATION PRISM_API_LB_BASE K6_TASK_PAGE_SIZE
 
+# TODO: emulator restarts are hacky, but maybe normal because we are not aiming to compete with cloud provider scalability in our custom azure storage emulator
 k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.json
+docker compose restart fauxzureq
+tests/docker/wait-for.sh "http://localhost:10001/__health" 30
 
-k6 run tests/perf/k6/api_heavy_write_batch.js --summary-export=k6-summary-heavy_write_batch.json
+#k6 run tests/perf/k6/api_heavy_write_batch.js --summary-export=k6-summary-heavy_write_batch.json
+#docker compose restart fauxzureq
+#tests/docker/wait-for.sh "http://localhost:10001/__health" 30
 
 k6 run tests/perf/k6/api_heavy_read.js --summary-export=k6-summary-heavy_read.json
+docker compose restart fauxzureq
+tests/docker/wait-for.sh "http://localhost:10001/__health" 30
 
 k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary-mixed_read_write.json
 mkdir -p "$RESULT_DIR"
