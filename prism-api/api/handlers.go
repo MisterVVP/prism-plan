@@ -40,19 +40,25 @@ func healthz(_ Storage) echo.HandlerFunc {
 
 func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
-		ctx := c.Request().Context()
+		req := c.Request()
+		ctx := req.Context()
 		metrics, spanCtx := newTaskRequestMetrics(ctx, logger)
 		if spanCtx != nil {
-			req := c.Request().WithContext(spanCtx)
+			req = req.WithContext(spanCtx)
 			c.SetRequest(req)
 			ctx = spanCtx
 		}
 		defer func() {
-			metrics.Log(c.Response().Status, err)
+			if metrics == nil {
+				return
+			}
+			status := c.Response().Status
+			logErr := err
+			go metrics.Log(status, logErr)
 		}()
 
 		authStart := time.Now()
-		userID, authErr := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
+		userID, authErr := auth.UserIDFromAuthHeader(req.Header.Get(echo.HeaderAuthorization))
 		metrics.ObserveAuth(time.Since(authStart))
 		if authErr != nil {
 			metrics.SetErrorStage("auth")
@@ -60,10 +66,15 @@ func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.Handle
 			return err
 		}
 		pageToken := c.QueryParam("pageToken")
-		metrics.SetPageTokenProvided(pageToken != "")
+		if pageToken != "" {
+			metrics.SetPageTokenProvided(true)
+		}
 
-		pageSizeParam := strings.TrimSpace(c.QueryParam("pageSize"))
+		pageSizeParam := c.QueryParam("pageSize")
 		pageSize := 0
+		if pageSizeParam != "" {
+			pageSizeParam = strings.TrimSpace(pageSizeParam)
+		}
 		if pageSizeParam != "" {
 			var parseErr error
 			pageSize, parseErr = strconv.Atoi(pageSizeParam)
@@ -90,11 +101,8 @@ func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.Handle
 			return err
 		}
 		metrics.SetTasksReturned(len(tasks))
-		resp := tasksResponse{Tasks: tasks}
-		if nextToken != "" {
-			metrics.SetHasNextPage(true)
-			resp.NextPageToken = nextToken
-		}
+		metrics.SetHasNextPage(nextToken != "")
+		resp := tasksResponse{Tasks: tasks, NextPageToken: nextToken}
 		encodeStart := time.Now()
 		err = c.JSON(http.StatusOK, resp)
 		metrics.ObserveEncode(time.Since(encodeStart))
