@@ -15,6 +15,8 @@ type RedisDeduper struct {
 	ttl    time.Duration
 }
 
+const dedupeKeyPrefix = "ik"
+
 type addManyError struct {
 	err          error
 	rollbackIdxs []int
@@ -49,7 +51,7 @@ func NewRedisDeduper(client *redis.Client, ttl time.Duration) *RedisDeduper {
 }
 
 func (r *RedisDeduper) key(userID, key string) string {
-	return userID + ":" + key
+	return userID + ":" + dedupeKeyPrefix + ":" + key
 }
 
 // Add records the key if it does not already exist. It returns true when the
@@ -74,7 +76,7 @@ func (r *RedisDeduper) AddMany(ctx context.Context, userID string, keys []string
 	}
 
 	results := make([]bool, len(keys))
-	prefix := userID + ":"
+	prefix := userID + ":" + dedupeKeyPrefix + ":"
 	cmds, err := r.client.Pipelined(ctx, func(pipe redis.Pipeliner) error {
 		for _, key := range keys {
 			pipe.SetNX(ctx, prefix+key, 1, r.ttl)

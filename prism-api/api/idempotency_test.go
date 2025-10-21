@@ -50,3 +50,42 @@ func TestRedisDeduperAddMany(t *testing.T) {
 		}
 	}
 }
+
+func TestRedisDeduperKeyNamespacing(t *testing.T) {
+	m, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	t.Cleanup(m.Close)
+
+	client := redis.NewClient(&redis.Options{Addr: m.Addr()})
+	t.Cleanup(func() {
+		if cerr := client.Close(); cerr != nil {
+			t.Logf("redis close: %v", cerr)
+		}
+	})
+
+	deduper := NewRedisDeduper(client, time.Minute)
+	ctx := context.Background()
+	const (
+		userID = "user"
+		key    = "k1"
+	)
+
+	added, err := deduper.Add(ctx, userID, key)
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if !added {
+		t.Fatalf("expected key to be added")
+	}
+
+	expectedKey := userID + ":" + dedupeKeyPrefix + ":" + key
+	exists, err := client.Exists(ctx, expectedKey).Result()
+	if err != nil {
+		t.Fatalf("exists: %v", err)
+	}
+	if exists != 1 {
+		t.Fatalf("expected redis key %q to exist", expectedKey)
+	}
+}
