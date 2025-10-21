@@ -19,6 +19,8 @@ bash tests/scripts/run-perf-api.sh
 ```
 This script generates a `tests/perf/k6/bearers.json` file containing one bearer token per k6 virtual user.
 
+> **Note:** The API caches only the default task page size. Ensure `K6_TASK_PAGE_SIZE` matches the Prism API `TASKS_PAGE_SIZE` (see `tests/docker/env.test`) so the perf run exercises the Redis cache instead of always falling back to Azure Table storage.
+
 ```bash
 bash tests/scripts/run-perf-sse.sh
 ```
