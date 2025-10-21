@@ -66,26 +66,6 @@ func main() {
 		queueConcurrency = n
 	}
 
-	store, err := storage.New(
-		connStr,
-		tasksTableName,
-		settingsTableName,
-		commandQueueName,
-		taskPageSize,
-		storage.WithQueueConcurrency(queueConcurrency),
-	)
-	if err != nil {
-		log.Fatalf("storage: %v", err)
-	}
-
-	warmupCtx, cancelWarmup := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancelWarmup()
-	if err := store.Warmup(warmupCtx); err != nil {
-		log.WithError(err).Warn("storage warmup failed")
-	} else {
-		log.Info("storage warmup completed")
-	}
-
 	redisConn := os.Getenv("REDIS_CONNECTION_STRING")
 	if redisConn == "" {
 		log.Fatal("missing redis config")
@@ -110,6 +90,28 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
+
+	store, err := storage.New(
+		connStr,
+		tasksTableName,
+		settingsTableName,
+		commandQueueName,
+		taskPageSize,
+		storage.WithQueueConcurrency(queueConcurrency),
+		storage.WithCache(rc),
+	)
+	if err != nil {
+		log.Fatalf("storage: %v", err)
+	}
+
+	warmupCtx, cancelWarmup := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancelWarmup()
+	if err := store.Warmup(warmupCtx); err != nil {
+		log.WithError(err).Warn("storage warmup failed")
+	} else {
+		log.Info("storage warmup completed")
+	}
+
 	ttl := 24 * time.Hour
 	if v := os.Getenv("DEDUPER_TTL"); v != "" {
 		d, err := time.ParseDuration(v)
