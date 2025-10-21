@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -120,21 +121,35 @@ func main() {
 	}
 	deduper := api.NewRedisDeduper(rc, ttl)
 
+	localAuthMode := strings.ToLower(os.Getenv("LOCAL_AUTH_MODE"))
 	testMode := os.Getenv("AUTH0_TEST_MODE") == "1"
 	var auth *api.Auth
-	if testMode {
+	switch {
+	case localAuthMode == "hs256":
 		auth = api.NewAuth(nil, "", "")
-	} else {
+	case testMode:
+		auth = api.NewAuth(nil, "", "")
+	default:
 		jwtAudience := os.Getenv("AUTH0_AUDIENCE")
 		domain := os.Getenv("AUTH0_DOMAIN")
 		if jwtAudience == "" || domain == "" {
 			log.Fatal("missing Auth0 config")
 		}
 		jwksURL := fmt.Sprintf("https://%s/.well-known/jwks.json", domain)
-		jwks, err := keyfunc.Get(jwksURL, keyfunc.Options{})
+		options := keyfunc.Options{
+			RefreshInterval:   30 * time.Minute,
+			RefreshTimeout:    15 * time.Second,
+			RefreshUnknownKID: true,
+			Client:            &http.Client{Timeout: 15 * time.Second},
+			RefreshErrorHandler: func(err error) {
+				log.WithError(err).Error("jwks refresh failed")
+			},
+		}
+		jwks, err := keyfunc.Get(jwksURL, options)
 		if err != nil {
 			log.Fatalf("jwks: %v", err)
 		}
+		defer jwks.EndBackground()
 		auth = api.NewAuth(jwks, jwtAudience, "https://"+domain+"/")
 	}
 

@@ -21,6 +21,7 @@ type InvalidContinuationTokenError interface {
 // Authenticator is implemented by types able to extract user IDs from headers.
 type Authenticator interface {
 	UserIDFromAuthHeader(string) (string, error)
+	UserIDFromBearer([]byte) (string, error)
 }
 
 // Deduper prevents processing of duplicate commands.

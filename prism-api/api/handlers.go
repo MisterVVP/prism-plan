@@ -52,7 +52,14 @@ func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.Handle
 		}()
 
 		authStart := time.Now()
-		userID, authErr := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
+		token, tokenErr := bearerTokenFromHeader(c.Request().Header)
+		if tokenErr != nil {
+			metrics.ObserveAuth(time.Since(authStart))
+			metrics.SetErrorStage("auth")
+			err = c.String(http.StatusUnauthorized, tokenErr.Error())
+			return err
+		}
+		userID, authErr := auth.UserIDFromBearer(token)
 		metrics.ObserveAuth(time.Since(authStart))
 		if authErr != nil {
 			metrics.SetErrorStage("auth")
@@ -108,7 +115,11 @@ func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.Handle
 func getSettings(store Storage, auth Authenticator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
-		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
+		token, tokenErr := bearerTokenFromHeader(c.Request().Header)
+		if tokenErr != nil {
+			return c.String(http.StatusUnauthorized, tokenErr.Error())
+		}
+		userID, err := auth.UserIDFromBearer(token)
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}
@@ -131,7 +142,11 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 
 		initCommandSender(store, deduper, log)
 
-		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
+		token, tokenErr := bearerTokenFromHeader(c.Request().Header)
+		if tokenErr != nil {
+			return c.String(http.StatusUnauthorized, tokenErr.Error())
+		}
+		userID, err := auth.UserIDFromBearer(token)
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}

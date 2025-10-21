@@ -47,6 +47,8 @@ type mockAuth struct{}
 
 func (mockAuth) UserIDFromAuthHeader(string) (string, error) { return "user", nil }
 
+func (mockAuth) UserIDFromBearer([]byte) (string, error) { return "user", nil }
+
 type noopStore struct{}
 
 func (noopStore) FetchTasks(context.Context, string, string, int) ([]domain.Task, string, error) {
@@ -75,7 +77,7 @@ func TestGetTasks(t *testing.T) {
 	e := echo.New()
 	store := &mockStore{tasks: []domain.Task{{ID: "1", Title: "t"}}, nextToken: "next-token"}
 	req := httptest.NewRequest(http.MethodGet, "/api/tasks?pageToken=tok", nil)
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -107,7 +109,7 @@ func TestGetTasksPageSizeProvided(t *testing.T) {
 	e := echo.New()
 	store := &mockStore{tasks: []domain.Task{{ID: "1", Title: "t"}}}
 	req := httptest.NewRequest(http.MethodGet, "/api/tasks?pageSize=120", nil)
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -133,7 +135,7 @@ func TestGetTasksInvalidPageSize(t *testing.T) {
 			e := echo.New()
 			store := &mockStore{}
 			req := httptest.NewRequest(http.MethodGet, target, nil)
-			req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+			req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
@@ -159,7 +161,7 @@ func TestGetTasksInvalidToken(t *testing.T) {
 	e := echo.New()
 	store := &mockStore{err: invalidTokenErr{}}
 	req := httptest.NewRequest(http.MethodGet, "/api/tasks?pageToken=bad", nil)
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -175,7 +177,7 @@ func TestGetSettings(t *testing.T) {
 	e := echo.New()
 	store := &mockStore{settings: domain.Settings{TasksPerCategory: 3, ShowDoneTasks: true}}
 	req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -268,7 +270,7 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	handler := postCommands(store, mockAuth{}, deduper, logger)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -276,7 +278,7 @@ func TestPostCommandsIdempotency(t *testing.T) {
 		t.Fatalf("first post: %v", err)
 	}
 	req2 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req2.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req2.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec2 := httptest.NewRecorder()
 	c2 := e.NewContext(req2, rec2)
@@ -337,7 +339,7 @@ func TestPostCommandsRetryOnError(t *testing.T) {
 	handler := postCommands(store, mockAuth{}, deduper, logger)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -371,7 +373,7 @@ func TestPostCommandsReturnKeysForAll(t *testing.T) {
 	handler := postCommands(store, mockAuth{}, deduper, logger)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -494,7 +496,7 @@ func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
 	handler := postCommands(store, mockAuth{}, d, logger)
 	body := `[{"entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -511,7 +513,7 @@ func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
 	// Allow subsequent calls to succeed
 	d.failAt = -1
 	req2 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req2.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req2.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec2 := httptest.NewRecorder()
 	c2 := e.NewContext(req2, rec2)
@@ -546,7 +548,7 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 	body := `[{"entityType":"task","type":"create-task"}]`
 
 	req1 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req1.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req1.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req1.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec1 := httptest.NewRecorder()
 	if err := handler(e.NewContext(req1, rec1)); err != nil {
@@ -558,7 +560,7 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 	store.waitForCalls(t, 1)
 
 	req2 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req2.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req2.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec2 := httptest.NewRecorder()
 	if err := handler(e.NewContext(req2, rec2)); err != nil {
@@ -569,7 +571,7 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 	}
 
 	req3 := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req3.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req3.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req3.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec3 := httptest.NewRecorder()
 	done := make(chan error, 1)
@@ -620,7 +622,7 @@ func TestPostCommandsUsesBatchDeduper(t *testing.T) {
 	handler := postCommands(store, mockAuth{}, deduper, logger)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"idempotencyKey":"k2","entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -677,7 +679,7 @@ func TestPostCommandsBatchDeduperError(t *testing.T) {
 	handler := postCommands(store, mockAuth{}, deduper, logger)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"idempotencyKey":"k2","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -714,7 +716,7 @@ func TestPostCommandsBatchDeduperErrorRemovesFailedKey(t *testing.T) {
 	handler := postCommands(store, mockAuth{}, deduper, logger)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"idempotencyKey":"k2","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer header.payload.signature")
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
