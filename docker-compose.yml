@@ -1,5 +1,6 @@
 x-prism-api: &prism-api-base
-  build: ./prism-api
+  build:
+    context: ./prism-api
   environment: &prism-api-env
     DEBUG: ${DEBUG}
     ENQUEUE_WORKERS: ${ENQUEUE_WORKERS}
@@ -15,11 +16,16 @@ x-prism-api: &prism-api-base
     USERS_TABLE: ${USERS_TABLE}
     COMMAND_QUEUE: ${COMMAND_QUEUE}
     REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
-    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-    AzureWebJobsScriptRoot: /home/site/wwwroot
-    AzureFunctionsJobHost__Logging__Console__IsEnabled: "true"
-    FUNCTIONS_WORKER_RUNTIME: custom
-    WEBSITES_INCLUDE_CLOUD_CERTS: "true"
+  sysctls:
+      - net.ipv4.tcp_rmem=16384 4194304 536870912
+      - net.ipv4.tcp_wmem=16384 4194304 536870912
+      - net.core.somaxconn=1048576
+      - net.ipv4.tcp_tw_reuse=1
+      - net.ipv4.tcp_fin_timeout=1
+  ulimits:
+    nofile:
+      soft: "1048576"
+      hard: "1048576"
   depends_on:
     azurite:
       condition: service_healthy
@@ -54,55 +60,70 @@ services:
     <<: *prism-api-base
     environment:
       <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7072
-    expose:
-      - "7072"
+      PORT: "${PRISM_API_PORT1}"
+    ports:
+      - "${PRISM_API_PORT1}:${PRISM_API_PORT1}"
     restart: unless-stopped
 
   prism-api-2:
     <<: *prism-api-base
     environment:
       <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7073
+      PORT: "${PRISM_API_PORT2}"
     expose:
-      - "7073"
+      - "${PRISM_API_PORT2}"
     restart: unless-stopped
 
   prism-api-3:
     <<: *prism-api-base
     environment:
       <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7074
+      PORT: "${PRISM_API_PORT3}"
     expose:
-      - "7074"
+      - "${PRISM_API_PORT3}"
     restart: unless-stopped
 
   prism-api-4:
     <<: *prism-api-base
     environment:
       <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7075
+      PORT: "${PRISM_API_PORT4}"
     expose:
-      - "7075"
+      - "${PRISM_API_PORT4}"
     restart: unless-stopped
 
   prism-api-5:
     <<: *prism-api-base
     environment:
       <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7076
+      PORT: "${PRISM_API_PORT5}"
     expose:
-      - "7076"
+      - "${PRISM_API_PORT5}"
     restart: unless-stopped
 
   prism-api-lb:
     environment:
       PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
+      PRISM_API_PORT1: ${PRISM_API_PORT1}
+      PRISM_API_PORT2: ${PRISM_API_PORT2}
+      PRISM_API_PORT3: ${PRISM_API_PORT3}
+      PRISM_API_PORT4: ${PRISM_API_PORT4}
+      PRISM_API_PORT5: ${PRISM_API_PORT5}
     image: haproxy:3.0-alpine
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     expose:
       - "${PRISM_API_LB_PORT}"
+    sysctls:
+        - net.ipv4.tcp_rmem=16384 4194304 536870912
+        - net.ipv4.tcp_wmem=16384 4194304 536870912
+        - net.core.somaxconn=1048576
+        - net.ipv4.tcp_tw_reuse=1
+        - net.ipv4.tcp_fin_timeout=1
+    ulimits:
+      nofile:
+        soft: "1048576"
+        hard: "1048576"
     depends_on:
       - prism-api-1
       - prism-api-2
@@ -120,7 +141,7 @@ services:
       REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
       TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
       SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
-      WEBSITES_INCLUDE_CLOUD_CERTS: true
+      WEBSITES_INCLUDE_CLOUD_CERTS: "true"
     expose:
       - "${STREAM_SERVICE_PORT}"
     restart: unless-stopped
@@ -201,7 +222,6 @@ services:
         - net.ipv4.tcp_wmem=16384 4194304 536870912
         - net.core.somaxconn=1048576
         - net.ipv4.tcp_tw_reuse=1
-        - net.ipv4.ip_local_port_range=1024 65535
         - net.ipv4.tcp_fin_timeout=1
     ulimits:
       nofile:

@@ -42,7 +42,8 @@ func main() {
 	if connStr == "" || tasksTableName == "" || settingsTableName == "" || commandQueueName == "" {
 		log.Fatal("missing storage config")
 	}
-	taskPageSize := 30
+
+	taskPageSize := 10
 	if v := os.Getenv("TASKS_PAGE_SIZE"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil {
@@ -53,7 +54,26 @@ func main() {
 		}
 		taskPageSize = n
 	}
-	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName, taskPageSize)
+	queueConcurrency := storage.DefaultQueueConcurrency()
+	if v := os.Getenv("COMMAND_QUEUE_CONCURRENCY"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			log.Fatalf("invalid COMMAND_QUEUE_CONCURRENCY: %v", err)
+		}
+		if n <= 0 {
+			log.Fatalf("invalid COMMAND_QUEUE_CONCURRENCY: must be greater than zero")
+		}
+		queueConcurrency = n
+	}
+
+	store, err := storage.New(
+		connStr,
+		tasksTableName,
+		settingsTableName,
+		commandQueueName,
+		taskPageSize,
+		storage.WithQueueConcurrency(queueConcurrency),
+	)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}
@@ -131,10 +151,9 @@ func main() {
 	logger.SetLevel(log.GetLevel())
 	api.Register(e, store, auth, deduper, logger)
 
-	listenAddr := ":8080"
-	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
-		listenAddr = ":" + val
+	if port := os.Getenv("PORT"); port != "" {
+		e.Logger.Fatal(e.Start(":" + port))
+	} else {
+		log.Fatal("PORT is empty")
 	}
-
-	e.Logger.Fatal(e.Start(listenAddr))
 }

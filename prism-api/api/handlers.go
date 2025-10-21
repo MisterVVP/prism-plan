@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -21,11 +23,19 @@ func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, 
 	e.GET("/api/tasks", getTasks(store, auth, log))
 	e.GET("/api/settings", getSettings(store, auth))
 	e.POST("/api/commands", postCommands(store, auth, deduper, log))
+	e.GET("/healthz", healthz(store))
 }
 
 type tasksResponse struct {
 	Tasks         []domain.Task `json:"tasks"`
 	NextPageToken string        `json:"nextPageToken,omitempty"`
+}
+
+func healthz(_ Storage) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		//TODO: implement healthcheck
+		return c.NoContent(http.StatusOK)
+	}
 }
 
 func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.HandlerFunc {
@@ -52,8 +62,20 @@ func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.Handle
 		pageToken := c.QueryParam("pageToken")
 		metrics.SetPageTokenProvided(pageToken != "")
 
+		pageSizeParam := strings.TrimSpace(c.QueryParam("pageSize"))
+		pageSize := 0
+		if pageSizeParam != "" {
+			var parseErr error
+			pageSize, parseErr = strconv.Atoi(pageSizeParam)
+			if parseErr != nil || pageSize <= 0 {
+				metrics.SetErrorStage("invalid_page_size")
+				err = c.String(http.StatusBadRequest, "invalid page size")
+				return err
+			}
+		}
+
 		fetchStart := time.Now()
-		tasks, nextToken, fetchErr := store.FetchTasks(ctx, userID, pageToken)
+		tasks, nextToken, fetchErr := store.FetchTasks(ctx, userID, pageToken, pageSize)
 		metrics.ObserveFetch(time.Since(fetchStart))
 		if fetchErr != nil {
 			var invalidTokenErr InvalidContinuationTokenError
@@ -99,6 +121,10 @@ func getSettings(store Storage, auth Authenticator) echo.HandlerFunc {
 	}
 }
 
+type batchDeduper interface {
+	AddMany(ctx context.Context, userID string, keys []string) ([]bool, error)
+}
+
 func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.Logger) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
@@ -130,8 +156,9 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 		}
 
 		keys := make([]string, len(cmds))
-		filtered := make([]domain.Command, 0, len(cmds))
+		filtered := cmds[:0]
 		added := make([]string, 0, len(cmds))
+		addedIdxs := make([]int, 0, len(cmds))
 
 		for i := range cmds {
 			if cmds[i].IdempotencyKey == "" {
@@ -139,54 +166,120 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.L
 			}
 			cmds[i].ID = cmds[i].IdempotencyKey
 			keys[i] = cmds[i].IdempotencyKey
-
-			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
-			if err != nil {
-				for _, key := range added {
-					_ = deduper.Remove(ctx, userID, key)
-				}
-				_ = deduper.Remove(ctx, userID, cmds[i].IdempotencyKey)
-				return c.String(http.StatusInternalServerError, err.Error())
-			}
-			if !addedNow {
-				continue
-			}
-			added = append(added, cmds[i].IdempotencyKey)
-			cmds[i].Timestamp = nextTimestamp()
-			filtered = append(filtered, cmds[i])
 		}
 
-		if len(filtered) == 0 {
+		var addedMask []bool
+		var addErr error
+		failedIndex := -1
+		usedBatch := false
+		if batch, ok := deduper.(batchDeduper); ok && len(cmds) > 0 {
+			addedMask, addErr = batch.AddMany(ctx, userID, keys)
+			usedBatch = true
+			for i, addedNow := range addedMask {
+				if addedNow {
+					addedIdxs = append(addedIdxs, i)
+				}
+			}
+		} else if len(cmds) > 0 {
+			for i := range cmds {
+				var addedNow bool
+				addedNow, addErr = deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
+				if addErr != nil {
+					failedIndex = i
+					break
+				}
+				if addedNow {
+					addedIdxs = append(addedIdxs, i)
+				}
+			}
+		}
+
+		if addErr != nil {
+			rollback := make(map[string]struct{}, len(keys))
+			for _, idx := range addedIdxs {
+				if idx >= 0 && idx < len(keys) {
+					rollback[keys[idx]] = struct{}{}
+				}
+			}
+			if !usedBatch && failedIndex >= 0 && failedIndex < len(keys) {
+				rollback[keys[failedIndex]] = struct{}{}
+			}
+			if usedBatch {
+				var idxErr interface{ RollbackIndexes() []int }
+				if errors.As(addErr, &idxErr) {
+					for _, idx := range idxErr.RollbackIndexes() {
+						if idx >= 0 && idx < len(keys) {
+							rollback[keys[idx]] = struct{}{}
+						}
+					}
+				} else if len(rollback) == 0 || len(addedMask) != len(cmds) {
+					for _, key := range keys {
+						rollback[key] = struct{}{}
+					}
+				}
+			} else if len(rollback) == 0 {
+				for _, key := range keys {
+					rollback[key] = struct{}{}
+				}
+			}
+			for key := range rollback {
+				if err := deduper.Remove(ctx, userID, key); err != nil {
+					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, key)
+				}
+			}
+			return c.String(http.StatusInternalServerError, addErr.Error())
+		}
+
+		if usedBatch && len(addedMask) != len(cmds) {
+			for _, key := range keys {
+				if err := deduper.Remove(ctx, userID, key); err != nil {
+					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, key)
+				}
+			}
+			return c.String(http.StatusInternalServerError, "failed to reserve idempotency keys")
+		}
+
+		if len(addedIdxs) == 0 {
 			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+		}
+
+		filtered = filtered[:0]
+		added = added[:0]
+		for _, idx := range addedIdxs {
+			if idx < 0 || idx >= len(cmds) {
+				continue
+			}
+			cmds[idx].Timestamp = nextTimestamp()
+			filtered = append(filtered, cmds[idx])
+			added = append(added, keys[idx])
 		}
 
 		job := enqueueJob{
 			userID: userID,
-			cmds:   append([]domain.Command(nil), filtered...),
-			added:  append([]string(nil), added...),
+			cmds:   filtered,
+			added:  added,
 		}
 
-		select {
-		case jobs <- job:
+		if tryEnqueueJob(job) {
 			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
-		default:
-			globalLog.Warn("enqueue buffer full; processing inline")
+		}
 
-			enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
-			err := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
-			cancel()
+		globalLog.Warn("enqueue buffer saturated; processing inline")
 
-			if err != nil {
-				for _, k := range added {
-					if rerr := deduper.Remove(ctx, userID, k); rerr != nil {
-						c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, k)
-					}
+		enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
+		enqueueErr := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
+		cancel()
+
+		if enqueueErr != nil {
+			for _, k := range added {
+				if rerr := deduper.Remove(ctx, userID, k); rerr != nil {
+					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, k)
 				}
-				c.Logger().Errorf("enqueue inline failed: %v", err)
-				return c.String(http.StatusInternalServerError, "failed to enqueue commands")
 			}
-
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+			c.Logger().Errorf("enqueue inline failed: %v", enqueueErr)
+			return c.String(http.StatusInternalServerError, "failed to enqueue commands")
 		}
+
+		return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 	}
 }

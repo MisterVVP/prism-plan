@@ -9,4 +9,4 @@ RUN go build -o storage-init .
 FROM alpine:latest
 WORKDIR /app
 COPY --from=build /src/storage-init ./
-CMD ["./storage-init"]
+ENTRYPOINT ["./storage-init"]
