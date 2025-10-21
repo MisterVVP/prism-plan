@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/sha256"
 	"errors"
 	"os"
 	"strings"
@@ -36,6 +37,7 @@ type Auth struct {
 type cachedKey struct {
 	key       any
 	expiresAt time.Time
+	jwksHash  [32]byte
 }
 
 // NewAuth creates a new Auth instance.
@@ -158,12 +160,14 @@ func (a *Auth) keyForToken(token *jwt.Token) (any, error) {
 
 	kid, _ := token.Header["kid"].(string)
 	if kid != "" && a.keyCacheTTL > 0 {
-		if cached, ok := a.keyCache.Load(kid); ok {
-			entry := cached.(cachedKey)
-			if time.Now().Before(entry.expiresAt) {
-				return entry.key, nil
+		if hash, ok := a.currentJWKSHash(); ok {
+			if cached, ok := a.keyCache.Load(kid); ok {
+				entry := cached.(cachedKey)
+				if time.Now().Before(entry.expiresAt) && entry.jwksHash == hash {
+					return entry.key, nil
+				}
+				a.keyCache.Delete(kid)
 			}
-			a.keyCache.Delete(kid)
 		}
 	}
 
@@ -173,7 +177,21 @@ func (a *Auth) keyForToken(token *jwt.Token) (any, error) {
 	}
 
 	if kid != "" && a.keyCacheTTL > 0 {
-		a.keyCache.Store(kid, cachedKey{key: key, expiresAt: time.Now().Add(a.keyCacheTTL)})
+		if hash, ok := a.currentJWKSHash(); ok {
+			a.keyCache.Store(kid, cachedKey{key: key, expiresAt: time.Now().Add(a.keyCacheTTL), jwksHash: hash})
+		}
 	}
 	return key, nil
+}
+
+func (a *Auth) currentJWKSHash() ([32]byte, bool) {
+	if a.JWKS == nil {
+		return [32]byte{}, false
+	}
+	raw := a.JWKS.RawJWKS()
+	if len(raw) == 0 {
+		return [32]byte{}, false
+	}
+	sum := sha256.Sum256(raw)
+	return sum, true
 }
