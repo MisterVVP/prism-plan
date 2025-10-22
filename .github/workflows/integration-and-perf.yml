@@ -63,7 +63,7 @@ jobs:
         run: |
           set -a
           source $ENV_FILE
-          tests/scripts/run-perf.sh
+          tests/scripts/run-perf-api.sh
           tests/scripts/run-perf-sse.sh
           set +a
       - name: Upload API performance summaries
