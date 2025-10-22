@@ -3,9 +3,12 @@ package scenarios
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -122,15 +125,86 @@ func TestTasksServedFromCache(t *testing.T) {
 
 func newRedisClient(t *testing.T) *redis.Client {
 	t.Helper()
-	conn := os.Getenv("REDIS_CONNECTION_STRING")
-	if conn == "" {
-		t.Fatalf("REDIS_CONNECTION_STRING must be set for cache test")
+
+	const defaultPort = "6379"
+	port := os.Getenv("REDIS_PORT")
+	if port == "" {
+		port = defaultPort
 	}
-	opts, err := redis.ParseURL(conn)
+
+	var candidates []redis.Options
+	addCandidate := func(opt redis.Options) {
+		for _, existing := range candidates {
+			if existing.Addr == opt.Addr && existing.Username == opt.Username && existing.Password == opt.Password && existing.DB == opt.DB {
+				return
+			}
+		}
+		candidates = append(candidates, opt)
+	}
+
+	if conn := os.Getenv("REDIS_CONNECTION_STRING"); conn != "" {
+		var opt redis.Options
+		if strings.HasPrefix(conn, "redis://") || strings.HasPrefix(conn, "rediss://") {
+			parsed, err := redis.ParseURL(conn)
+			if err != nil {
+				t.Fatalf("parse redis url: %v", err)
+			}
+			opt = *parsed
+		} else {
+			opt = redis.Options{Addr: conn}
+		}
+		opt.Addr = ensureRedisPort(t, opt.Addr, port)
+		addCandidate(opt)
+
+		loopback := opt
+		loopback.Addr = net.JoinHostPort("127.0.0.1", port)
+		addCandidate(loopback)
+	}
+
+	if host := os.Getenv("REDIS_HOST"); host != "" {
+		opt := redis.Options{Addr: net.JoinHostPort(host, port)}
+		addCandidate(opt)
+	}
+
+	addCandidate(redis.Options{Addr: net.JoinHostPort("127.0.0.1", port)})
+
+	var lastErr error
+	for i := range candidates {
+		opt := candidates[i]
+		client := redis.NewClient(&opt)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		err := client.Ping(ctx).Err()
+		cancel()
+		if err == nil {
+			return client
+		}
+		lastErr = err
+		_ = client.Close()
+	}
+
+	t.Fatalf("connect to redis: %v", lastErr)
+	return nil
+}
+
+func ensureRedisPort(t *testing.T, addr, port string) string {
+	if addr == "" {
+		return net.JoinHostPort("127.0.0.1", port)
+	}
+	host, existingPort, err := net.SplitHostPort(addr)
 	if err != nil {
-		t.Fatalf("parse redis url: %v", err)
+		var addrErr *net.AddrError
+		if errors.As(err, &addrErr) && addrErr.Err == "missing port in address" {
+			host = addrErr.Addr
+		} else {
+			t.Fatalf("parse redis address %s: %v", addr, err)
+		}
+	} else {
+		if existingPort == "" {
+			existingPort = port
+		}
+		return net.JoinHostPort(host, existingPort)
 	}
-	return redis.NewClient(opts)
+	return net.JoinHostPort(host, port)
 }
 
 func cacheKeyForUser(userID string) string {
