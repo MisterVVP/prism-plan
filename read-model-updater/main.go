@@ -87,13 +87,12 @@ func main() {
 		}
 		settingsTTL = d
 	}
-	taskPageSize := 10
+	cacheSize := 10
 	if v := os.Getenv("TASKS_PAGE_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			taskPageSize = n
+			cacheSize = n
 		}
 	}
-	cacheWindow := taskPageSize
 	if v := os.Getenv("TASKS_CACHE_SIZE"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil {
@@ -102,9 +101,9 @@ func main() {
 		if n <= 0 {
 			log.Fatalf("invalid TASKS_CACHE_SIZE: must be greater than zero")
 		}
-		cacheWindow = n
+		cacheSize = n
 	}
-	cache := newCacheUpdater(st, rc, int32(taskPageSize), int32(cacheWindow), tasksTTL, settingsTTL)
+	cache := newCacheUpdater(st, rc, int32(cacheSize), tasksTTL, settingsTTL)
 	taskUpdatesChannel := os.Getenv("TASK_UPDATES_CHANNEL")
 	settingsUpdatesChannel := os.Getenv("SETTINGS_UPDATES_CHANNEL")
 	if taskUpdatesChannel == "" || settingsUpdatesChannel == "" {

@@ -14,7 +14,7 @@ import (
 )
 
 type cacheStore interface {
-	ListTasksPage(ctx context.Context, userID string, limit int32, nextPartitionKey, nextRowKey *string) ([]domain.TaskEntity, *string, *string, error)
+	ListTasksPage(ctx context.Context, userID string, limit int32) ([]domain.TaskEntity, *string, *string, error)
 	GetUserSettings(ctx context.Context, id string) (*domain.UserSettingsEntity, error)
 }
 
@@ -28,8 +28,7 @@ type cacheUpdater struct {
 	redis       *redis.Client
 	tasksTTL    time.Duration
 	settingsTTL time.Duration
-	pageSize    int32
-	cacheWindow int32
+	tasksLimit  int32
 	now         func() time.Time
 }
 
@@ -48,16 +47,12 @@ type cachedTask struct {
 }
 
 type cachedTasks struct {
-	Version       int                        `json:"version"`
-	CachedAt      time.Time                  `json:"cachedAt"`
-	LastUpdatedAt int64                      `json:"lastUpdatedAt"`
-	PageSize      int                        `json:"pageSize"`
-	Pages         map[string]cachedTasksPage `json:"pages"`
-}
-
-type cachedTasksPage struct {
+	Version       int          `json:"version"`
+	CachedAt      time.Time    `json:"cachedAt"`
+	LastUpdatedAt int64        `json:"lastUpdatedAt"`
+	PageSize      int          `json:"pageSize"`
+	NextPageToken string       `json:"nextPageToken,omitempty"`
 	Tasks         []cachedTask `json:"tasks"`
-	NextPageToken string       `json:"nextPageToken"`
 }
 
 type cachedSettings struct {
@@ -72,15 +67,9 @@ type cachedSettingsEntry struct {
 	ShowDoneTasks    bool `json:"showDoneTasks"`
 }
 
-func newCacheUpdater(store cacheStore, redis *redis.Client, pageSize, cacheWindow int32, tasksTTL, settingsTTL time.Duration) *cacheUpdater {
-	if pageSize <= 0 {
-		pageSize = 1
-	}
-	if cacheWindow <= 0 {
-		cacheWindow = pageSize
-	}
-	if cacheWindow < pageSize {
-		cacheWindow = pageSize
+func newCacheUpdater(store cacheStore, redis *redis.Client, limit int32, tasksTTL, settingsTTL time.Duration) *cacheUpdater {
+	if limit <= 0 {
+		limit = 1
 	}
 	if tasksTTL <= 0 {
 		tasksTTL = 12 * time.Hour
@@ -93,8 +82,7 @@ func newCacheUpdater(store cacheStore, redis *redis.Client, pageSize, cacheWindo
 		redis:       redis,
 		tasksTTL:    tasksTTL,
 		settingsTTL: settingsTTL,
-		pageSize:    pageSize,
-		cacheWindow: cacheWindow,
+		tasksLimit:  limit,
 		now:         time.Now,
 	}
 }
@@ -103,74 +91,38 @@ func (c *cacheUpdater) RefreshTasks(ctx context.Context, userID string, lastUpda
 	if c == nil || c.redis == nil || c.store == nil {
 		return
 	}
-	pageSize := c.pageSize
-	if pageSize <= 0 {
-		pageSize = 1
+	tasks, nextPK, nextRK, err := c.store.ListTasksPage(ctx, userID, c.tasksLimit)
+	if err != nil {
+		log.WithError(err).WithField("user", userID).Error("failed to list tasks for cache")
+		return
 	}
-	remaining := int(c.cacheWindow)
-	if remaining <= 0 {
-		remaining = int(pageSize)
-	}
-
-	pages := make(map[string]cachedTasksPage)
+	entries := make([]cachedTask, 0, len(tasks))
 	maxTs := lastUpdated
-	token := ""
-	var nextPK *string
-	var nextRK *string
-
-	for {
-		limit := pageSize
-		if remaining > 0 && remaining < int(limit) {
-			limit = int32(remaining)
+	for _, t := range tasks {
+		entries = append(entries, cachedTask{
+			ID:       t.RowKey,
+			Title:    t.Title,
+			Notes:    t.Notes,
+			Category: t.Category,
+			Order:    t.Order,
+			Done:     t.Done,
+		})
+		if t.EventTimestamp > maxTs {
+			maxTs = t.EventTimestamp
 		}
-		tasks, pk, rk, err := c.store.ListTasksPage(ctx, userID, limit, nextPK, nextRK)
-		if err != nil {
-			log.WithError(err).WithField("user", userID).Error("failed to list tasks for cache")
-			return
-		}
-		entries := make([]cachedTask, 0, len(tasks))
-		for _, t := range tasks {
-			entries = append(entries, cachedTask{
-				ID:       t.RowKey,
-				Title:    t.Title,
-				Notes:    t.Notes,
-				Category: t.Category,
-				Order:    t.Order,
-				Done:     t.Done,
-			})
-			if t.EventTimestamp > maxTs {
-				maxTs = t.EventTimestamp
-			}
-		}
-		nextToken, err := encodeContinuationToken(pk, rk)
-		if err != nil {
-			log.WithError(err).WithField("user", userID).Error("failed to encode continuation token for cache")
-			return
-		}
-		pages[token] = cachedTasksPage{Tasks: entries, NextPageToken: nextToken}
-
-		if len(tasks) == 0 || nextToken == "" {
-			break
-		}
-		remaining -= len(tasks)
-		if remaining <= 0 {
-			break
-		}
-		token = nextToken
-		nextPK = pk
-		nextRK = rk
 	}
-
-	if _, ok := pages[""]; !ok {
-		pages[""] = cachedTasksPage{Tasks: []cachedTask{}, NextPageToken: ""}
+	nextToken, err := encodeContinuationToken(nextPK, nextRK)
+	if err != nil {
+		log.WithError(err).WithField("user", userID).Error("failed to encode continuation token for cache")
+		return
 	}
-
 	payload := cachedTasks{
-		Version:       2,
+		Version:       1,
 		CachedAt:      c.now().UTC(),
 		LastUpdatedAt: maxTs,
-		PageSize:      int(pageSize),
-		Pages:         pages,
+		PageSize:      int(c.tasksLimit),
+		NextPageToken: nextToken,
+		Tasks:         entries,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
