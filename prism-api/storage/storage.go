@@ -349,6 +349,7 @@ func (s *Storage) loadTasksFromCache(ctx context.Context, userID string) (*cache
 		return nil, false
 	}
 	if payload.PageSize > 0 && int32(payload.PageSize) != s.taskPageSize {
+		log.Printf("storage: tasks cache page size mismatch: cache=%d expected=%d", payload.PageSize, s.taskPageSize)
 		return nil, false
 	}
 	return &payload, true
