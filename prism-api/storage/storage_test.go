@@ -145,21 +145,33 @@ func (s *stubRedisGetter) Get(ctx context.Context, key string) *redis.StringCmd 
 }
 
 func TestFetchTasksUsesCache(t *testing.T) {
-	cacheValue := `{"version":1,"cachedAt":"` + time.Now().UTC().Format(time.RFC3339Nano) + `","lastUpdatedAt":1,"pageSize":3,"nextPageToken":"abc","tasks":[{"id":"t1","title":"Task","category":"cat","order":1}]}`
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	cacheValue := `{"version":2,"cachedAt":"` + now + `","lastUpdatedAt":1,"pageSize":3,"pages":{"":` +
+		`{"tasks":[{"id":"t1","title":"Task","category":"cat","order":1}],"nextPageToken":"abc"},` +
+		`"abc":{"tasks":[{"id":"t2","title":"Task 2","category":"cat","order":2}],"nextPageToken":""}}}`
 	cache := &stubRedisGetter{value: cacheValue}
-	store := &Storage{
-		taskPageSize: 3,
-		cache:        cache,
-	}
+	store := &Storage{taskPageSize: 3, cache: cache}
+
 	tasks, token, err := store.FetchTasks(context.Background(), "user", "", 0)
 	if err != nil {
-		t.Fatalf("FetchTasks: %v", err)
+		t.Fatalf("FetchTasks first page: %v", err)
 	}
 	if len(tasks) != 1 || tasks[0].ID != "t1" {
-		t.Fatalf("unexpected tasks: %+v", tasks)
+		t.Fatalf("unexpected first page tasks: %+v", tasks)
 	}
 	if token != "abc" {
-		t.Fatalf("unexpected token: %s", token)
+		t.Fatalf("unexpected token for first page: %s", token)
+	}
+
+	tasks, token, err = store.FetchTasks(context.Background(), "user", token, 0)
+	if err != nil {
+		t.Fatalf("FetchTasks second page: %v", err)
+	}
+	if len(tasks) != 1 || tasks[0].ID != "t2" {
+		t.Fatalf("unexpected second page tasks: %+v", tasks)
+	}
+	if token != "" {
+		t.Fatalf("unexpected token for second page: %s", token)
 	}
 	if cache.lastKey != cacheKey("user", tasksCachePrefix) {
 		t.Fatalf("unexpected cache key: %s", cache.lastKey)

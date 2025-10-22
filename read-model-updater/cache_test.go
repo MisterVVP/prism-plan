@@ -12,22 +12,39 @@ import (
 	"read-model-updater/domain"
 )
 
-type stubCacheStore struct {
-	tasksResp           []domain.TaskEntity
-	nextPK              *string
-	nextRK              *string
-	tasksErr            error
-	settingsResp        *domain.UserSettingsEntity
-	settingsErr         error
-	lastListTasksLimit  int32
-	lastListTasksUserID string
-	lastSettingsUserID  string
+type stubTaskPage struct {
+	tasks  []domain.TaskEntity
+	nextPK *string
+	nextRK *string
+	err    error
 }
 
-func (s *stubCacheStore) ListTasksPage(ctx context.Context, userID string, limit int32) ([]domain.TaskEntity, *string, *string, error) {
-	s.lastListTasksLimit = limit
-	s.lastListTasksUserID = userID
-	return s.tasksResp, s.nextPK, s.nextRK, s.tasksErr
+type stubCacheStore struct {
+	taskPages          []stubTaskPage
+	settingsResp       *domain.UserSettingsEntity
+	settingsErr        error
+	lastListTasksLimit []int32
+	lastListTasksUser  []string
+	lastSettingsUserID string
+	calls              int
+	defaultErr         error
+}
+
+func (s *stubCacheStore) ListTasksPage(ctx context.Context, userID string, limit int32, _ *string, _ *string) ([]domain.TaskEntity, *string, *string, error) {
+	s.lastListTasksLimit = append(s.lastListTasksLimit, limit)
+	s.lastListTasksUser = append(s.lastListTasksUser, userID)
+	defer func() { s.calls++ }()
+	if s.calls < len(s.taskPages) {
+		page := s.taskPages[s.calls]
+		if page.err != nil {
+			return nil, nil, nil, page.err
+		}
+		return page.tasks, page.nextPK, page.nextRK, nil
+	}
+	if s.defaultErr != nil {
+		return nil, nil, nil, s.defaultErr
+	}
+	return []domain.TaskEntity{}, nil, nil, nil
 }
 
 func (s *stubCacheStore) GetUserSettings(ctx context.Context, id string) (*domain.UserSettingsEntity, error) {
@@ -47,19 +64,42 @@ func TestCacheUpdaterRefreshTasksStoresPayload(t *testing.T) {
 	pk := "p"
 	rk := "r"
 	store := &stubCacheStore{
-		tasksResp: []domain.TaskEntity{{
-			Entity:         domain.Entity{PartitionKey: "user", RowKey: "task1"},
-			Title:          "Task 1",
-			Notes:          "Notes",
-			Category:       "cat",
-			Order:          1,
-			Done:           true,
-			EventTimestamp: 90,
-		}},
-		nextPK: &pk,
-		nextRK: &rk,
+		taskPages: []stubTaskPage{
+			{
+				tasks: []domain.TaskEntity{{
+					Entity:         domain.Entity{PartitionKey: "user", RowKey: "task1"},
+					Title:          "Task 1",
+					Notes:          "Notes",
+					Category:       "cat",
+					Order:          1,
+					Done:           true,
+					EventTimestamp: 90,
+				}, {
+					Entity:         domain.Entity{PartitionKey: "user", RowKey: "task2"},
+					Title:          "Task 2",
+					Category:       "cat",
+					Order:          2,
+					Done:           false,
+					EventTimestamp: 120,
+				}},
+				nextPK: &pk,
+				nextRK: &rk,
+			},
+			{
+				tasks: []domain.TaskEntity{{
+					Entity:         domain.Entity{PartitionKey: "user", RowKey: "task3"},
+					Title:          "Task 3",
+					Category:       "cat",
+					Order:          3,
+					Done:           true,
+					EventTimestamp: 150,
+				}},
+				nextPK: nil,
+				nextRK: nil,
+			},
+		},
 	}
-	updater := newCacheUpdater(store, rc, 5, time.Hour, 2*time.Hour)
+	updater := newCacheUpdater(store, rc, 2, 5, time.Hour, 2*time.Hour)
 	freeze := time.Unix(123, 0).UTC()
 	updater.now = func() time.Time { return freeze }
 
@@ -73,26 +113,49 @@ func TestCacheUpdaterRefreshTasksStoresPayload(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
-	if payload.PageSize != 5 {
+	if payload.PageSize != 2 {
 		t.Fatalf("unexpected page size: %d", payload.PageSize)
 	}
-	if payload.LastUpdatedAt != 90 {
+	if payload.LastUpdatedAt != 150 {
 		t.Fatalf("unexpected lastUpdatedAt: %d", payload.LastUpdatedAt)
 	}
 	if payload.CachedAt != freeze {
 		t.Fatalf("unexpected cachedAt: %v", payload.CachedAt)
 	}
-	if payload.NextPageToken == "" {
-		t.Fatalf("expected next page token")
+	firstPage, ok := payload.Pages[""]
+	if !ok {
+		t.Fatalf("missing first page entry")
 	}
-	if len(payload.Tasks) != 1 || payload.Tasks[0].ID != "task1" || !payload.Tasks[0].Done {
-		t.Fatalf("unexpected tasks payload: %+v", payload.Tasks)
+	expectedToken, err := encodeContinuationToken(&pk, &rk)
+	if err != nil {
+		t.Fatalf("encode token: %v", err)
+	}
+	if firstPage.NextPageToken != expectedToken {
+		t.Fatalf("unexpected first page token: %s", firstPage.NextPageToken)
+	}
+	if len(firstPage.Tasks) != 2 || firstPage.Tasks[0].ID != "task1" || !firstPage.Tasks[0].Done {
+		t.Fatalf("unexpected first page payload: %+v", firstPage.Tasks)
+	}
+	if secondPage, ok := payload.Pages[expectedToken]; !ok {
+		t.Fatalf("missing second page entry")
+	} else {
+		if secondPage.NextPageToken != "" {
+			t.Fatalf("expected empty next token for final page, got %s", secondPage.NextPageToken)
+		}
+		if len(secondPage.Tasks) != 1 || secondPage.Tasks[0].ID != "task3" {
+			t.Fatalf("unexpected second page payload: %+v", secondPage.Tasks)
+		}
 	}
 	if got := m.TTL(cacheKey("user", tasksCachePrefix)); got <= 0 {
 		t.Fatalf("expected ttl to be set, got %v", got)
 	}
-	if store.lastListTasksLimit != 5 || store.lastListTasksUserID != "user" {
-		t.Fatalf("unexpected store usage: limit=%d user=%s", store.lastListTasksLimit, store.lastListTasksUserID)
+	if len(store.lastListTasksLimit) != 2 || store.lastListTasksLimit[0] != 2 || store.lastListTasksLimit[1] != 2 {
+		t.Fatalf("unexpected store limits: %#v", store.lastListTasksLimit)
+	}
+	for _, user := range store.lastListTasksUser {
+		if user != "user" {
+			t.Fatalf("unexpected store user: %s", user)
+		}
 	}
 }
 
@@ -114,7 +177,7 @@ func TestCacheUpdaterRefreshSettingsStoresPayload(t *testing.T) {
 			EventTimestampType: "Edm.Int64",
 		},
 	}
-	updater := newCacheUpdater(store, rc, 4, time.Hour, 30*time.Minute)
+	updater := newCacheUpdater(store, rc, 4, 4, time.Hour, 30*time.Minute)
 	freeze := time.Unix(200, 0).UTC()
 	updater.now = func() time.Time { return freeze }
 
@@ -155,7 +218,7 @@ func TestCacheUpdaterRefreshSettingsDeletesMissingEntry(t *testing.T) {
 		t.Fatalf("seed redis: %v", err)
 	}
 	store := &stubCacheStore{}
-	updater := newCacheUpdater(store, rc, 4, time.Hour, time.Hour)
+	updater := newCacheUpdater(store, rc, 4, 4, time.Hour, time.Hour)
 
 	updater.RefreshSettings(ctx, "user", 0)
 

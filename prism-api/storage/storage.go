@@ -153,12 +153,13 @@ const (
 )
 
 type cachedTasks struct {
-	Version       int           `json:"version"`
-	CachedAt      time.Time     `json:"cachedAt"`
-	LastUpdatedAt int64         `json:"lastUpdatedAt"`
-	PageSize      int           `json:"pageSize"`
-	NextPageToken string        `json:"nextPageToken,omitempty"`
-	Tasks         []domain.Task `json:"tasks"`
+	Version       int                        `json:"version"`
+	CachedAt      time.Time                  `json:"cachedAt"`
+	LastUpdatedAt int64                      `json:"lastUpdatedAt"`
+	PageSize      int                        `json:"pageSize"`
+	NextPageToken string                     `json:"nextPageToken,omitempty"`
+	Tasks         []domain.Task              `json:"tasks,omitempty"`
+	Pages         map[string]cachedTasksPage `json:"pages,omitempty"`
 }
 
 type cachedSettings struct {
@@ -166,6 +167,11 @@ type cachedSettings struct {
 	CachedAt      time.Time       `json:"cachedAt"`
 	LastUpdatedAt int64           `json:"lastUpdatedAt"`
 	Settings      domain.Settings `json:"settings"`
+}
+
+type cachedTasksPage struct {
+	Tasks         []domain.Task `json:"tasks"`
+	NextPageToken string        `json:"nextPageToken"`
 }
 
 type continuationToken struct {
@@ -270,16 +276,17 @@ func resolveTaskPageSize(requested int, defaultSize int32) int32 {
 
 func (s *Storage) FetchTasks(ctx context.Context, userID, token string, limit int) ([]domain.Task, string, error) {
 	pageSize := resolveTaskPageSize(limit, s.taskPageSize)
-	if token == "" && pageSize == s.taskPageSize {
+	if pageSize == s.taskPageSize {
 		if cached, ok := s.loadTasksFromCache(ctx, userID); ok {
 			if cached == nil {
 				return []domain.Task{}, "", nil
 			}
-			tasks := cached.Tasks
-			if tasks == nil {
-				tasks = []domain.Task{}
+			if tasks, next, found := cached.tasksForToken(token); found {
+				if tasks == nil {
+					tasks = []domain.Task{}
+				}
+				return tasks, next, nil
 			}
-			return tasks, cached.NextPageToken, nil
 		}
 	}
 
@@ -353,6 +360,31 @@ func (s *Storage) loadTasksFromCache(ctx context.Context, userID string) (*cache
 		return nil, false
 	}
 	return &payload, true
+}
+
+func (c *cachedTasks) tasksForToken(token string) ([]domain.Task, string, bool) {
+	if c == nil {
+		return nil, "", false
+	}
+	if len(c.Pages) > 0 {
+		page, ok := c.Pages[token]
+		if !ok {
+			return nil, "", false
+		}
+		tasks := page.Tasks
+		if tasks == nil {
+			tasks = []domain.Task{}
+		}
+		return tasks, page.NextPageToken, true
+	}
+	if token != "" {
+		return nil, "", false
+	}
+	tasks := c.Tasks
+	if tasks == nil {
+		tasks = []domain.Task{}
+	}
+	return tasks, c.NextPageToken, true
 }
 
 func (s *Storage) loadSettingsFromCache(ctx context.Context, userID string) (*domain.Settings, bool) {
