@@ -97,7 +97,7 @@ if [ -n "$storage_conn" ]; then
     -connection-string "$storage_conn" \
     -queue "${COMMAND_QUEUE}" \
     -queue "${DOMAIN_EVENTS_QUEUE}" \
-    -timeout 2m); then
+    -timeout 15m); then
     echo "Queue drain wait failed" >&2
     exit 1
   fi
