@@ -140,124 +140,101 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 		dec := json.NewDecoder(lr)
 		dec.DisallowUnknownFields()
 
-		raw := make([]postCommandRequest, 0, 4)
-		if err := dec.Decode(&raw); err != nil {
+		cmds := make([]domain.Command, 0, 4)
+		if err := dec.Decode(&cmds); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
 
-		cmds := make([]domain.Command, len(raw))
-		for i := range raw {
-			cmds[i] = domain.Command{
-				IdempotencyKey: raw[i].IdempotencyKey,
-				EntityType:     raw[i].EntityType,
-				Type:           raw[i].Type,
-				Data:           raw[i].Data,
-			}
-		}
-
 		keys := make([]string, len(cmds))
-		filtered := cmds[:0]
-		added := make([]string, 0, len(cmds))
-		addedIdxs := make([]int, 0, len(cmds))
-
+		var seen map[string]struct{}
+		if len(cmds) > 1 {
+			seen = make(map[string]struct{}, len(cmds))
+		}
+		uniqueKeys := make([]string, 0, len(cmds))
+		uniqueIdxs := make([]int, 0, len(cmds))
 		for i := range cmds {
 			if cmds[i].IdempotencyKey == "" {
 				cmds[i].IdempotencyKey = uuid.NewString()
 			}
 			cmds[i].ID = cmds[i].IdempotencyKey
 			keys[i] = cmds[i].IdempotencyKey
+			if seen != nil {
+				if _, ok := seen[keys[i]]; ok {
+					continue
+				}
+				seen[keys[i]] = struct{}{}
+			}
+			uniqueKeys = append(uniqueKeys, keys[i])
+			uniqueIdxs = append(uniqueIdxs, i)
 		}
 
-		var addedMask []bool
+		addedCmds := make([]domain.Command, 0, len(uniqueKeys))
+		addedKeys := make([]string, 0, len(uniqueKeys))
+
 		var addErr error
-		failedIndex := -1
-		usedBatch := false
-		if batch, ok := deduper.(batchDeduper); ok && len(cmds) > 0 {
-			addedMask, addErr = batch.AddMany(ctx, userID, keys)
-			usedBatch = true
-			for i, addedNow := range addedMask {
-				if addedNow {
-					addedIdxs = append(addedIdxs, i)
+		if batch, ok := deduper.(batchDeduper); ok && len(uniqueKeys) > 0 {
+			addedMask, err := batch.AddMany(ctx, userID, uniqueKeys)
+			if err != nil {
+				rollbackKeys := collectRollbackKeys(uniqueKeys, addedMask, err)
+				for _, key := range rollbackKeys {
+					if rerr := deduper.Remove(ctx, userID, key); rerr != nil {
+						c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, key)
+					}
 				}
+				return c.String(http.StatusInternalServerError, err.Error())
 			}
-		} else if len(cmds) > 0 {
-			for i := range cmds {
+			if len(addedMask) != len(uniqueKeys) {
+				for _, key := range uniqueKeys {
+					if rerr := deduper.Remove(ctx, userID, key); rerr != nil {
+						c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, key)
+					}
+				}
+				return c.String(http.StatusInternalServerError, "failed to reserve idempotency keys")
+			}
+			for i, addedNow := range addedMask {
+				if !addedNow {
+					continue
+				}
+				idx := uniqueIdxs[i]
+				cmds[idx].Timestamp = nextTimestamp()
+				addedCmds = append(addedCmds, cmds[idx])
+				addedKeys = append(addedKeys, keys[idx])
+			}
+		} else if len(uniqueKeys) > 0 {
+			for _, idx := range uniqueIdxs {
+				key := keys[idx]
 				var addedNow bool
-				addedNow, addErr = deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
+				addedNow, addErr = deduper.Add(ctx, userID, key)
 				if addErr != nil {
-					failedIndex = i
+					if addedNow {
+						addedKeys = append(addedKeys, key)
+					}
 					break
 				}
 				if addedNow {
-					addedIdxs = append(addedIdxs, i)
+					cmds[idx].Timestamp = nextTimestamp()
+					addedCmds = append(addedCmds, cmds[idx])
+					addedKeys = append(addedKeys, key)
 				}
 			}
-		}
-
-		if addErr != nil {
-			rollback := make(map[string]struct{}, len(keys))
-			for _, idx := range addedIdxs {
-				if idx >= 0 && idx < len(keys) {
-					rollback[keys[idx]] = struct{}{}
-				}
-			}
-			if !usedBatch && failedIndex >= 0 && failedIndex < len(keys) {
-				rollback[keys[failedIndex]] = struct{}{}
-			}
-			if usedBatch {
-				var idxErr interface{ RollbackIndexes() []int }
-				if errors.As(addErr, &idxErr) {
-					for _, idx := range idxErr.RollbackIndexes() {
-						if idx >= 0 && idx < len(keys) {
-							rollback[keys[idx]] = struct{}{}
-						}
-					}
-				} else if len(rollback) == 0 || len(addedMask) != len(cmds) {
-					for _, key := range keys {
-						rollback[key] = struct{}{}
+			if addErr != nil {
+				for _, key := range addedKeys {
+					if rerr := deduper.Remove(ctx, userID, key); rerr != nil {
+						c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, key)
 					}
 				}
-			} else if len(rollback) == 0 {
-				for _, key := range keys {
-					rollback[key] = struct{}{}
-				}
+				return c.String(http.StatusInternalServerError, addErr.Error())
 			}
-			for key := range rollback {
-				if err := deduper.Remove(ctx, userID, key); err != nil {
-					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, key)
-				}
-			}
-			return c.String(http.StatusInternalServerError, addErr.Error())
 		}
 
-		if usedBatch && len(addedMask) != len(cmds) {
-			for _, key := range keys {
-				if err := deduper.Remove(ctx, userID, key); err != nil {
-					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, key)
-				}
-			}
-			return c.String(http.StatusInternalServerError, "failed to reserve idempotency keys")
-		}
-
-		if len(addedIdxs) == 0 {
+		if len(addedCmds) == 0 {
 			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
-		}
-
-		filtered = filtered[:0]
-		added = added[:0]
-		for _, idx := range addedIdxs {
-			if idx < 0 || idx >= len(cmds) {
-				continue
-			}
-			cmds[idx].Timestamp = nextTimestamp()
-			filtered = append(filtered, cmds[idx])
-			added = append(added, keys[idx])
 		}
 
 		job := enqueueJob{
 			userID: userID,
-			cmds:   filtered,
-			added:  added,
+			cmds:   addedCmds,
+			added:  addedKeys,
 		}
 
 		if tryEnqueueJob(job) {
@@ -271,7 +248,7 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 		cancel()
 
 		if enqueueErr != nil {
-			for _, k := range added {
+			for _, k := range addedKeys {
 				if rerr := deduper.Remove(ctx, userID, k); rerr != nil {
 					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, k)
 				}
@@ -282,4 +259,35 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 
 		return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 	}
+}
+
+func collectRollbackKeys(uniqueKeys []string, addedMask []bool, addErr error) []string {
+	rollback := make(map[int]struct{}, len(uniqueKeys))
+	if len(addedMask) == len(uniqueKeys) {
+		for i, addedNow := range addedMask {
+			if addedNow {
+				rollback[i] = struct{}{}
+			}
+		}
+	}
+	var idxErr interface{ RollbackIndexes() []int }
+	if errors.As(addErr, &idxErr) {
+		for _, idx := range idxErr.RollbackIndexes() {
+			if idx >= 0 && idx < len(uniqueKeys) {
+				rollback[idx] = struct{}{}
+			}
+		}
+	}
+	if len(rollback) == 0 {
+		for i := range uniqueKeys {
+			rollback[i] = struct{}{}
+		}
+	}
+	keys := make([]string, 0, len(rollback))
+	for idx := range rollback {
+		if idx >= 0 && idx < len(uniqueKeys) {
+			keys = append(keys, uniqueKeys[idx])
+		}
+	}
+	return keys
 }
