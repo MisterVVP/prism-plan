@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
+	"github.com/redis/go-redis/v9"
 
 	"prism-api/domain"
 )
@@ -33,6 +35,7 @@ type Storage struct {
 	tasksSelectClause      string
 	tasksSelectMetadataFmt aztables.MetadataFormat
 	queueConcurrency       int
+	cache                  redisGetter
 }
 
 // Option configures optional storage behaviors.
@@ -43,6 +46,15 @@ func WithQueueConcurrency(n int) Option {
 	return func(s *Storage) {
 		if n > 0 {
 			s.queueConcurrency = n
+		}
+	}
+}
+
+// WithCache configures Redis as a read-through cache for read models.
+func WithCache(client redisGetter) Option {
+	return func(s *Storage) {
+		if client != nil {
+			s.cache = client
 		}
 	}
 }
@@ -129,6 +141,31 @@ type taskEntity struct {
 	Category string `json:"Category"`
 	Order    int    `json:"Order"`
 	Done     bool   `json:"Done"`
+}
+
+type redisGetter interface {
+	Get(ctx context.Context, key string) *redis.StringCmd
+}
+
+const (
+	tasksCachePrefix    = "ts"
+	settingsCachePrefix = "us"
+)
+
+type cachedTasks struct {
+	Version       int           `json:"version"`
+	CachedAt      time.Time     `json:"cachedAt"`
+	LastUpdatedAt int64         `json:"lastUpdatedAt"`
+	PageSize      int           `json:"pageSize"`
+	NextPageToken string        `json:"nextPageToken,omitempty"`
+	Tasks         []domain.Task `json:"tasks"`
+}
+
+type cachedSettings struct {
+	Version       int             `json:"version"`
+	CachedAt      time.Time       `json:"cachedAt"`
+	LastUpdatedAt int64           `json:"lastUpdatedAt"`
+	Settings      domain.Settings `json:"settings"`
 }
 
 type continuationToken struct {
@@ -232,13 +269,26 @@ func resolveTaskPageSize(requested int, defaultSize int32) int32 {
 }
 
 func (s *Storage) FetchTasks(ctx context.Context, userID, token string, limit int) ([]domain.Task, string, error) {
+	pageSize := resolveTaskPageSize(limit, s.taskPageSize)
+	if token == "" && pageSize == s.taskPageSize {
+		if cached, ok := s.loadTasksFromCache(ctx, userID); ok {
+			if cached == nil {
+				return []domain.Task{}, "", nil
+			}
+			tasks := cached.Tasks
+			if tasks == nil {
+				tasks = []domain.Task{}
+			}
+			return tasks, cached.NextPageToken, nil
+		}
+	}
+
 	filter := "PartitionKey eq '" + userID + "'"
 	nextPartitionKey, nextRowKey, err := decodeContinuationToken(token)
 	if err != nil {
 		return nil, "", &invalidContinuationTokenError{cause: err}
 	}
-	top := resolveTaskPageSize(limit, s.taskPageSize)
-	opts := &aztables.ListEntitiesOptions{Filter: &filter, Select: &s.tasksSelectClause, Top: &top, Format: &s.tasksSelectMetadataFmt, NextPartitionKey: nextPartitionKey, NextRowKey: nextRowKey}
+	opts := &aztables.ListEntitiesOptions{Filter: &filter, Select: &s.tasksSelectClause, Top: &pageSize, Format: &s.tasksSelectMetadataFmt, NextPartitionKey: nextPartitionKey, NextRowKey: nextRowKey}
 	pager := s.taskTable.NewListEntitiesPager(opts)
 	if !pager.More() {
 		return []domain.Task{}, "", nil
@@ -280,7 +330,63 @@ func decodeSettingsEntity(data []byte) (domain.Settings, error) {
 	return domain.Settings{TasksPerCategory: raw.TasksPerCategory, ShowDoneTasks: raw.ShowDoneTasks}, nil
 }
 
+func (s *Storage) loadTasksFromCache(ctx context.Context, userID string) (*cachedTasks, bool) {
+	if s.cache == nil {
+		return nil, false
+	}
+	cmd := s.cache.Get(ctx, cacheKey(userID, tasksCachePrefix))
+	raw, err := cmd.Result()
+	if err == redis.Nil {
+		return nil, false
+	}
+	if err != nil {
+		log.Printf("storage: tasks cache lookup failed: %v", err)
+		return nil, false
+	}
+	var payload cachedTasks
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		log.Printf("storage: tasks cache decode failed: %v", err)
+		return nil, false
+	}
+	if payload.PageSize > 0 && int32(payload.PageSize) != s.taskPageSize {
+		log.Printf("storage: tasks cache page size mismatch: cache=%d expected=%d", payload.PageSize, s.taskPageSize)
+		return nil, false
+	}
+	return &payload, true
+}
+
+func (s *Storage) loadSettingsFromCache(ctx context.Context, userID string) (*domain.Settings, bool) {
+	if s.cache == nil {
+		return nil, false
+	}
+	cmd := s.cache.Get(ctx, cacheKey(userID, settingsCachePrefix))
+	raw, err := cmd.Result()
+	if err == redis.Nil {
+		return nil, false
+	}
+	if err != nil {
+		log.Printf("storage: settings cache lookup failed: %v", err)
+		return nil, false
+	}
+	var payload cachedSettings
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		log.Printf("storage: settings cache decode failed: %v", err)
+		return nil, false
+	}
+	return &payload.Settings, true
+}
+
+func cacheKey(userID, prefix string) string {
+	return userID + ":" + prefix
+}
+
 func (s *Storage) FetchSettings(ctx context.Context, userID string) (domain.Settings, error) {
+	if settings, ok := s.loadSettingsFromCache(ctx, userID); ok {
+		if settings == nil {
+			return domain.Settings{}, nil
+		}
+		return *settings, nil
+	}
 	ent, err := s.settingsTable.GetEntity(ctx, userID, userID, &aztables.GetEntityOptions{Format: to.Ptr(aztables.MetadataFormatNone)})
 	if err != nil {
 		return domain.Settings{}, err

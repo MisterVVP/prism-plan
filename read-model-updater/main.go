@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -70,6 +71,39 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
+	tasksTTL := 12 * time.Hour
+	if v := os.Getenv("TASKS_CACHE_TTL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			log.Fatalf("invalid TASKS_CACHE_TTL: %v", err)
+		}
+		tasksTTL = d
+	}
+	settingsTTL := 4 * time.Hour
+	if v := os.Getenv("SETTINGS_CACHE_TTL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			log.Fatalf("invalid SETTINGS_CACHE_TTL: %v", err)
+		}
+		settingsTTL = d
+	}
+	cacheSize := 10
+	if v := os.Getenv("TASKS_PAGE_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cacheSize = n
+		}
+	}
+	if v := os.Getenv("TASKS_CACHE_SIZE"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			log.Fatalf("invalid TASKS_CACHE_SIZE: %v", err)
+		}
+		if n <= 0 {
+			log.Fatalf("invalid TASKS_CACHE_SIZE: must be greater than zero")
+		}
+		cacheSize = n
+	}
+	cache := newCacheUpdater(st, rc, int32(cacheSize), tasksTTL, settingsTTL)
 	taskUpdatesChannel := os.Getenv("TASK_UPDATES_CHANNEL")
 	settingsUpdatesChannel := os.Getenv("SETTINGS_UPDATES_CHANNEL")
 	if taskUpdatesChannel == "" || settingsUpdatesChannel == "" {
@@ -99,7 +133,7 @@ func main() {
 		}
 
 		ctx := c.Request().Context()
-		if err := processEvent(ctx, orch, rc, taskUpdatesChannel, settingsUpdatesChannel, ev, eventPayload); err != nil {
+		if err := processEvent(ctx, orch, cache, rc, taskUpdatesChannel, settingsUpdatesChannel, ev, eventPayload); err != nil {
 			log.Errorf("Unable to process message, error: %v", err)
 			return c.NoContent(http.StatusBadRequest)
 		}

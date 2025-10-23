@@ -1,9 +1,13 @@
 package storage
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"testing"
+	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func TestDecodeSettingsEntity(t *testing.T) {
@@ -126,5 +130,70 @@ func TestResolveTaskPageSize(t *testing.T) {
 				t.Fatalf("resolveTaskPageSize(%d, %d) = %d, want %d", tc.requested, tc.defaultSize, got, tc.want)
 			}
 		})
+	}
+}
+
+type stubRedisGetter struct {
+	value   string
+	err     error
+	lastKey string
+}
+
+func (s *stubRedisGetter) Get(ctx context.Context, key string) *redis.StringCmd {
+	s.lastKey = key
+	return redis.NewStringResult(s.value, s.err)
+}
+
+func TestFetchTasksUsesCache(t *testing.T) {
+	cacheValue := `{"version":1,"cachedAt":"` + time.Now().UTC().Format(time.RFC3339Nano) + `","lastUpdatedAt":1,"pageSize":3,"nextPageToken":"abc","tasks":[{"id":"t1","title":"Task","category":"cat","order":1}]}`
+	cache := &stubRedisGetter{value: cacheValue}
+	store := &Storage{
+		taskPageSize: 3,
+		cache:        cache,
+	}
+	tasks, token, err := store.FetchTasks(context.Background(), "user", "", 0)
+	if err != nil {
+		t.Fatalf("FetchTasks: %v", err)
+	}
+	if len(tasks) != 1 || tasks[0].ID != "t1" {
+		t.Fatalf("unexpected tasks: %+v", tasks)
+	}
+	if token != "abc" {
+		t.Fatalf("unexpected token: %s", token)
+	}
+	if cache.lastKey != cacheKey("user", tasksCachePrefix) {
+		t.Fatalf("unexpected cache key: %s", cache.lastKey)
+	}
+}
+
+func TestFetchSettingsUsesCache(t *testing.T) {
+	cacheValue := `{"version":1,"cachedAt":"` + time.Now().UTC().Format(time.RFC3339Nano) + `","lastUpdatedAt":1,"settings":{"tasksPerCategory":4,"showDoneTasks":true}}`
+	cache := &stubRedisGetter{value: cacheValue}
+	store := &Storage{cache: cache}
+	settings, err := store.FetchSettings(context.Background(), "user")
+	if err != nil {
+		t.Fatalf("FetchSettings: %v", err)
+	}
+	if settings.TasksPerCategory != 4 || !settings.ShowDoneTasks {
+		t.Fatalf("unexpected settings: %+v", settings)
+	}
+	if cache.lastKey != cacheKey("user", settingsCachePrefix) {
+		t.Fatalf("unexpected cache key: %s", cache.lastKey)
+	}
+}
+
+func TestLoadTasksFromCacheInvalidJSON(t *testing.T) {
+	cache := &stubRedisGetter{value: "not-json"}
+	store := &Storage{taskPageSize: 5, cache: cache}
+	if cached, ok := store.loadTasksFromCache(context.Background(), "user"); ok || cached != nil {
+		t.Fatalf("expected cache miss on invalid json")
+	}
+}
+
+func TestLoadSettingsFromCacheInvalidJSON(t *testing.T) {
+	cache := &stubRedisGetter{value: "not-json"}
+	store := &Storage{cache: cache}
+	if cached, ok := store.loadSettingsFromCache(context.Background(), "user"); ok || cached != nil {
+		t.Fatalf("expected cache miss on invalid json")
 	}
 }

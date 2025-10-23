@@ -23,6 +23,8 @@ type Storage struct {
 	settingsTable *aztables.Client
 }
 
+var taskListSelectClause = "PartitionKey,RowKey,Title,Notes,Category,Order,Order@odata.type,Done,Done@odata.type,EventTimestamp,EventTimestamp@odata.type"
+
 func parseTimestamp(raw json.RawMessage) int64 {
 	var i int64
 	if err := json.Unmarshal(raw, &i); err == nil {
@@ -144,6 +146,58 @@ func (s *Storage) InsertTask(ctx context.Context, ent domain.TaskEntity) error {
 		_, err = s.taskTable.AddEntity(ctx, payload, nil)
 	}
 	return err
+}
+
+// ListTasksPage returns up to limit tasks for the given user ordered by partition and row key.
+func (s *Storage) ListTasksPage(ctx context.Context, userID string, limit int32) ([]domain.TaskEntity, *string, *string, error) {
+	if limit <= 0 {
+		limit = 1
+	}
+	filter := "PartitionKey eq '" + userID + "'"
+	format := aztables.MetadataFormatNone
+	opts := aztables.ListEntitiesOptions{Filter: &filter, Select: &taskListSelectClause, Top: &limit, Format: &format}
+	pager := s.taskTable.NewListEntitiesPager(&opts)
+	if !pager.More() {
+		return []domain.TaskEntity{}, nil, nil, nil
+	}
+	resp, err := pager.NextPage(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	tasks := make([]domain.TaskEntity, 0, len(resp.Entities))
+	for _, e := range resp.Entities {
+		var raw struct {
+			PartitionKey       string          `json:"PartitionKey"`
+			RowKey             string          `json:"RowKey"`
+			Title              string          `json:"Title,omitempty"`
+			Notes              string          `json:"Notes,omitempty"`
+			Category           string          `json:"Category,omitempty"`
+			Order              int             `json:"Order"`
+			OrderType          string          `json:"Order@odata.type"`
+			Done               bool            `json:"Done"`
+			DoneType           string          `json:"Done@odata.type"`
+			EventTimestamp     json.RawMessage `json:"EventTimestamp"`
+			EventTimestampType string          `json:"EventTimestamp@odata.type"`
+		}
+		if err := json.Unmarshal(e, &raw); err != nil {
+			return nil, nil, nil, err
+		}
+		tasks = append(tasks, domain.TaskEntity{
+			Entity:             domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
+			Title:              raw.Title,
+			Notes:              raw.Notes,
+			Category:           raw.Category,
+			Order:              raw.Order,
+			OrderType:          raw.OrderType,
+			Done:               raw.Done,
+			DoneType:           raw.DoneType,
+			EventTimestamp:     parseTimestamp(raw.EventTimestamp),
+			EventTimestampType: raw.EventTimestampType,
+		})
+	}
+
+	return tasks, resp.NextPartitionKey, resp.NextRowKey, nil
 }
 
 // UpdateTask merges changes into an existing task entity.

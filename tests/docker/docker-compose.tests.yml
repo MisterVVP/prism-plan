@@ -6,6 +6,7 @@ x-prism-api: &prism-api-base
     AUTH0_TEST_MODE: "1"
     TEST_JWT_SECRET: ${TEST_JWT_SECRET}
     REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+    TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
     ENQUEUE_WORKERS: ${ENQUEUE_WORKERS}
     ENQUEUE_BUFFER: ${ENQUEUE_BUFFER}
     ENQUEUE_TIMEOUT: ${ENQUEUE_TIMEOUT}
@@ -17,6 +18,58 @@ x-prism-api: &prism-api-base
       condition: service_healthy
     storage-init:
       condition: service_completed_successfully
+
+x-domain-service: &domain-service-base
+  build: ./domain-service
+  environment: &domain-service-env
+    APP_ENV: test
+    STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+    TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+    USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+    COMMAND_QUEUE: ${COMMAND_QUEUE}
+    DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+    READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
+    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsScriptRoot: /home/site/wwwroot
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: false
+    AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+  depends_on:
+    fauxzureq:
+      condition: service_healthy    
+    azurite:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+
+x-read-model-updater: &read-model-updater-base
+  build: ./read-model-updater
+  environment: &read-model-updater-env
+    APP_ENV: test
+    DEBUG: ${DEBUG}
+    STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+    DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+    TASKS_TABLE: ${TASKS_TABLE}
+    SETTINGS_TABLE: ${SETTINGS_TABLE}
+    USERS_TABLE: ${USERS_TABLE}
+    TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
+    REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+    TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
+    SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
+    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsScriptRoot: /home/site/wwwroot
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+    AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+    FUNCTIONS_WORKER_RUNTIME: custom
+    ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
+  depends_on:
+    fauxzureq:
+      condition: service_healthy
+    azurite:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+    redis:
+      condition: service_started
 
 services:
   web:
@@ -112,40 +165,68 @@ services:
         condition: service_healthy
     ports:
       - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
-  domain-service:
+  domain-service-1:
+    <<: *domain-service-base
     environment:
-      APP_ENV: test
-      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-      AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
-      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-    depends_on:
-      fauxzureq:
-        condition: service_healthy    
-      azurite:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
+      <<: *domain-service-env
+
+  domain-service-2:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-3:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-4:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-5:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+  
   read-model-updater:
+    profiles:
+      - disabled
+
+  read-model-updater-1:
+    <<: *read-model-updater-base
     environment:
-      APP_ENV: test
-      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-      AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
-      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-      FUNCTIONS_WORKER_RUNTIME: custom
-      ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
+      <<: *read-model-updater-env
+    expose:
+      - "${READ_MODEL_UPDATER_PORT}"
+
+  read-model-updater-2:
+    <<: *read-model-updater-base
+    environment:
+      <<: *read-model-updater-env
+    expose:
+      - "${READ_MODEL_UPDATER_PORT}"
+
+  read-model-updater-3:
+    <<: *read-model-updater-base
+    environment:
+      <<: *read-model-updater-env
+    expose:
+      - "${READ_MODEL_UPDATER_PORT}"
+
+  read-model-updater-lb:
+    environment:
+      READ_MODEL_UPDATER_PORT: ${READ_MODEL_UPDATER_PORT}
+    image: haproxy:3.0-alpine
+    volumes:
+      - ./haproxy/read-model-updater.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
       - "${READ_MODEL_UPDATER_PORT}:${READ_MODEL_UPDATER_PORT}"
     depends_on:
-      fauxzureq:
-        condition: service_healthy    
-      azurite:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
+      - read-model-updater-1
+      - read-model-updater-2
+      - read-model-updater-3
 
   storage-init:
     environment:
