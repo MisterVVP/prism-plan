@@ -20,7 +20,7 @@ x-prism-api: &prism-api-base
       condition: service_completed_successfully
 
 x-domain-service: &domain-service-base
-  build: ./domain-service    
+  build: ./domain-service
   environment: &domain-service-env
     APP_ENV: test
     STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
@@ -40,6 +40,31 @@ x-domain-service: &domain-service-base
       condition: service_healthy
     storage-init:
       condition: service_completed_successfully
+
+x-read-model-updater: &read-model-updater-base
+  build: ./read-model-updater
+  environment: &read-model-updater-env
+    APP_ENV: test
+    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsScriptRoot: /home/site/wwwroot
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+    AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+    FUNCTIONS_WORKER_RUNTIME: custom
+    ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
+    TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
+  depends_on:
+    fauxzureq:
+      condition: service_healthy
+    azurite:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+    redis:
+      condition: service_started
+  networks:
+    default:
+      aliases:
+        - read-model-updater
 
 services:
   web:
@@ -160,27 +185,26 @@ services:
     environment:
       <<: *domain-service-env
   
-  read-model-updater:
+  read-model-updater-1:
+    <<: *read-model-updater-base
     environment:
-      APP_ENV: test
-      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-      AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
-      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-      FUNCTIONS_WORKER_RUNTIME: custom
-      ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
-      TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
+      <<: *read-model-updater-env
     ports:
       - "${READ_MODEL_UPDATER_PORT}:${READ_MODEL_UPDATER_PORT}"
-    depends_on:
-      fauxzureq:
-        condition: service_healthy    
-      azurite:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
+
+  read-model-updater-2:
+    <<: *read-model-updater-base
+    environment:
+      <<: *read-model-updater-env
+    expose:
+      - "${READ_MODEL_UPDATER_PORT}"
+
+  read-model-updater-3:
+    <<: *read-model-updater-base
+    environment:
+      <<: *read-model-updater-env
+    expose:
+      - "${READ_MODEL_UPDATER_PORT}"
 
   storage-init:
     environment:
