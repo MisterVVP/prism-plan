@@ -22,8 +22,10 @@ import (
 func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, log *log.Logger) {
 	e.GET("/api/tasks", getTasks(store, auth, log))
 	e.GET("/api/settings", getSettings(store, auth))
-	e.POST("/api/commands", postCommands(store, auth, deduper, log))
+	e.POST("/api/commands", postCommands(store, auth, deduper))
 	e.GET("/healthz", healthz(store))
+
+	initCommandSender(store, deduper, log)
 }
 
 type tasksResponse struct {
@@ -125,11 +127,9 @@ type batchDeduper interface {
 	AddMany(ctx context.Context, userID string, keys []string) ([]bool, error)
 }
 
-func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.Logger) echo.HandlerFunc {
+func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
-
-		initCommandSender(store, deduper, log)
 
 		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
 		if err != nil {

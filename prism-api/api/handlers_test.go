@@ -260,12 +260,12 @@ func TestPostCommandsIdempotency(t *testing.T) {
 	resetCommandSenderForTests()
 	t.Cleanup(resetCommandSenderForTests)
 
-	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{}, deduper, logger)
+	initCommandSender(store, deduper, log.New())
+	handler := postCommands(store, mockAuth{}, deduper)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -329,12 +329,12 @@ func (e *errStore) EnqueueCommands(ctx context.Context, userID string, cmds []do
 }
 
 func TestPostCommandsRetryOnError(t *testing.T) {
-	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
 	e := echo.New()
 	store := &errStore{fail: true}
-	handler := postCommands(store, mockAuth{}, deduper, logger)
+	initCommandSender(store, deduper, log.New())
+	handler := postCommands(store, mockAuth{}, deduper)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -359,7 +359,6 @@ func TestPostCommandsRetryOnError(t *testing.T) {
 }
 
 func TestPostCommandsReturnKeysForAll(t *testing.T) {
-	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
 	// pre-add a key to simulate duplicate
@@ -368,7 +367,8 @@ func TestPostCommandsReturnKeysForAll(t *testing.T) {
 	}
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{}, deduper, logger)
+	initCommandSender(store, deduper, log.New())
+	handler := postCommands(store, mockAuth{}, deduper)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -487,11 +487,11 @@ func (e *batchRollbackError) RollbackIndexes() []int {
 }
 
 func TestPostCommandsCleansUpOnDeduperError(t *testing.T) {
-	logger := log.New()
 	d := newFlakeyDeduper(1)
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{}, d, logger)
+	initCommandSender(store, globalDeduper, log.New())
+	handler := postCommands(store, mockAuth{}, d)
 	body := `[{"entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -535,12 +535,12 @@ func TestPostCommandsFallbackWhenQueueFull(t *testing.T) {
 	t.Setenv("ENQUEUE_TIMEOUT", "1s")
 	t.Setenv("ENQUEUE_HANDOFF_TIMEOUT", "0s")
 
-	logger := log.New()
 	deduper, cleanup := setupDeduper(t)
 	defer cleanup()
 
 	store := newBlockingStore()
-	handler := postCommands(store, mockAuth{}, deduper, logger)
+	initCommandSender(store, deduper, log.New())
+	handler := postCommands(store, mockAuth{}, deduper)
 
 	e := echo.New()
 	body := `[{"entityType":"task","type":"create-task"}]`
@@ -613,11 +613,11 @@ func TestPostCommandsUsesBatchDeduper(t *testing.T) {
 	resetCommandSenderForTests()
 	t.Cleanup(resetCommandSenderForTests)
 
-	logger := log.New()
 	deduper := &batchDeduperStub{t: t, results: []bool{true, false, true}}
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{}, deduper, logger)
+	initCommandSender(store, deduper, log.New())
+	handler := postCommands(store, mockAuth{}, deduper)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"idempotencyKey":"k2","entityType":"task","type":"create-task"},{"entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -670,11 +670,11 @@ func TestPostCommandsBatchDeduperError(t *testing.T) {
 	resetCommandSenderForTests()
 	t.Cleanup(resetCommandSenderForTests)
 
-	logger := log.New()
 	deduper := &batchDeduperStub{t: t, results: []bool{true, false}, err: errors.New("batch failure"), rollback: []int{1}}
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{}, deduper, logger)
+	initCommandSender(store, deduper, log.New())
+	handler := postCommands(store, mockAuth{}, deduper)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"idempotencyKey":"k2","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
@@ -707,11 +707,11 @@ func TestPostCommandsBatchDeduperErrorRemovesFailedKey(t *testing.T) {
 	resetCommandSenderForTests()
 	t.Cleanup(resetCommandSenderForTests)
 
-	logger := log.New()
 	deduper := &batchDeduperStub{t: t, results: []bool{false, false}, err: errors.New("batch failure"), rollback: []int{1}}
 	e := echo.New()
 	store := &mockStore{}
-	handler := postCommands(store, mockAuth{}, deduper, logger)
+	initCommandSender(store, deduper, log.New())
+	handler := postCommands(store, mockAuth{}, deduper)
 	body := `[{"idempotencyKey":"k1","entityType":"task","type":"create-task"},{"idempotencyKey":"k2","entityType":"task","type":"create-task"}]`
 	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
 	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
