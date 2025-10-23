@@ -202,15 +202,19 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			}
 		} else if len(uniqueKeys) > 0 {
 			for _, idx := range uniqueIdxs {
+				key := keys[idx]
 				var addedNow bool
-				addedNow, addErr = deduper.Add(ctx, userID, keys[idx])
+				addedNow, addErr = deduper.Add(ctx, userID, key)
 				if addErr != nil {
+					if addedNow {
+						addedKeys = append(addedKeys, key)
+					}
 					break
 				}
 				if addedNow {
 					cmds[idx].Timestamp = nextTimestamp()
 					addedCmds = append(addedCmds, cmds[idx])
-					addedKeys = append(addedKeys, keys[idx])
+					addedKeys = append(addedKeys, key)
 				}
 			}
 			if addErr != nil {
