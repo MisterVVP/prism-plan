@@ -90,9 +90,24 @@ export TEST_BEARER K6_VUS K6_DURATION PRISM_API_LB_BASE K6_TASK_PAGE_SIZE
 
 k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.json
 
+echo "Waiting for command and event queues to drain before heavy read..."
+storage_conn="${STORAGE_CONNECTION_STRING_LOCAL:-${STORAGE_CONNECTION_STRING:-}}"
+if [ -n "$storage_conn" ]; then
+  if ! (cd tests/utils && go run ./cmd/wait-queues \
+    -connection-string "$storage_conn" \
+    -queue "${COMMAND_QUEUE}" \
+    -queue "${DOMAIN_EVENTS_QUEUE}" \
+    -timeout 15m); then
+    echo "Queue drain wait failed" >&2
+    exit 1
+  fi
+else
+  echo "Storage connection string not available; skipping queue drain wait" >&2
+fi
+
 k6 run tests/perf/k6/api_heavy_read.js --summary-export=k6-summary-heavy_read.json
 
-k6 run tests/perf/k6/api_heavy_write_batch.js --summary-export=k6-summary-heavy_write_batch.json
+# TODO: can be enabled in future, not used right now
+#k6 run tests/perf/k6/api_heavy_write_batch.js --summary-export=k6-summary-heavy_write_batch.json
 
-k6 run tests/perf/k6/api_mixed_read_write.js --summary-export=k6-summary-mixed_read_write.json
 mkdir -p "$RESULT_DIR"

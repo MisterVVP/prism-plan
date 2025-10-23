@@ -19,6 +19,28 @@ x-prism-api: &prism-api-base
     storage-init:
       condition: service_completed_successfully
 
+x-domain-service: &domain-service-base
+  build: ./domain-service    
+  environment: &domain-service-env
+    APP_ENV: test
+    STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+    TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+    USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+    COMMAND_QUEUE: ${COMMAND_QUEUE}
+    DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+    READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
+    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsScriptRoot: /home/site/wwwroot
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: false
+    AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+  depends_on:
+    fauxzureq:
+      condition: service_healthy    
+    azurite:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+
 services:
   web:
     environment:
@@ -113,20 +135,31 @@ services:
         condition: service_healthy
     ports:
       - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
-  domain-service:
+  domain-service-1:
+    <<: *domain-service-base
     environment:
-      APP_ENV: test
-      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-      AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
-      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-    depends_on:
-      fauxzureq:
-        condition: service_healthy    
-      azurite:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
+      <<: *domain-service-env
+
+  domain-service-2:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-3:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-4:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-5:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+  
   read-model-updater:
     environment:
       APP_ENV: test
