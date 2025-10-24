@@ -450,6 +450,9 @@ func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []dom
 	}
 
 	workers := s.queueConcurrency
+	if workers > len(payloads) {
+		workers = len(payloads)
+	}
 	if workers <= 1 {
 		for _, payload := range payloads {
 			if _, err := s.commandQueue.EnqueueMessage(ctx, payload, nil); err != nil {
@@ -457,9 +460,6 @@ func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []dom
 			}
 		}
 		return nil
-	}
-	if workers > len(payloads) {
-		workers = len(payloads)
 	}
 
 	parentCtx := ctx
