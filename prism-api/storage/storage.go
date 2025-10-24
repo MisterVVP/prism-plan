@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -17,6 +16,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
+	"github.com/bytedance/sonic"
 	"github.com/redis/go-redis/v9"
 
 	"prism-api/domain"
@@ -219,7 +219,7 @@ func decodeContinuationToken(token string) (*string, *string, error) {
 	}
 
 	var ct continuationToken
-	if err := json.Unmarshal(data, &ct); err != nil {
+	if err := sonic.Unmarshal(data, &ct); err != nil {
 		return nil, nil, err
 	}
 	if ct.PartitionKey == "" || ct.RowKey == "" {
@@ -300,7 +300,7 @@ func (s *Storage) FetchTasks(ctx context.Context, userID, token string, limit in
 	tasks := make([]domain.Task, 0, len(resp.Entities))
 	for _, e := range resp.Entities {
 		var ent taskEntity
-		if err := json.Unmarshal(e, &ent); err != nil {
+		if err := sonic.Unmarshal(e, &ent); err != nil {
 			return nil, "", err
 		}
 		tasks = append(tasks, domain.Task{
@@ -324,7 +324,7 @@ func decodeSettingsEntity(data []byte) (domain.Settings, error) {
 		TasksPerCategory int  `json:"TasksPerCategory"`
 		ShowDoneTasks    bool `json:"ShowDoneTasks"`
 	}
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := sonic.Unmarshal(data, &raw); err != nil {
 		return domain.Settings{}, err
 	}
 	return domain.Settings{TasksPerCategory: raw.TasksPerCategory, ShowDoneTasks: raw.ShowDoneTasks}, nil
@@ -344,7 +344,7 @@ func (s *Storage) loadTasksFromCache(ctx context.Context, userID string) (*cache
 		return nil, false
 	}
 	var payload cachedTasks
-	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+	if err := sonic.Unmarshal([]byte(raw), &payload); err != nil {
 		log.Printf("storage: tasks cache decode failed: %v", err)
 		return nil, false
 	}
@@ -369,7 +369,7 @@ func (s *Storage) loadSettingsFromCache(ctx context.Context, userID string) (*do
 		return nil, false
 	}
 	var payload cachedSettings
-	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+	if err := sonic.Unmarshal([]byte(raw), &payload); err != nil {
 		log.Printf("storage: settings cache decode failed: %v", err)
 		return nil, false
 	}
@@ -423,7 +423,7 @@ func (s *Storage) EnqueueCommands(ctx context.Context, userID string, cmds []dom
 	payloads := make([]string, len(cmds))
 	for i, cmd := range cmds {
 		env := domain.CommandEnvelope{UserID: userID, Command: cmd}
-		data, err := json.Marshal(env)
+		data, err := sonic.Marshal(env)
 		if err != nil {
 			return err
 		}
