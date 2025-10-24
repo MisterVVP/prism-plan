@@ -51,6 +51,46 @@ func TestRedisDeduperAddMany(t *testing.T) {
 	}
 }
 
+func TestRedisDeduperAddManySingleKey(t *testing.T) {
+	m, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	t.Cleanup(m.Close)
+
+	client := redis.NewClient(&redis.Options{Addr: m.Addr()})
+	t.Cleanup(func() {
+		if cerr := client.Close(); cerr != nil {
+			t.Logf("redis close: %v", cerr)
+		}
+	})
+
+	deduper := NewRedisDeduper(client, time.Minute)
+	ctx := context.Background()
+
+	results, err := deduper.AddMany(ctx, "user", []string{"k1"})
+	if err != nil {
+		t.Fatalf("add many single key: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected single result, got %d", len(results))
+	}
+	if !results[0] {
+		t.Fatalf("expected key to be added")
+	}
+
+	again, err := deduper.AddMany(ctx, "user", []string{"k1"})
+	if err != nil {
+		t.Fatalf("add many single key second: %v", err)
+	}
+	if len(again) != 1 {
+		t.Fatalf("expected single result, got %d", len(again))
+	}
+	if again[0] {
+		t.Fatalf("expected second call to report duplicate key")
+	}
+}
+
 func TestRedisDeduperKeyNamespacing(t *testing.T) {
 	m, err := miniredis.Run()
 	if err != nil {
