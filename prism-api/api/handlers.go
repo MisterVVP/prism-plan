@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -127,6 +128,23 @@ type batchDeduper interface {
 	AddMany(ctx context.Context, userID string, keys []string) ([]bool, error)
 }
 
+var commandSlicePool = sync.Pool{
+	New: func() any {
+		return make([]domain.Command, 0, 4)
+	},
+}
+
+type commandEntry struct {
+	key string
+	cmd domain.Command
+}
+
+var commandEntryPool = sync.Pool{
+	New: func() any {
+		return make([]commandEntry, 0, 4)
+	},
+}
+
 func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
@@ -140,35 +158,119 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 		dec := json.NewDecoder(lr)
 		dec.DisallowUnknownFields()
 
-		cmds := make([]domain.Command, 0, 4)
-		if err := dec.Decode(&cmds); err != nil {
+		start, err := dec.Token()
+		if err != nil {
+			return c.String(http.StatusBadRequest, "invalid body")
+		}
+		delim, ok := start.(json.Delim)
+		if !ok || delim != '[' {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
 
-		keys := make([]string, len(cmds))
-		var seen map[string]struct{}
-		if len(cmds) > 1 {
-			seen = make(map[string]struct{}, len(cmds))
+		keys := make([]string, 0, 4)
+		entries := commandEntryPool.Get().([]commandEntry)
+		if entries == nil {
+			entries = make([]commandEntry, 0, 4)
 		}
-		uniqueKeys := make([]string, 0, len(cmds))
-		uniqueIdxs := make([]int, 0, len(cmds))
-		for i := range cmds {
-			if cmds[i].IdempotencyKey == "" {
-				cmds[i].IdempotencyKey = uuid.NewString()
+		entries = entries[:0]
+		defer func() {
+			commandEntryPool.Put(entries[:0])
+		}()
+
+		var seen map[string]struct{}
+		for dec.More() {
+			var cmd domain.Command
+			if err := dec.Decode(&cmd); err != nil {
+				return c.String(http.StatusBadRequest, "invalid body")
 			}
-			cmds[i].ID = cmds[i].IdempotencyKey
-			keys[i] = cmds[i].IdempotencyKey
-			if seen != nil {
-				if _, ok := seen[keys[i]]; ok {
-					continue
-				}
-				seen[keys[i]] = struct{}{}
+			if cmd.IdempotencyKey == "" {
+				cmd.IdempotencyKey = uuid.NewString()
 			}
-			uniqueKeys = append(uniqueKeys, keys[i])
-			uniqueIdxs = append(uniqueIdxs, i)
+			cmd.ID = cmd.IdempotencyKey
+			keys = append(keys, cmd.IdempotencyKey)
+
+			entry := commandEntry{key: cmd.IdempotencyKey, cmd: cmd}
+			if len(entries) == 0 {
+				entries = append(entries, entry)
+				continue
+			}
+			if seen == nil {
+				seen = make(map[string]struct{}, 4)
+				seen[entries[0].key] = struct{}{}
+			}
+			if _, exists := seen[entry.key]; exists {
+				continue
+			}
+			seen[entry.key] = struct{}{}
+			entries = append(entries, entry)
 		}
 
-		addedCmds := make([]domain.Command, 0, len(uniqueKeys))
+		if _, err := dec.Token(); err != nil {
+			return c.String(http.StatusBadRequest, "invalid body")
+		}
+
+		if len(keys) == 0 {
+			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: []string{}})
+		}
+
+		if len(entries) == 1 {
+			entry := entries[0]
+			addedNow, addErr := deduper.Add(ctx, userID, entry.key)
+			if addErr != nil {
+				if addedNow {
+					if rerr := deduper.Remove(ctx, userID, entry.key); rerr != nil {
+						c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, entry.key)
+					}
+				}
+				return c.String(http.StatusInternalServerError, addErr.Error())
+			}
+			if !addedNow {
+				return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+			}
+
+			entry.cmd.Timestamp = nextTimestamp()
+			job := enqueueJob{
+				userID: userID,
+				cmds:   []domain.Command{entry.cmd},
+				added:  append([]string(nil), entry.key),
+			}
+
+			if tryEnqueueJob(job) {
+				return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+			}
+
+			globalLog.Warn("enqueue buffer saturated; processing inline")
+
+			enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
+			enqueueErr := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
+			cancel()
+
+			if enqueueErr != nil {
+				if rerr := deduper.Remove(ctx, userID, entry.key); rerr != nil {
+					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, entry.key)
+				}
+				c.Logger().Errorf("enqueue inline failed: %v", enqueueErr)
+				return c.String(http.StatusInternalServerError, "failed to enqueue commands")
+			}
+
+			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+		}
+
+		uniqueKeys := make([]string, len(entries))
+		for i := range entries {
+			uniqueKeys[i] = entries[i].key
+		}
+
+		addedCmdsBuf := commandSlicePool.Get().([]domain.Command)
+		if addedCmdsBuf == nil {
+			addedCmdsBuf = make([]domain.Command, 0, len(uniqueKeys))
+		} else {
+			addedCmdsBuf = addedCmdsBuf[:0]
+		}
+		defer func() {
+			commandSlicePool.Put(addedCmdsBuf[:0])
+		}()
+
 		addedKeys := make([]string, 0, len(uniqueKeys))
 
 		var addErr error
@@ -195,26 +297,25 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 				if !addedNow {
 					continue
 				}
-				idx := uniqueIdxs[i]
-				cmds[idx].Timestamp = nextTimestamp()
-				addedCmds = append(addedCmds, cmds[idx])
-				addedKeys = append(addedKeys, keys[idx])
+				entry := entries[i]
+				entry.cmd.Timestamp = nextTimestamp()
+				addedCmdsBuf = append(addedCmdsBuf, entry.cmd)
+				addedKeys = append(addedKeys, entry.key)
 			}
 		} else if len(uniqueKeys) > 0 {
-			for _, idx := range uniqueIdxs {
-				key := keys[idx]
+			for _, entry := range entries {
 				var addedNow bool
-				addedNow, addErr = deduper.Add(ctx, userID, key)
+				addedNow, addErr = deduper.Add(ctx, userID, entry.key)
 				if addErr != nil {
 					if addedNow {
-						addedKeys = append(addedKeys, key)
+						addedKeys = append(addedKeys, entry.key)
 					}
 					break
 				}
 				if addedNow {
-					cmds[idx].Timestamp = nextTimestamp()
-					addedCmds = append(addedCmds, cmds[idx])
-					addedKeys = append(addedKeys, key)
+					entry.cmd.Timestamp = nextTimestamp()
+					addedCmdsBuf = append(addedCmdsBuf, entry.cmd)
+					addedKeys = append(addedKeys, entry.key)
 				}
 			}
 			if addErr != nil {
@@ -227,14 +328,14 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 			}
 		}
 
-		if len(addedCmds) == 0 {
+		if len(addedCmdsBuf) == 0 {
 			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		}
 
 		job := enqueueJob{
 			userID: userID,
-			cmds:   addedCmds,
-			added:  addedKeys,
+			cmds:   append([]domain.Command(nil), addedCmdsBuf...),
+			added:  append([]string(nil), addedKeys...),
 		}
 
 		if tryEnqueueJob(job) {
