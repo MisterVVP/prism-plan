@@ -3,10 +3,10 @@ package storage
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -32,7 +32,7 @@ func TestDecodeSettingsEntity(t *testing.T) {
 func TestTaskEntityDecodeWithoutMetadata(t *testing.T) {
 	payload := []byte(`{"RowKey":"task1","Title":"Write tests","Notes":"cover metadata removal","Category":"dev","Order":3,"Done":false}`)
 	var ent taskEntity
-	if err := json.Unmarshal(payload, &ent); err != nil {
+	if err := sonic.Unmarshal(payload, &ent); err != nil {
 		t.Fatalf("unmarshal task entity: %v", err)
 	}
 	if ent.RowKey != "task1" {
@@ -91,7 +91,7 @@ func TestDecodeContinuationTokenLegacyJSON(t *testing.T) {
 	pk := "legacy-pk"
 	rk := "legacy-rk"
 	legacy := continuationToken{PartitionKey: pk, RowKey: rk}
-	data, err := json.Marshal(legacy)
+	data, err := sonic.Marshal(legacy)
 	if err != nil {
 		t.Fatalf("marshal legacy token: %v", err)
 	}

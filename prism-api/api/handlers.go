@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bytedance/sonic"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/google/uuid"
@@ -137,7 +137,7 @@ func postCommands(store Storage, auth Authenticator, deduper Deduper) echo.Handl
 		}
 
 		lr := io.LimitReader(c.Request().Body, postCommandMaxSize)
-		dec := json.NewDecoder(lr)
+		dec := sonic.ConfigStd.NewDecoder(lr)
 		dec.DisallowUnknownFields()
 
 		cmds := make([]domain.Command, 0, 4)

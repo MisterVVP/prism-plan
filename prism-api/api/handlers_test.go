@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	miniredis "github.com/alicebob/miniredis/v2"
+	"github.com/bytedance/sonic"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
@@ -92,7 +92,7 @@ func TestGetTasks(t *testing.T) {
 		t.Fatalf("expected default page size when none provided, got %d", store.lastLimit)
 	}
 	var resp tasksResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := sonic.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("invalid json: %v", err)
 	}
 	if len(resp.Tasks) != 1 || resp.Tasks[0].ID != "1" {
@@ -186,7 +186,7 @@ func TestGetSettings(t *testing.T) {
 		t.Fatalf("expected status 200 got %d", rec.Code)
 	}
 	var s domain.Settings
-	if err := json.Unmarshal(rec.Body.Bytes(), &s); err != nil {
+	if err := sonic.Unmarshal(rec.Body.Bytes(), &s); err != nil {
 		t.Fatalf("invalid json: %v", err)
 	}
 	if s.TasksPerCategory != 3 || !s.ShowDoneTasks {
@@ -301,14 +301,14 @@ func TestPostCommandsIdempotency(t *testing.T) {
 		IdempotencyKeys []string `json:"idempotencyKeys"`
 		Error           string   `json:"error"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := sonic.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("invalid json: %v", err)
 	}
 	if len(resp.IdempotencyKeys) != 1 || resp.IdempotencyKeys[0] != "k1" {
 		t.Fatalf("unexpected idempotency keys: %#v", resp)
 	}
 	var resp2 map[string][]string
-	if err := json.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
+	if err := sonic.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
 		t.Fatalf("invalid json: %v", err)
 	}
 	if len(resp2["idempotencyKeys"]) != 1 || resp2["idempotencyKeys"][0] != "k1" {
@@ -350,7 +350,7 @@ func TestPostCommandsRetryOnError(t *testing.T) {
 	var resp struct {
 		IdempotencyKeys []string `json:"idempotencyKeys"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := sonic.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("invalid json: %v", err)
 	}
 	if len(resp.IdempotencyKeys) != 1 || resp.IdempotencyKeys[0] != "k1" {
@@ -382,7 +382,7 @@ func TestPostCommandsReturnKeysForAll(t *testing.T) {
 		t.Fatalf("expected status 202 got %d", rec.Code)
 	}
 	var resp map[string][]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := sonic.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("invalid json: %v", err)
 	}
 	keys := resp["idempotencyKeys"]
@@ -638,7 +638,7 @@ func TestPostCommandsUsesBatchDeduper(t *testing.T) {
 	var resp struct {
 		IdempotencyKeys []string `json:"idempotencyKeys"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := sonic.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("invalid json: %v", err)
 	}
 	if len(resp.IdempotencyKeys) != 3 {
