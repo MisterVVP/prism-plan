@@ -66,25 +66,26 @@ else
   K6_TASK_PAGE_SIZE=${K6_TASK_PAGE_SIZE:-${TASKS_PAGE_SIZE:-}}
 fi
 
-tokens="["
+if [ ! -f tests/perf/k6/bearers.json ]; then
+  echo "Generating API tokens..."
+  tokens="["
 
-for i in $(seq 1 "$K6_VUS"); do
-  user="perf-user-$i"
-  tok=$(cd tests/utils && go run ./cmd/gen-token "$user")
+  for i in $(seq 1 "$K6_VUS"); do
+    user="perf-user-$i"
+    tok=$(cd tests/utils && go run ./cmd/gen-token "$user")
 
-  [ "$i" -eq 1 ] && TEST_BEARER=${TEST_BEARER:-$tok}
+    [ "$i" -eq 1 ] && TEST_BEARER=${TEST_BEARER:-$tok}
 
-  if [ "$i" -eq "$K6_VUS" ]; then
-    tokens="$tokens\"$tok\""
-  else
-    tokens="$tokens\"$tok\"," 
-  fi
-done
+    if [ "$i" -eq "$K6_VUS" ]; then
+      tokens="$tokens\"$tok\""
+    else
+      tokens="$tokens\"$tok\"," 
+    fi
+  done
 
-tokens="$tokens]"
-
-# write JSON array to file
-echo "$tokens" > tests/perf/k6/bearers.json
+  tokens="$tokens]"
+  echo "$tokens" > tests/perf/k6/bearers.json
+fi
 
 export TEST_BEARER K6_VUS K6_DURATION PRISM_API_LB_BASE K6_TASK_PAGE_SIZE
 
