@@ -2,7 +2,10 @@ package api
 
 import (
 	"context"
+	"os"
 	"prism-api/domain"
+	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -14,6 +17,18 @@ type enqueueJob struct {
 	cmds   []domain.Command
 	added  []string // keys added to deduper (for rollback on enqueue failure)
 }
+
+const (
+	minEnqueueWorkers     = 32
+	maxEnqueueWorkers     = 192
+	workersPerCPU         = 32
+	workersPerQueueUnit   = 4
+	bufferPerWorker       = 128
+	minEnqueueBuffer      = minEnqueueWorkers * bufferPerWorker
+	maxEnqueueBuffer      = 64 * 1024
+	defaultHandoffTimeout = 50 * time.Millisecond
+	defaultQueueParallel  = 8
+)
 
 var (
 	once           sync.Once
@@ -58,10 +73,17 @@ func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
 		}
 		globalLog = log
 
-		workerCount = envInt("ENQUEUE_WORKERS", 32)
-		jobBuf = envInt("ENQUEUE_BUFFER", 4096)
+		queueParallel := deriveQueueConcurrency()
+		autoWorkers, autoBuf := computeWorkerDefaults(queueParallel, runtime.NumCPU())
+
+		workerCount = lookupPositiveInt("ENQUEUE_WORKERS", autoWorkers)
+		jobBuf = lookupPositiveInt("ENQUEUE_BUFFER", autoBuf)
+		if jobBuf < workerCount {
+			jobBuf = workerCount
+		}
+
 		enqueueTimeout = envDur("ENQUEUE_TIMEOUT", 60*time.Second)
-		handoffTimeout = envDur("ENQUEUE_HANDOFF_TIMEOUT", 15*time.Millisecond)
+		handoffTimeout = envDur("ENQUEUE_HANDOFF_TIMEOUT", defaultHandoffTimeout)
 
 		jobs = make(chan enqueueJob, jobBuf)
 		for i := 0; i < workerCount; i++ {
@@ -113,6 +135,54 @@ func tryEnqueueJob(job enqueueJob) bool {
 		return false
 	}
 	return ok
+}
+
+func deriveQueueConcurrency() int {
+	if v := os.Getenv("COMMAND_QUEUE_CONCURRENCY"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultQueueParallel
+}
+
+func computeWorkerDefaults(queueConcurrency, numCPU int) (workers int, buffer int) {
+	if queueConcurrency <= 0 {
+		queueConcurrency = defaultQueueParallel
+	}
+	if numCPU <= 0 {
+		numCPU = 1
+	}
+
+	queueScaled := queueConcurrency * workersPerQueueUnit
+	cpuScaled := numCPU * workersPerCPU
+	workers = queueScaled
+	if cpuScaled > workers {
+		workers = cpuScaled
+	}
+	if workers < minEnqueueWorkers {
+		workers = minEnqueueWorkers
+	} else if workers > maxEnqueueWorkers {
+		workers = maxEnqueueWorkers
+	}
+
+	buffer = workers * bufferPerWorker
+	if buffer < minEnqueueBuffer {
+		buffer = minEnqueueBuffer
+	} else if buffer > maxEnqueueBuffer {
+		buffer = maxEnqueueBuffer
+	}
+
+	return workers, buffer
+}
+
+func lookupPositiveInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return fallback
 }
 
 func trySendNonBlocking(ch chan enqueueJob, job enqueueJob) (ok bool, closed bool) {

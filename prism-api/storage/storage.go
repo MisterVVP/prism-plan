@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"runtime"
 	"sync"
 	"time"
 
@@ -59,11 +60,29 @@ func WithCache(client redisGetter) Option {
 	}
 }
 
-const defaultQueueConcurrency = 8
+const (
+	defaultQueueConcurrency = 8
+	maxQueueConcurrency     = 64
+	queuePerCPU             = 10
+)
 
 // DefaultQueueConcurrency returns the default number of concurrent queue requests used when enqueuing commands.
 func DefaultQueueConcurrency() int {
-	return defaultQueueConcurrency
+	return queueConcurrencyForCPU(runtime.NumCPU())
+}
+
+func queueConcurrencyForCPU(numCPU int) int {
+	if numCPU < 1 {
+		return defaultQueueConcurrency
+	}
+	conc := numCPU * queuePerCPU
+	if conc < defaultQueueConcurrency {
+		conc = defaultQueueConcurrency
+	}
+	if conc > maxQueueConcurrency {
+		conc = maxQueueConcurrency
+	}
+	return conc
 }
 
 const maxTaskPageSize = int32(1000)
