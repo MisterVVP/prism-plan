@@ -75,8 +75,13 @@ func (r *RedisDeduper) AddMany(ctx context.Context, userID string, keys []string
 		return nil, nil
 	}
 
-	results := make([]bool, len(keys))
 	prefix := userID + ":" + dedupeKeyPrefix + ":"
+	if len(keys) == 1 {
+		added, err := r.client.SetNX(ctx, prefix+keys[0], 1, r.ttl).Result()
+		return []bool{added}, err
+	}
+
+	results := make([]bool, len(keys))
 	cmds, err := r.client.Pipelined(ctx, func(pipe redis.Pipeliner) error {
 		for _, key := range keys {
 			pipe.SetNX(ctx, prefix+key, 1, r.ttl)
