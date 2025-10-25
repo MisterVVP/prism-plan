@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Azure;
 using Azure.Data.Tables;
@@ -14,6 +15,7 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
     private const string UpdatedAtProperty = "UpdatedAt";
     private const string ProcessingStatus = "Processing";
     private const string CompletedStatus = "Completed";
+    private const string InsertedAtProperty = "InsertedAt";
 
     private readonly TableClient _table = table;
 
@@ -29,6 +31,8 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
 
     public async Task Add(IEvent ev, CancellationToken ct)
     {
+        var insertedAt = DateTimeOffset.UtcNow;
+
         var entity = new TableEntity(ev.EntityId, ev.Id)
         {
             {"Type", ev.Type},
@@ -43,6 +47,8 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
             {"EntityType@odata.type", "Edm.String"},
             {"Dispatched", false},
             {"Dispatched@odata.type", "Edm.Boolean"},
+            {InsertedAtProperty, insertedAt},
+            {InsertedAtProperty + "@odata.type", "Edm.DateTimeOffset"},
         };
 
         if (ev.Data.HasValue)
@@ -57,25 +63,48 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
     public async Task<IReadOnlyList<StoredEvent>> FindByIdempotencyKey(string idempotencyKey, CancellationToken ct)
     {
         var filter = $"IdempotencyKey eq '{EscapeFilterValue(idempotencyKey)}'";
-        var results = new List<StoredEvent>();
+        var results = new List<(StoredEvent Stored, DateTimeOffset? InsertedAt, DateTimeOffset? TableTimestamp)>();
         await foreach (var entity in _table.QueryAsync<TableEntity>(filter: filter, cancellationToken: ct))
         {
             if (TryParseEvent(entity, out Event? ev) && ev != null)
             {
                 var dispatched = entity.TryGetValue("Dispatched", out var dispatchedObj) && dispatchedObj is bool dispatchedFlag && dispatchedFlag;
-                results.Add(new StoredEvent(ev, dispatched));
+                var insertedAt = ExtractDateTimeOffset(entity, InsertedAtProperty);
+                results.Add((new StoredEvent(ev, dispatched), insertedAt, entity.Timestamp));
             }
         }
 
         results.Sort(static (left, right) =>
         {
-            var timestampComparison = left.Event.Timestamp.CompareTo(right.Event.Timestamp);
-            return timestampComparison != 0
-                ? timestampComparison
-                : string.CompareOrdinal(left.Event.Id, right.Event.Id);
+            var timestampComparison = left.Stored.Event.Timestamp.CompareTo(right.Stored.Event.Timestamp);
+            if (timestampComparison != 0)
+            {
+                return timestampComparison;
+            }
+
+            var insertedComparison = CompareInsertion(left.InsertedAt, right.InsertedAt);
+            if (insertedComparison != 0)
+            {
+                return insertedComparison;
+            }
+
+            var tableTimestampComparison = Nullable.Compare(left.TableTimestamp, right.TableTimestamp);
+            if (tableTimestampComparison != 0)
+            {
+                return tableTimestampComparison;
+            }
+
+            return string.CompareOrdinal(left.Stored.Event.Id, right.Stored.Event.Id);
         });
 
-        return results;
+        return results.ConvertAll(static entry => entry.Stored);
+    }
+
+    private static int CompareInsertion(DateTimeOffset? left, DateTimeOffset? right)
+    {
+        return left.HasValue && right.HasValue
+            ? left.Value.CompareTo(right.Value)
+            : 0;
     }
 
     public Task MarkAsDispatched(IEvent ev, CancellationToken ct)
@@ -190,6 +219,23 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
             DateTime dt => new DateTimeOffset(dt).ToUnixTimeMilliseconds(),
             DateTimeOffset dto => dto.ToUnixTimeMilliseconds(),
             _ => 0L,
+        };
+    }
+
+    private static DateTimeOffset? ExtractDateTimeOffset(TableEntity entity, string key)
+    {
+        if (!entity.TryGetValue(key, out var value) || value is null)
+        {
+            return null;
+        }
+
+        return value switch
+        {
+            DateTimeOffset dto => dto,
+            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)),
+            long l when l != 0 => DateTimeOffset.FromUnixTimeMilliseconds(l),
+            string s when DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed) => parsed,
+            _ => null,
         };
     }
 

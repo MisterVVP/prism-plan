@@ -61,27 +61,34 @@ func TestUserEventReplayPreservesOriginalOrder(t *testing.T) {
 		t.Fatalf("marshal settings data: %v", err)
 	}
 
+	insertedAtUser := time.UnixMilli(ts).UTC().Format(time.RFC3339Nano)
+	insertedAtSettings := time.UnixMilli(ts + 1).UTC().Format(time.RFC3339Nano)
+
 	userEntity := map[string]any{
-		"PartitionKey":   userID,
-		"RowKey":         userRow,
-		"Type":           "user-created",
-		"EventTimestamp": ts,
-		"UserId":         userID,
-		"IdempotencyKey": idemKey,
-		"EntityType":     "user",
-		"Dispatched":     false,
-		"Data":           string(userData),
+		"PartitionKey":          userID,
+		"RowKey":                userRow,
+		"Type":                  "user-created",
+		"EventTimestamp":        ts,
+		"UserId":                userID,
+		"IdempotencyKey":        idemKey,
+		"EntityType":            "user",
+		"Dispatched":            false,
+		"Data":                  string(userData),
+		"InsertedAt":            insertedAtUser,
+		"InsertedAt@odata.type": "Edm.DateTimeOffset",
 	}
 	settingsEntity := map[string]any{
-		"PartitionKey":   userID,
-		"RowKey":         settingsRow,
-		"Type":           "user-settings-created",
-		"EventTimestamp": ts + 1,
-		"UserId":         userID,
-		"IdempotencyKey": idemKey,
-		"EntityType":     "user-settings",
-		"Dispatched":     false,
-		"Data":           string(settingsData),
+		"PartitionKey":          userID,
+		"RowKey":                settingsRow,
+		"Type":                  "user-settings-created",
+		"EventTimestamp":        ts,
+		"UserId":                userID,
+		"IdempotencyKey":        idemKey,
+		"EntityType":            "user-settings",
+		"Dispatched":            false,
+		"Data":                  string(settingsData),
+		"InsertedAt":            insertedAtSettings,
+		"InsertedAt@odata.type": "Edm.DateTimeOffset",
 	}
 
 	userPayload, err := json.Marshal(userEntity)
