@@ -66,6 +66,15 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
                 results.Add(new StoredEvent(ev, dispatched));
             }
         }
+
+        results.Sort(static (left, right) =>
+        {
+            var timestampComparison = left.Event.Timestamp.CompareTo(right.Event.Timestamp);
+            return timestampComparison != 0
+                ? timestampComparison
+                : string.CompareOrdinal(left.Event.Id, right.Event.Id);
+        });
+
         return results;
     }
 
