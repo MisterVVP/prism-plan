@@ -43,6 +43,8 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
             {"EntityType@odata.type", "Edm.String"},
             {"Dispatched", false},
             {"Dispatched@odata.type", "Edm.Boolean"},
+            {"CreatedAt", DateTimeOffset.UtcNow},
+            {"CreatedAt@odata.type", "Edm.DateTimeOffset"},
         };
 
         if (ev.Data.HasValue)
@@ -63,7 +65,9 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
             if (TryParseEvent(entity, out Event? ev) && ev != null)
             {
                 var dispatched = entity.TryGetValue("Dispatched", out var dispatchedObj) && dispatchedObj is bool dispatchedFlag && dispatchedFlag;
-                var storedAt = entity.Timestamp ?? DateTimeOffset.MinValue;
+                var storedAt = ExtractDateTimeOffset(entity, "CreatedAt")
+                    ?? entity.Timestamp
+                    ?? DateTimeOffset.MinValue;
                 results.Add(new StoredEvent(ev, dispatched, storedAt));
             }
         }
@@ -180,6 +184,24 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
 
         ev = new Event(entity.RowKey, entity.PartitionKey, entityType, type, data, timestamp, userId, idempotencyKey);
         return true;
+    }
+
+    private static DateTimeOffset? ExtractDateTimeOffset(TableEntity entity, string key)
+    {
+        if (!entity.TryGetValue(key, out var value) || value is null)
+        {
+            return null;
+        }
+
+        return value switch
+        {
+            DateTimeOffset dto => dto,
+            DateTime dt => new DateTimeOffset(dt),
+            long l => DateTimeOffset.FromUnixTimeMilliseconds(l),
+            int i => DateTimeOffset.FromUnixTimeMilliseconds(i),
+            string s when DateTimeOffset.TryParse(s, out var parsed) => parsed,
+            _ => null,
+        };
     }
 
     private static long ExtractInt64(TableEntity entity, string key)
