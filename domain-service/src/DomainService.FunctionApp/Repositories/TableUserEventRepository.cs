@@ -63,7 +63,7 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
             if (TryParseEvent(entity, out Event? ev) && ev != null)
             {
                 var dispatched = entity.TryGetValue("Dispatched", out var dispatchedObj) && dispatchedObj is bool dispatchedFlag && dispatchedFlag;
-                var storedAt = EventTimestampResolver.ResolveStoredAt(ev.Timestamp, entity.Timestamp);
+                var storedAt = entity.Timestamp ?? DateTimeOffset.MinValue;
                 results.Add(new StoredEvent(ev, dispatched, storedAt));
             }
         }
@@ -161,18 +161,18 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
     {
         ev = null;
 
-        if (!entity.TryGetValue("Type", out var typeObj) || typeObj is not string type)
+        if (!TryGetString(entity, "Type", out var type))
         {
             return false;
         }
 
         var timestamp = ExtractInt64(entity, "EventTimestamp");
-        var userId = entity.TryGetValue("UserId", out var userIdObj) && userIdObj is string uid ? uid : string.Empty;
-        var idempotencyKey = entity.TryGetValue("IdempotencyKey", out var keyObj) && keyObj is string key ? key : string.Empty;
-        var entityType = entity.TryGetValue("EntityType", out var entityTypeObj) && entityTypeObj is string et ? et : EntityTypes.User;
+        var userId = TryGetString(entity, "UserId", out var uid) ? uid : string.Empty;
+        var idempotencyKey = TryGetString(entity, "IdempotencyKey", out var key) ? key : string.Empty;
+        var entityType = TryGetString(entity, "EntityType", out var et) ? et : EntityTypes.User;
         System.Text.Json.JsonElement? data = null;
 
-        if (entity.TryGetValue("Data", out var dataObj) && dataObj is string dataText && !string.IsNullOrWhiteSpace(dataText) && dataText != "null")
+        if (TryGetString(entity, "Data", out var dataText) && !string.IsNullOrWhiteSpace(dataText) && dataText != "null")
         {
             using var doc = System.Text.Json.JsonDocument.Parse(dataText);
             data = doc.RootElement.Clone();
@@ -194,10 +194,33 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
             long l => l,
             int i => i,
             string s when long.TryParse(s, out var parsed) => parsed,
+            double d => (long)d,
+            BinaryData binary when long.TryParse(binary.ToString(), out var parsed) => parsed,
             DateTime dt => new DateTimeOffset(dt).ToUnixTimeMilliseconds(),
             DateTimeOffset dto => dto.ToUnixTimeMilliseconds(),
             _ => 0L,
         };
+    }
+
+    private static bool TryGetString(TableEntity entity, string key, out string value)
+    {
+        value = string.Empty;
+        if (!entity.TryGetValue(key, out var raw) || raw is null)
+        {
+            return false;
+        }
+
+        switch (raw)
+        {
+            case string s:
+                value = s;
+                return true;
+            case BinaryData binary:
+                value = binary.ToString();
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static string EscapeFilterValue(string value)
