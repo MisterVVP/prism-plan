@@ -76,7 +76,7 @@ func TestUserEventReplayPreservesOriginalOrder(t *testing.T) {
 		"PartitionKey":   userID,
 		"RowKey":         settingsRow,
 		"Type":           "user-settings-created",
-		"EventTimestamp": ts + 1,
+		"EventTimestamp": ts,
 		"UserId":         userID,
 		"IdempotencyKey": idemKey,
 		"EntityType":     "user-settings",

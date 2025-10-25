@@ -57,25 +57,33 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
     public async Task<IReadOnlyList<StoredEvent>> FindByIdempotencyKey(string idempotencyKey, CancellationToken ct)
     {
         var filter = $"IdempotencyKey eq '{EscapeFilterValue(idempotencyKey)}'";
-        var results = new List<StoredEvent>();
+        var results = new List<(StoredEvent Stored, DateTimeOffset? InsertedAt)>();
         await foreach (var entity in _table.QueryAsync<TableEntity>(filter: filter, cancellationToken: ct))
         {
             if (TryParseEvent(entity, out Event? ev) && ev != null)
             {
                 var dispatched = entity.TryGetValue("Dispatched", out var dispatchedObj) && dispatchedObj is bool dispatchedFlag && dispatchedFlag;
-                results.Add(new StoredEvent(ev, dispatched));
+                results.Add((new StoredEvent(ev, dispatched), entity.Timestamp));
             }
         }
 
         results.Sort(static (left, right) =>
         {
-            var timestampComparison = left.Event.Timestamp.CompareTo(right.Event.Timestamp);
+            var timestampComparison = left.Stored.Event.Timestamp.CompareTo(right.Stored.Event.Timestamp);
             return timestampComparison != 0
                 ? timestampComparison
-                : string.CompareOrdinal(left.Event.Id, right.Event.Id);
+                : OrderByInsertedThenId(left, right);
         });
 
-        return results;
+        return results.ConvertAll(static entry => entry.Stored);
+    }
+
+    private static int OrderByInsertedThenId((StoredEvent Stored, DateTimeOffset? InsertedAt) left, (StoredEvent Stored, DateTimeOffset? InsertedAt) right)
+    {
+        var insertedComparison = Nullable.Compare(left.InsertedAt, right.InsertedAt);
+        return insertedComparison != 0
+            ? insertedComparison
+            : string.CompareOrdinal(left.Stored.Event.Id, right.Stored.Event.Id);
     }
 
     public Task MarkAsDispatched(IEvent ev, CancellationToken ct)

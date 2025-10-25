@@ -44,14 +44,14 @@ public class TableEventRepositoryTests
     }
 
     [Fact]
-    public async Task User_repository_orders_events_by_timestamp_and_id()
+    public async Task User_repository_orders_events_by_timestamp_then_insertion_then_id()
     {
         var idempotencyKey = "ik-user";
         var entities = new[]
         {
-            CreateEntity("user-1", "evt-b", idempotencyKey, EntityTypes.User, UserEventTypes.SettingsCreated, timestamp: 1, dispatched: true),
-            CreateEntity("user-1", "evt-a", idempotencyKey, EntityTypes.User, UserEventTypes.Created, timestamp: 1),
-            CreateEntity("user-1", "evt-c", idempotencyKey, EntityTypes.UserSettings, UserEventTypes.SettingsUpdated, timestamp: 3),
+            CreateEntity("user-1", "evt-settings", idempotencyKey, EntityTypes.User, UserEventTypes.SettingsCreated, timestamp: 1, dispatched: true, insertedAt: 2),
+            CreateEntity("user-1", "evt-profile", idempotencyKey, EntityTypes.User, UserEventTypes.Created, timestamp: 1, insertedAt: 1),
+            CreateEntity("user-1", "evt-c", idempotencyKey, EntityTypes.UserSettings, UserEventTypes.SettingsUpdated, timestamp: 3, insertedAt: 3),
         };
 
         var client = CreateTableClientMock(entities);
@@ -62,13 +62,13 @@ public class TableEventRepositoryTests
         Assert.Collection(stored,
             first =>
             {
-                Assert.Equal("evt-a", first.Event.Id);
+                Assert.Equal("evt-profile", first.Event.Id);
                 Assert.Equal(1, first.Event.Timestamp);
                 Assert.False(first.Dispatched);
             },
             second =>
             {
-                Assert.Equal("evt-b", second.Event.Id);
+                Assert.Equal("evt-settings", second.Event.Id);
                 Assert.Equal(1, second.Event.Timestamp);
                 Assert.True(second.Dispatched);
             },
@@ -96,7 +96,8 @@ public class TableEventRepositoryTests
         string entityType,
         string eventType,
         long timestamp,
-        bool dispatched = false)
+        bool dispatched = false,
+        long? insertedAt = null)
     {
         var entity = new TableEntity(partitionKey, rowKey)
         {
@@ -107,6 +108,11 @@ public class TableEventRepositoryTests
             ["EntityType"] = entityType,
             ["Dispatched"] = dispatched,
         };
+
+        if (insertedAt.HasValue)
+        {
+            entity.Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(insertedAt.Value);
+        }
 
         return entity;
     }
