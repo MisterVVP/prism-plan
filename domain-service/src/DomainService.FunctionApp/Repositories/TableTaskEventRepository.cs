@@ -78,9 +78,7 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
             if (TryParseEvent(entity, out Event? ev) && ev != null)
             {
                 var dispatched = entity.TryGetValue("Dispatched", out var dispatchedObj) && dispatchedObj is bool dispatchedFlag && dispatchedFlag;
-                var storedAt = ev.Timestamp > 0
-                    ? DateTimeOffset.FromUnixTimeMilliseconds(ev.Timestamp)
-                    : entity.Timestamp ?? DateTimeOffset.MinValue;
+                var storedAt = EventTimestampResolver.ResolveStoredAt(ev.Timestamp, entity.Timestamp);
                 results.Add(new StoredEvent(ev, dispatched, storedAt));
             }
         }
