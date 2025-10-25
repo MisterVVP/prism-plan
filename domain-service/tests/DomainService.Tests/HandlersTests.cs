@@ -358,6 +358,13 @@ namespace DomainService.Tests
                 .Where(e => e.IdempotencyKey == idempotencyKey)
                 .Select(e => new StoredEvent(e, _dispatched.Contains(e.Id)))
                 .ToList();
+            matches.Sort(static (left, right) =>
+            {
+                var timestampComparison = left.Event.Timestamp.CompareTo(right.Event.Timestamp);
+                return timestampComparison != 0
+                    ? timestampComparison
+                    : string.CompareOrdinal(left.Event.Id, right.Event.Id);
+            });
             return Task.FromResult<IReadOnlyList<StoredEvent>>(matches);
         }
 
@@ -422,6 +429,13 @@ namespace DomainService.Tests
                 .Where(e => e.IdempotencyKey == idempotencyKey)
                 .Select(e => new StoredEvent(e, _dispatched.Contains(e.Id)))
                 .ToList();
+            matches.Sort(static (left, right) =>
+            {
+                var timestampComparison = left.Event.Timestamp.CompareTo(right.Event.Timestamp);
+                return timestampComparison != 0
+                    ? timestampComparison
+                    : string.CompareOrdinal(left.Event.Id, right.Event.Id);
+            });
             return Task.FromResult<IReadOnlyList<StoredEvent>>(matches);
         }
 
