@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using DomainService.Interfaces;
 
 namespace DomainService.Domain;
@@ -12,7 +14,10 @@ internal static class DispatchingExtensions
             return false;
         }
 
-        foreach (var stored in storedEvents)
+        foreach (var stored in storedEvents
+            .OrderBy(static e => e.Event.Timestamp)
+            .ThenBy(static e => e.StoredAt)
+            .ThenBy(static e => e.Event.Id, StringComparer.Ordinal))
         {
             if (!stored.Dispatched)
             {

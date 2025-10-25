@@ -78,9 +78,25 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
             if (TryParseEvent(entity, out Event? ev) && ev != null)
             {
                 var dispatched = entity.TryGetValue("Dispatched", out var dispatchedObj) && dispatchedObj is bool dispatchedFlag && dispatchedFlag;
-                results.Add(new StoredEvent(ev, dispatched));
+                var storedAt = entity.Timestamp ?? DateTimeOffset.MinValue;
+                results.Add(new StoredEvent(ev, dispatched, storedAt));
             }
         }
+
+        results.Sort(static (left, right) =>
+        {
+            var timestampComparison = left.Event.Timestamp.CompareTo(right.Event.Timestamp);
+            if (timestampComparison != 0)
+            {
+                return timestampComparison;
+            }
+
+            var storedAtComparison = left.StoredAt.CompareTo(right.StoredAt);
+            return storedAtComparison != 0
+                ? storedAtComparison
+                : string.CompareOrdinal(left.Event.Id, right.Event.Id);
+        });
+
         return results;
     }
 

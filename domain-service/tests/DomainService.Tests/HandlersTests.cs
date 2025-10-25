@@ -1,3 +1,4 @@
+using System;
 using DomainService.Domain;
 using DomainService.Domain.CommandHandlers;
 using DomainService.Domain.Commands;
@@ -356,7 +357,7 @@ namespace DomainService.Tests
         {
             var matches = Events
                 .Where(e => e.IdempotencyKey == idempotencyKey)
-                .Select(e => new StoredEvent(e, _dispatched.Contains(e.Id)))
+                .Select(e => new StoredEvent(e, _dispatched.Contains(e.Id), DateTimeOffset.FromUnixTimeMilliseconds(e.Timestamp)))
                 .ToList();
             return Task.FromResult<IReadOnlyList<StoredEvent>>(matches);
         }
@@ -420,7 +421,7 @@ namespace DomainService.Tests
         {
             var matches = Events
                 .Where(e => e.IdempotencyKey == idempotencyKey)
-                .Select(e => new StoredEvent(e, _dispatched.Contains(e.Id)))
+                .Select(e => new StoredEvent(e, _dispatched.Contains(e.Id), DateTimeOffset.FromUnixTimeMilliseconds(e.Timestamp)))
                 .ToList();
             return Task.FromResult<IReadOnlyList<StoredEvent>>(matches);
         }
