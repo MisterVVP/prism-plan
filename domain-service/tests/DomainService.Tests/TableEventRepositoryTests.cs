@@ -49,9 +49,9 @@ public class TableEventRepositoryTests
         var idempotencyKey = "ik-user";
         var entities = new[]
         {
-            CreateEntity("user-1", "evt-settings", idempotencyKey, EntityTypes.User, UserEventTypes.SettingsCreated, timestamp: 1, dispatched: true, insertedAt: 2),
-            CreateEntity("user-1", "evt-profile", idempotencyKey, EntityTypes.User, UserEventTypes.Created, timestamp: 1, insertedAt: 1),
-            CreateEntity("user-1", "evt-c", idempotencyKey, EntityTypes.UserSettings, UserEventTypes.SettingsUpdated, timestamp: 3, insertedAt: 3),
+            CreateEntity("user-1", "evt-settings", idempotencyKey, EntityTypes.User, UserEventTypes.SettingsCreated, timestamp: 1, dispatched: true, insertedAt: 2, tableTimestamp: 4),
+            CreateEntity("user-1", "evt-profile", idempotencyKey, EntityTypes.User, UserEventTypes.Created, timestamp: 1, insertedAt: 1, tableTimestamp: 5),
+            CreateEntity("user-1", "evt-c", idempotencyKey, EntityTypes.UserSettings, UserEventTypes.SettingsUpdated, timestamp: 3, insertedAt: 3, tableTimestamp: 6),
         };
 
         var client = CreateTableClientMock(entities);
@@ -97,7 +97,8 @@ public class TableEventRepositoryTests
         string eventType,
         long timestamp,
         bool dispatched = false,
-        long? insertedAt = null)
+        long? insertedAt = null,
+        long? tableTimestamp = null)
     {
         var entity = new TableEntity(partitionKey, rowKey)
         {
@@ -111,7 +112,14 @@ public class TableEventRepositoryTests
 
         if (insertedAt.HasValue)
         {
-            entity.Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(insertedAt.Value);
+            var dto = DateTimeOffset.FromUnixTimeMilliseconds(insertedAt.Value);
+            entity["InsertedAt"] = dto;
+            entity["InsertedAt@odata.type"] = "Edm.DateTimeOffset";
+        }
+
+        if (tableTimestamp.HasValue)
+        {
+            entity.Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(tableTimestamp.Value);
         }
 
         return entity;
