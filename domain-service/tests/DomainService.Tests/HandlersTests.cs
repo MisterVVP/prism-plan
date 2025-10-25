@@ -70,6 +70,24 @@ namespace DomainService.Tests
         }
 
         [Fact]
+        public async Task UpdateTask_ignores_duplicate_idempotency_key()
+        {
+            var repo = new InMemoryTaskRepo();
+            var dispatcher = new RecordingDispatcher();
+            var seed = new Event("e1", "t1", "task", "task-created", JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1", "ik-seed");
+            await repo.Add(seed, CancellationToken.None);
+            ICommandHandler<UpdateTaskCommand> handler = new UpdateTask(repo, dispatcher);
+            var payload = JsonDocument.Parse("{\"notes\":\"n\"}").RootElement;
+            var cmd = new UpdateTaskCommand("t1", payload, "u1", 1, "ik-update");
+
+            await handler.Handle(cmd, CancellationToken.None);
+            await handler.Handle(cmd, CancellationToken.None);
+
+            Assert.Equal(2, repo.Events.Count);
+            Assert.Single(dispatcher.Events);
+        }
+
+        [Fact]
         public async Task CompleteTask_adds_event_when_not_done()
         {
             var repo = new InMemoryTaskRepo();
@@ -81,6 +99,23 @@ namespace DomainService.Tests
             await handler.Handle(cmd, CancellationToken.None);
             Assert.Equal(2, repo.Events.Count);
             Assert.Equal("task-completed", repo.Events[1].Type);
+        }
+
+        [Fact]
+        public async Task CompleteTask_ignores_duplicate_idempotency_key()
+        {
+            var repo = new InMemoryTaskRepo();
+            var dispatcher = new RecordingDispatcher();
+            var seed = new Event("e1", "t1", "task", "task-created", JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1", "ik-seed");
+            await repo.Add(seed, CancellationToken.None);
+            ICommandHandler<CompleteTaskCommand> handler = new CompleteTask(repo, dispatcher);
+            var cmd = new CompleteTaskCommand("t1", "u1", 1, "ik-complete");
+
+            await handler.Handle(cmd, CancellationToken.None);
+            await handler.Handle(cmd, CancellationToken.None);
+
+            Assert.Equal(2, repo.Events.Count);
+            Assert.Single(dispatcher.Events);
         }
 
         [Fact]
@@ -97,6 +132,25 @@ namespace DomainService.Tests
             await handler.Handle(cmd, CancellationToken.None);
             Assert.Equal(3, repo.Events.Count);
             Assert.Equal("task-reopened", repo.Events[2].Type);
+        }
+
+        [Fact]
+        public async Task ReopenTask_ignores_duplicate_idempotency_key()
+        {
+            var repo = new InMemoryTaskRepo();
+            var dispatcher = new RecordingDispatcher();
+            var created = new Event("e1", "t1", "task", "task-created", JsonDocument.Parse("{\"title\":\"t\"}").RootElement, 0, "u1", "ik-seed1");
+            await repo.Add(created, CancellationToken.None);
+            var completed = new Event("e2", "t1", "task", "task-completed", null, 1, "u1", "ik-seed2");
+            await repo.Add(completed, CancellationToken.None);
+            ICommandHandler<ReopenTaskCommand> handler = new ReopenTask(repo, dispatcher);
+            var cmd = new ReopenTaskCommand("t1", "u1", 2, "ik-reopen");
+
+            await handler.Handle(cmd, CancellationToken.None);
+            await handler.Handle(cmd, CancellationToken.None);
+
+            Assert.Equal(3, repo.Events.Count);
+            Assert.Single(dispatcher.Events);
         }
 
         [Fact]

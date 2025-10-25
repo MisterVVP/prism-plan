@@ -11,6 +11,11 @@ internal sealed class ReopenTask(ITaskEventRepository taskRepo, IEventDispatcher
 
     public async Task<Unit> Handle(ReopenTaskCommand request, CancellationToken ct)
     {
+        if (await _taskRepo.ReplayStoredEvents(_dispatcher, request.IdempotencyKey, ct))
+        {
+            return Unit.Value;
+        }
+
         var events = await _taskRepo.Get(request.TaskId, ct);
         var state = TaskStateBuilder.From(events);
         if (state.Title == null || !state.Done) return Unit.Value;

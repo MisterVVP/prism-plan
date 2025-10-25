@@ -15,7 +15,6 @@ import (
 type enqueueJob struct {
 	userID string
 	cmds   []domain.Command
-	added  []string // keys added to deduper (for rollback on enqueue failure)
 }
 
 const (
@@ -39,7 +38,6 @@ var (
 	handoffTimeout time.Duration
 	bg             = context.Background()
 	globalStore    Storage
-	globalDeduper  Deduper
 	globalLog      *log.Logger
 	workerWG       sync.WaitGroup
 )
@@ -54,7 +52,6 @@ func shutdownCommandSender() {
 	workerWG.Wait()
 
 	globalStore = nil
-	globalDeduper = nil
 	globalLog = nil
 	workerCount = 0
 	jobBuf = 0
@@ -64,10 +61,9 @@ func shutdownCommandSender() {
 	workerWG = sync.WaitGroup{}
 }
 
-func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
+func initCommandSender(store Storage, log *log.Logger) {
 	once.Do(func() {
 		globalStore = store
-		globalDeduper = deduper
 		if log == nil {
 			panic("Logger is not initialized")
 		}
@@ -102,11 +98,6 @@ func worker(id int, jobCh <-chan enqueueJob) {
 		cancel()
 
 		if err != nil {
-			for _, k := range j.added {
-				if rerr := globalDeduper.Remove(bg, j.userID, k); rerr != nil {
-					globalLog.Errorf("dedupe rollback failed, err : %v, key: %s, user: %s", rerr, k, j.userID)
-				}
-			}
 			globalLog.Errorf("enqueue failed, err: %v, user: %s, count: %d, worker: %d", err, j.userID, len(j.cmds), id)
 		}
 	}
