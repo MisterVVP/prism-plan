@@ -17,15 +17,15 @@ internal static class EventTimestampResolver
 
         if (TryCreateFromUnit(eventTimestamp, TimeSpan.TicksPerMillisecond, out var resolved))
         {
-            return resolved;
+            return PreferTableTimestamp(tableTimestamp, resolved);
         }
 
         if (TryCreateFromUnit(eventTimestamp, TicksPerMicrosecond, out resolved))
         {
-            return resolved;
+            return PreferTableTimestamp(tableTimestamp, resolved);
         }
 
-        return CreateFromNanoseconds(eventTimestamp);
+        return PreferTableTimestamp(tableTimestamp, CreateFromNanoseconds(eventTimestamp));
     }
 
     private static bool TryCreateFromUnit(long eventTimestamp, long ticksPerUnit, out DateTimeOffset resolved)
@@ -56,4 +56,7 @@ internal static class EventTimestampResolver
 
         return DateTimeOffset.UnixEpoch.AddTicks(ticks);
     }
+
+    private static DateTimeOffset PreferTableTimestamp(DateTimeOffset? tableTimestamp, DateTimeOffset resolved)
+        => tableTimestamp.HasValue && tableTimestamp.Value > resolved ? tableTimestamp.Value : resolved;
 }

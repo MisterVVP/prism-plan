@@ -59,15 +59,14 @@ public class EventTimestampResolverTests
     }
 
     [Fact]
-    public void ResolveStoredAt_IgnoresTableTimestampWhenEventTimestampIsValid()
+    public void ResolveStoredAt_PrefersLaterTableTimestampWhenEventTimestampIsValid()
     {
         const long eventTimestamp = 42;
         var tableTimestamp = new DateTimeOffset(2024, 01, 01, 0, 0, 0, TimeSpan.Zero);
-        var expected = DateTimeOffset.UnixEpoch.AddTicks(eventTimestamp * TimeSpan.TicksPerMillisecond);
 
         var result = EventTimestampResolver.ResolveStoredAt(eventTimestamp, tableTimestamp);
 
-        Assert.Equal(expected, result);
+        Assert.Equal(tableTimestamp, result);
     }
 
     [Fact]
@@ -78,6 +77,18 @@ public class EventTimestampResolverTests
         var expected = new DateTimeOffset(expectedTicks, TimeSpan.Zero);
 
         var result = EventTimestampResolver.ResolveStoredAt(eventTimestamp, null);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ResolveStoredAt_KeepsResolvedTimestampWhenTableTimestampIsEarlier()
+    {
+        const long eventTimestamp = 1_700_000_000_123;
+        var earlierTableTimestamp = new DateTimeOffset(2020, 01, 01, 0, 0, 0, TimeSpan.Zero);
+        var expected = DateTimeOffset.UnixEpoch.AddTicks(eventTimestamp * TimeSpan.TicksPerMillisecond);
+
+        var result = EventTimestampResolver.ResolveStoredAt(eventTimestamp, earlierTableTimestamp);
 
         Assert.Equal(expected, result);
     }
