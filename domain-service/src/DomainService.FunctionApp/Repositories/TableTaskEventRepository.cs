@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Azure;
 using Azure.Data.Tables;
 using DomainService.Interfaces;
@@ -7,6 +10,12 @@ namespace DomainService.Repositories;
 
 internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRepository
 {
+    private const string IdempotencyPartitionKey = "__idempotency__";
+    private const string StatusProperty = "Status";
+    private const string UpdatedAtProperty = "UpdatedAt";
+    private const string ProcessingStatus = "Processing";
+    private const string CompletedStatus = "Completed";
+
     private readonly TableClient _table = table;
 
     public async Task<IReadOnlyList<IEvent>> Get(string taskId, CancellationToken ct)
@@ -84,6 +93,67 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
         };
 
         return _table.UpdateEntityAsync(entity, ETag.All, TableUpdateMode.Merge, ct);
+    }
+
+    public async Task<IdempotencyResult> TryStartProcessing(string idempotencyKey, CancellationToken ct)
+    {
+        var entity = CreateIdempotencyEntity(idempotencyKey, ProcessingStatus);
+        try
+        {
+            await _table.AddEntityAsync(entity, ct);
+            return IdempotencyResult.Started;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 409)
+        {
+            var status = await GetIdempotencyStatus(idempotencyKey, ct);
+            return string.Equals(status, CompletedStatus, StringComparison.Ordinal)
+                ? IdempotencyResult.AlreadyProcessed
+                : IdempotencyResult.InProgress;
+        }
+    }
+
+    public Task MarkProcessingSucceeded(string idempotencyKey, CancellationToken ct)
+    {
+        var entity = CreateIdempotencyEntity(idempotencyKey, CompletedStatus);
+        return _table.UpsertEntityAsync(entity, TableUpdateMode.Merge, ct);
+    }
+
+    public async Task MarkProcessingFailed(string idempotencyKey, CancellationToken ct)
+    {
+        try
+        {
+            await _table.DeleteEntityAsync(IdempotencyPartitionKey, idempotencyKey, ETag.All, ct);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+        }
+    }
+
+    private static TableEntity CreateIdempotencyEntity(string idempotencyKey, string status)
+    {
+        return new TableEntity(IdempotencyPartitionKey, idempotencyKey)
+        {
+            {StatusProperty, status},
+            {StatusProperty + "@odata.type", "Edm.String"},
+            {UpdatedAtProperty, DateTimeOffset.UtcNow},
+            {UpdatedAtProperty + "@odata.type", "Edm.DateTimeOffset"},
+        };
+    }
+
+    private async Task<string?> GetIdempotencyStatus(string idempotencyKey, CancellationToken ct)
+    {
+        try
+        {
+            var existing = await _table.GetEntityAsync<TableEntity>(IdempotencyPartitionKey, idempotencyKey, cancellationToken: ct);
+            if (existing.HasValue && existing.Value.TryGetValue(StatusProperty, out var statusObj) && statusObj is string status)
+            {
+                return status;
+            }
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+        }
+        return null;
     }
 
     private static bool TryParseEvent(TableEntity entity, out Event? ev)

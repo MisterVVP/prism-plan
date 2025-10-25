@@ -13,39 +13,65 @@ internal sealed class UpdateTask(ITaskEventRepository taskRepo, IEventDispatcher
 
     public async Task<Unit> Handle(UpdateTaskCommand request, CancellationToken ct)
     {
-        if (await _taskRepo.ReplayStoredEvents(_dispatcher, request.IdempotencyKey, ct))
+        var start = await _taskRepo.TryStartProcessing(request.IdempotencyKey, ct);
+        if (start == IdempotencyResult.AlreadyProcessed)
+        {
+            await _taskRepo.ReplayStoredEvents(_dispatcher, request.IdempotencyKey, ct);
+            return Unit.Value;
+        }
+
+        if (start == IdempotencyResult.InProgress)
         {
             return Unit.Value;
         }
 
-        var events = await _taskRepo.Get(request.TaskId, ct);
-        var state = TaskStateBuilder.From(events);
-        if (state.Title == null) return Unit.Value;
-
-        JsonElement? data = null;
-        if (request.Data.HasValue)
+        try
         {
-            var obj = JsonNode.Parse(request.Data.Value.GetRawText())?.AsObject();
-            if (obj != null)
+            if (await _taskRepo.ReplayStoredEvents(_dispatcher, request.IdempotencyKey, ct))
             {
-                obj.Remove("id");
-
-                if (state.Done &&
-                    obj.TryGetPropertyValue("category", out var categoryNode) &&
-                    categoryNode?.GetValue<string?>() is { } category &&
-                    !string.Equals(category, "done", StringComparison.OrdinalIgnoreCase))
-                {
-                    obj["done"] = false;
-                }
-
-                data = obj.Count > 0 ? JsonSerializer.SerializeToElement(obj) : null;
+                await _taskRepo.MarkProcessingSucceeded(request.IdempotencyKey, ct);
+                return Unit.Value;
             }
-        }
 
-        var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Updated, data, request.Timestamp, request.UserId, request.IdempotencyKey);
-        await _taskRepo.Add(ev, ct);
-        await _dispatcher.Dispatch(ev, ct);
-        await _taskRepo.MarkAsDispatched(ev, ct);
-        return Unit.Value;
+            var events = await _taskRepo.Get(request.TaskId, ct);
+            var state = TaskStateBuilder.From(events);
+            if (state.Title == null)
+            {
+                await _taskRepo.MarkProcessingSucceeded(request.IdempotencyKey, ct);
+                return Unit.Value;
+            }
+
+            JsonElement? data = null;
+            if (request.Data.HasValue)
+            {
+                var obj = JsonNode.Parse(request.Data.Value.GetRawText())?.AsObject();
+                if (obj != null)
+                {
+                    obj.Remove("id");
+
+                    if (state.Done &&
+                        obj.TryGetPropertyValue("category", out var categoryNode) &&
+                        categoryNode?.GetValue<string?>() is { } category &&
+                        !string.Equals(category, "done", StringComparison.OrdinalIgnoreCase))
+                    {
+                        obj["done"] = false;
+                    }
+
+                    data = obj.Count > 0 ? JsonSerializer.SerializeToElement(obj) : null;
+                }
+            }
+
+            var ev = new Event(Guid.NewGuid().ToString(), request.TaskId, EntityTypes.Task, TaskEventTypes.Updated, data, request.Timestamp, request.UserId, request.IdempotencyKey);
+            await _taskRepo.Add(ev, ct);
+            await _dispatcher.Dispatch(ev, ct);
+            await _taskRepo.MarkAsDispatched(ev, ct);
+            await _taskRepo.MarkProcessingSucceeded(request.IdempotencyKey, ct);
+            return Unit.Value;
+        }
+        catch
+        {
+            await _taskRepo.MarkProcessingFailed(request.IdempotencyKey, ct);
+            throw;
+        }
     }
 }
