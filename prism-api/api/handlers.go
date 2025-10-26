@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -122,6 +123,8 @@ func getSettings(store Storage, auth Authenticator) echo.HandlerFunc {
 	}
 }
 
+var fastJSON = sonic.ConfigFastest
+
 func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
@@ -129,11 +132,23 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}
 
-		lr := io.LimitReader(c.Request().Body, postCommandMaxSize)
-		dec := sonic.ConfigStd.NewDecoder(lr)
+		lr := &io.LimitedReader{R: c.Request().Body, N: postCommandMaxSize + 1}
+		body, err := io.ReadAll(lr)
+		if err != nil {
+			return c.String(http.StatusBadRequest, "invalid body")
+		}
+		if lr.N <= 0 {
+			return c.String(http.StatusBadRequest, "invalid body")
+		}
+
+		if len(bytes.TrimSpace(body)) == 0 {
+			return c.String(http.StatusBadRequest, "invalid body")
+		}
+
+		dec := fastJSON.NewDecoder(bytes.NewReader(body))
 		dec.DisallowUnknownFields()
 
-		cmds := make([]domain.Command, 0, 4)
+		var cmds []domain.Command
 		if err := dec.Decode(&cmds); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
@@ -178,10 +193,10 @@ func finalizeCommands(cmds []domain.Command) []string {
 		return keys
 	}
 
-	start := nextTimestampRange(len(cmds))
+	ts := nextTimestampRange(len(cmds))
 	for i := range cmds {
-		ts := start + int64(i)
 		keys[i] = applyCommandMetadata(&cmds[i], ts)
+		ts++
 	}
 
 	return keys
