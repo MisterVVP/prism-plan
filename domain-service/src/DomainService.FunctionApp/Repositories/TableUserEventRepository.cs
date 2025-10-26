@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using Azure;
 using Azure.Data.Tables;
+using Azure.Core;
 using DomainService.Interfaces;
 
 namespace DomainService.Repositories;
@@ -183,18 +185,20 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
     {
         ev = null;
 
-        if (!entity.TryGetValue("Type", out var typeObj) || typeObj is not string type)
+        var type = ExtractString(entity, "Type");
+        if (string.IsNullOrEmpty(type))
         {
             return false;
         }
 
         var timestamp = ExtractInt64(entity, "EventTimestamp");
-        var userId = entity.TryGetValue("UserId", out var userIdObj) && userIdObj is string uid ? uid : string.Empty;
-        var idempotencyKey = entity.TryGetValue("IdempotencyKey", out var keyObj) && keyObj is string key ? key : string.Empty;
-        var entityType = entity.TryGetValue("EntityType", out var entityTypeObj) && entityTypeObj is string et ? et : EntityTypes.User;
+        var userId = ExtractString(entity, "UserId");
+        var idempotencyKey = ExtractString(entity, "IdempotencyKey");
+        var entityType = ExtractString(entity, "EntityType", EntityTypes.User);
         System.Text.Json.JsonElement? data = null;
 
-        if (entity.TryGetValue("Data", out var dataObj) && dataObj is string dataText && !string.IsNullOrWhiteSpace(dataText) && dataText != "null")
+        var dataText = ExtractString(entity, "Data");
+        if (!string.IsNullOrWhiteSpace(dataText) && dataText != "null")
         {
             using var doc = System.Text.Json.JsonDocument.Parse(dataText);
             data = doc.RootElement.Clone();
@@ -236,6 +240,23 @@ internal sealed class TableUserEventRepository(TableClient table) : IUserEventRe
             long l when l != 0 => DateTimeOffset.FromUnixTimeMilliseconds(l),
             string s when DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed) => parsed,
             _ => null,
+        };
+    }
+
+    private static string ExtractString(TableEntity entity, string key, string defaultValue = "")
+    {
+        if (!entity.TryGetValue(key, out var value) || value is null)
+        {
+            return defaultValue;
+        }
+
+        return value switch
+        {
+            string s => s,
+            BinaryData data => data.ToString(),
+            byte[] bytes when bytes.Length > 0 => Encoding.UTF8.GetString(bytes),
+            Guid guid => guid.ToString(),
+            _ => defaultValue,
         };
     }
 
