@@ -5,8 +5,10 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -73,6 +75,40 @@ func (noopStore) EnqueueCommands(context.Context, string, []domain.Command) erro
 func resetCommandSenderForTests() {
 	shutdownCommandSender()
 	globalStore = noopStore{}
+}
+
+func TestFinalizeCommandsSequentialTimestamps(t *testing.T) {
+	t.Cleanup(func() {
+		atomic.StoreInt64(&lastTimestamp, 0)
+	})
+	atomic.StoreInt64(&lastTimestamp, time.Now().Add(time.Second).UnixNano())
+
+	cmds := []domain.Command{{EntityType: "task", Type: "create"}, {IdempotencyKey: "known", EntityType: "task", Type: "update"}}
+	keys := finalizeCommands(cmds)
+
+	if len(keys) != len(cmds) {
+		t.Fatalf("expected %d keys, got %d", len(cmds), len(keys))
+	}
+	if keys[1] != "known" {
+		t.Fatalf("expected existing key to be preserved, got %q", keys[1])
+	}
+
+	firstTS := cmds[0].Timestamp
+	secondTS := cmds[1].Timestamp
+	if secondTS-firstTS != 1 {
+		t.Fatalf("expected timestamps to increment by 1, got first=%d second=%d", firstTS, secondTS)
+	}
+
+	expectedKey := strconv.FormatInt(firstTS, 36)
+	if keys[0] != expectedKey {
+		t.Fatalf("expected generated key %q, got %q", expectedKey, keys[0])
+	}
+	if cmds[0].ID != expectedKey {
+		t.Fatalf("expected command ID %q, got %q", expectedKey, cmds[0].ID)
+	}
+	if cmds[1].ID != "known" {
+		t.Fatalf("expected command ID 'known', got %q", cmds[1].ID)
+	}
 }
 
 func TestGetTasks(t *testing.T) {
