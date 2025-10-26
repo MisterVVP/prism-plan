@@ -20,8 +20,6 @@ func BenchmarkPostCommands(b *testing.B) {
 	}
 
 	for _, payload := range payloads {
-		payload := payload
-
 		b.Run("Async/"+payload.name, func(b *testing.B) {
 			resetCommandSenderForTests()
 			defer resetCommandSenderForTests()
@@ -80,7 +78,7 @@ func buildCommandPayload(n int) []byte {
 	bufSize := len(template)*n + (n - 1) + 2
 	buf := make([]byte, 0, bufSize)
 	buf = append(buf, '[')
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if i > 0 {
 			buf = append(buf, ',')
 		}

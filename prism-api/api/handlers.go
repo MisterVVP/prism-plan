@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -179,11 +178,9 @@ func finalizeCommands(cmds []domain.Command) []string {
 		return keys
 	}
 
-	ts := nextTimestamp()
-	keys[0] = applyCommandMetadata(&cmds[0], ts)
-
-	for i := 1; i < len(cmds); i++ {
-		ts = atomic.AddInt64(&lastTimestamp, 1)
+	start := nextTimestampRange(len(cmds))
+	for i := range cmds {
+		ts := start + int64(i)
 		keys[i] = applyCommandMetadata(&cmds[i], ts)
 	}
 

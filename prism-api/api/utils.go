@@ -12,18 +12,31 @@ var (
 )
 
 func nextTimestamp() int64 {
-	now := time.Now().UnixNano()
-	last := atomic.LoadInt64(&lastTimestamp)
+	return nextTimestampRange(1)
+}
 
-	if now <= last {
-		return atomic.AddInt64(&lastTimestamp, 1)
+func nextTimestampRange(n int) int64 {
+	if n <= 0 {
+		return 0
 	}
 
-	if atomic.CompareAndSwapInt64(&lastTimestamp, last, now) {
-		return now
-	}
+	// Reserve a contiguous, monotonically increasing sequence of timestamps with a
+	// single atomic update. This avoids calling time.Now for every element in the
+	// batch and keeps timestamp assignment contention low under high concurrency.
+	for {
+		now := time.Now().UnixNano()
+		last := atomic.LoadInt64(&lastTimestamp)
 
-	return atomic.AddInt64(&lastTimestamp, 1)
+		start := now
+		if now <= last {
+			start = last + 1
+		}
+
+		end := start + int64(n-1)
+		if atomic.CompareAndSwapInt64(&lastTimestamp, last, end) {
+			return start
+		}
+	}
 }
 
 func envInt(key string, def int) int {
