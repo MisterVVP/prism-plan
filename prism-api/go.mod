@@ -10,7 +10,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue v1.0.1
 	github.com/MicahParks/keyfunc v1.9.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
-	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/redis/go-redis/v9 v9.14.1
 	github.com/sirupsen/logrus v1.9.3
@@ -23,6 +22,7 @@ require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect

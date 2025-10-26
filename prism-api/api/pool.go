@@ -40,6 +40,15 @@ var (
 	globalStore    Storage
 	globalLog      *log.Logger
 	workerWG       sync.WaitGroup
+	timerPool      = sync.Pool{
+		New: func() any {
+			t := time.NewTimer(time.Hour)
+			if !t.Stop() {
+				<-t.C
+			}
+			return t
+		},
+	}
 )
 
 // shutdownCommandSender stops worker goroutines and clears shared state. It is intended for tests.
@@ -118,10 +127,9 @@ func tryEnqueueJob(job enqueueJob) bool {
 		return false
 	}
 
-	timer := time.NewTimer(handoffTimeout)
-	defer timer.Stop()
-
+	timer := acquireTimer(handoffTimeout)
 	ok, closed := sendWithTimer(jobs, job, timer.C)
+	releaseTimer(timer)
 	if closed {
 		return false
 	}
@@ -206,4 +214,20 @@ func sendWithTimer(ch chan enqueueJob, job enqueueJob, timer <-chan time.Time) (
 	case <-timer:
 		return false, false
 	}
+}
+
+func acquireTimer(d time.Duration) *time.Timer {
+	t := timerPool.Get().(*time.Timer)
+	t.Reset(d)
+	return t
+}
+
+func releaseTimer(t *time.Timer) {
+	if !t.Stop() {
+		select {
+		case <-t.C:
+		default:
+		}
+	}
+	timerPool.Put(t)
 }
