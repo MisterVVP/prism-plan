@@ -12,46 +12,69 @@ internal sealed class LoginUser(IUserEventRepository userRepo, IEventDispatcher 
 
     public async Task<Unit> Handle(LoginUserCommand request, CancellationToken ct)
     {
-        if (await _userRepo.ReplayStoredEvents(_dispatcher, request.IdempotencyKey, ct))
+        var start = await _userRepo.TryStartProcessing(request.IdempotencyKey, ct);
+        if (start == IdempotencyResult.AlreadyProcessed)
+        {
+            await _userRepo.ReplayStoredEvents(_dispatcher, request.IdempotencyKey, ct);
+            return Unit.Value;
+        }
+
+        if (start == IdempotencyResult.InProgress)
         {
             return Unit.Value;
         }
 
-        var exists = await _userRepo.Exists(request.UserId, ct);
-        var type = exists ? UserEventTypes.Login : UserEventTypes.Created;
-        JsonElement? data = null;
-        if (!exists)
+        try
         {
-            data = JsonSerializer.SerializeToElement(new UserProfileData(request.Name, request.Email));
-        }
-        var ev = new Event(
-            Guid.NewGuid().ToString(),
-            request.UserId,
-            EntityTypes.User,
-            type,
-            data,
-            request.Timestamp,
-            request.UserId,
-            request.IdempotencyKey);
-        await _userRepo.Add(ev, ct);
-        await _dispatcher.Dispatch(ev, ct);
-        await _userRepo.MarkAsDispatched(ev, ct);
-        if (!exists)
-        {
-            var settingsData = JsonSerializer.SerializeToElement(new UserSettingsData(3, false));
-            var settingsEv = new Event(
+            if (await _userRepo.ReplayStoredEvents(_dispatcher, request.IdempotencyKey, ct))
+            {
+                await _userRepo.MarkProcessingSucceeded(request.IdempotencyKey, ct);
+                return Unit.Value;
+            }
+
+            var exists = await _userRepo.Exists(request.UserId, ct);
+            var type = exists ? UserEventTypes.Login : UserEventTypes.Created;
+            JsonElement? data = null;
+            if (!exists)
+            {
+                data = JsonSerializer.SerializeToElement(new UserProfileData(request.Name, request.Email));
+            }
+            var ev = new Event(
                 Guid.NewGuid().ToString(),
                 request.UserId,
-                EntityTypes.UserSettings,
-                UserEventTypes.SettingsCreated,
-                settingsData,
+                EntityTypes.User,
+                type,
+                data,
                 request.Timestamp,
                 request.UserId,
                 request.IdempotencyKey);
-            await _userRepo.Add(settingsEv, ct);
-            await _dispatcher.Dispatch(settingsEv, ct);
-            await _userRepo.MarkAsDispatched(settingsEv, ct);
+            await _userRepo.Add(ev, ct);
+            await _dispatcher.Dispatch(ev, ct);
+            await _userRepo.MarkAsDispatched(ev, ct);
+            if (!exists)
+            {
+                var settingsData = JsonSerializer.SerializeToElement(new UserSettingsData(3, false));
+                var settingsEv = new Event(
+                    Guid.NewGuid().ToString(),
+                    request.UserId,
+                    EntityTypes.UserSettings,
+                    UserEventTypes.SettingsCreated,
+                    settingsData,
+                    request.Timestamp,
+                    request.UserId,
+                    request.IdempotencyKey);
+                await _userRepo.Add(settingsEv, ct);
+                await _dispatcher.Dispatch(settingsEv, ct);
+                await _userRepo.MarkAsDispatched(settingsEv, ct);
+            }
+
+            await _userRepo.MarkProcessingSucceeded(request.IdempotencyKey, ct);
+            return Unit.Value;
         }
-        return Unit.Value;
+        catch
+        {
+            await _userRepo.MarkProcessingFailed(request.IdempotencyKey, ct);
+            throw;
+        }
     }
 }

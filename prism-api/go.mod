@@ -9,7 +9,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/data/aztables v1.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue v1.0.1
 	github.com/MicahParks/keyfunc v1.9.0
-	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v4 v4.13.4
@@ -42,7 +41,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	golang.org/x/crypto v0.43.0 // indirect

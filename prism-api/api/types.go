@@ -22,11 +22,3 @@ type InvalidContinuationTokenError interface {
 type Authenticator interface {
 	UserIDFromAuthHeader(string) (string, error)
 }
-
-// Deduper prevents processing of duplicate commands.
-type Deduper interface {
-	// Add records the idempotency key and returns true if it was newly added.
-	Add(ctx context.Context, userID, key string) (bool, error)
-	// Remove deletes a previously added key, used when downstream processing fails.
-	Remove(ctx context.Context, userID, key string) error
-}

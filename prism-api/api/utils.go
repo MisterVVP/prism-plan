@@ -12,16 +12,18 @@ var (
 )
 
 func nextTimestamp() int64 {
-	for {
-		now := time.Now().UnixNano()
-		last := atomic.LoadInt64(&lastTimestamp)
-		if now <= last {
-			now = last + 1
-		}
-		if atomic.CompareAndSwapInt64(&lastTimestamp, last, now) {
-			return now
-		}
+	now := time.Now().UnixNano()
+	last := atomic.LoadInt64(&lastTimestamp)
+
+	if now <= last {
+		return atomic.AddInt64(&lastTimestamp, 1)
 	}
+
+	if atomic.CompareAndSwapInt64(&lastTimestamp, last, now) {
+		return now
+	}
+
+	return atomic.AddInt64(&lastTimestamp, 1)
 }
 
 func envInt(key string, def int) int {

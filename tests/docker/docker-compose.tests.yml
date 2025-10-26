@@ -10,7 +10,6 @@ x-prism-api: &prism-api-base
     ENQUEUE_WORKERS: ${ENQUEUE_WORKERS}
     ENQUEUE_BUFFER: ${ENQUEUE_BUFFER}
     ENQUEUE_TIMEOUT: ${ENQUEUE_TIMEOUT}
-    DEDUPER_TTL: ${DEDUPER_TTL}
   depends_on:
     azurite:
       condition: service_healthy

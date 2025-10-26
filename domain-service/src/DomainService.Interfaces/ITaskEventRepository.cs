@@ -5,6 +5,9 @@ public interface IDispatchAwareEventRepository
     Task Add(IEvent ev, CancellationToken ct);
     Task<IReadOnlyList<StoredEvent>> FindByIdempotencyKey(string idempotencyKey, CancellationToken ct);
     Task MarkAsDispatched(IEvent ev, CancellationToken ct);
+    Task<IdempotencyResult> TryStartProcessing(string idempotencyKey, CancellationToken ct);
+    Task MarkProcessingSucceeded(string idempotencyKey, CancellationToken ct);
+    Task MarkProcessingFailed(string idempotencyKey, CancellationToken ct);
 }
 
 public interface ITaskEventRepository : IDispatchAwareEventRepository
