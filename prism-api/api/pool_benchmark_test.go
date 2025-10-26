@@ -25,8 +25,7 @@ func BenchmarkTryEnqueueJob(b *testing.B) {
 		handoffTimeout = 0
 
 		b.ReportAllocs()
-		b.ResetTimer()
-		for range b.N {
+		for b.Loop() {
 			if !tryEnqueueJob(job) {
 				b.Fatal("expected buffered enqueue to succeed")
 			}
@@ -47,8 +46,7 @@ func BenchmarkTryEnqueueJob(b *testing.B) {
 		jobs <- job
 
 		b.ReportAllocs()
-		b.ResetTimer()
-		for range b.N {
+		for b.Loop() {
 			if tryEnqueueJob(job) {
 				b.Fatal("expected enqueue to fail when buffer is saturated")
 			}
@@ -64,8 +62,7 @@ func BenchmarkTryEnqueueJob(b *testing.B) {
 		jobs <- job
 
 		b.ReportAllocs()
-		b.ResetTimer()
-		for range b.N {
+		for b.Loop() {
 			if tryEnqueueJob(job) {
 				b.Fatal("expected enqueue to fail after handoff timeout")
 			}
