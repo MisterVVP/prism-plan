@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bytedance/sonic"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
 	"prism-api/domain"
@@ -139,15 +139,7 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
 
-		keys := make([]string, len(cmds))
-		for i := range cmds {
-			if cmds[i].IdempotencyKey == "" {
-				cmds[i].IdempotencyKey = uuid.NewString()
-			}
-			cmds[i].ID = cmds[i].IdempotencyKey
-			cmds[i].Timestamp = nextTimestamp()
-			keys[i] = cmds[i].IdempotencyKey
-		}
+		keys := finalizeCommands(cmds)
 
 		job := enqueueJob{
 			userID: userID,
@@ -155,22 +147,62 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 		}
 
 		if tryEnqueueJob(job) {
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+			return respondJSON(c, http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		}
 
 		if globalLog != nil {
 			globalLog.Warn("enqueue buffer saturated; processing inline")
 		}
 
-		enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
+		enqueueCtx := bg
+		var cancel context.CancelFunc
+		if enqueueTimeout > 0 {
+			enqueueCtx, cancel = context.WithTimeout(bg, enqueueTimeout)
+		}
 		enqueueErr := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
-		cancel()
+		if cancel != nil {
+			cancel()
+		}
 
 		if enqueueErr != nil {
 			c.Logger().Errorf("enqueue inline failed: %v", enqueueErr)
 			return c.String(http.StatusInternalServerError, "failed to enqueue commands")
 		}
 
-		return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+		return respondJSON(c, http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 	}
+}
+
+func finalizeCommands(cmds []domain.Command) []string {
+	keys := make([]string, len(cmds))
+	if len(cmds) == 0 {
+		return keys
+	}
+
+	ts := nextTimestamp()
+	keys[0] = applyCommandMetadata(&cmds[0], ts)
+
+	for i := 1; i < len(cmds); i++ {
+		ts = atomic.AddInt64(&lastTimestamp, 1)
+		keys[i] = applyCommandMetadata(&cmds[i], ts)
+	}
+
+	return keys
+}
+
+func applyCommandMetadata(cmd *domain.Command, ts int64) string {
+	if cmd.IdempotencyKey == "" {
+		cmd.IdempotencyKey = strconv.FormatInt(ts, 36)
+	}
+	cmd.ID = cmd.IdempotencyKey
+	cmd.Timestamp = ts
+	return cmd.IdempotencyKey
+}
+
+func respondJSON(c echo.Context, status int, payload any) error {
+	data, err := sonic.Marshal(payload)
+	if err != nil {
+		return c.JSON(status, payload)
+	}
+	return c.Blob(status, echo.MIMEApplicationJSONCharsetUTF8, data)
 }
