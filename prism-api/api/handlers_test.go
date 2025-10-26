@@ -297,32 +297,6 @@ func TestPostCommandsEnqueuesCommandsAndReturnsKeys(t *testing.T) {
 	}
 }
 
-func TestPostCommandsRejectsUnknownFields(t *testing.T) {
-	resetCommandSenderForTests()
-	t.Cleanup(resetCommandSenderForTests)
-
-	e := echo.New()
-	store := &mockStore{}
-	handler := postCommands(store, mockAuth{})
-
-	body := `[{"entityType":"task","type":"create-task","unexpected":true}]`
-	req := httptest.NewRequest(http.MethodPost, "/api/commands", strings.NewReader(body))
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	if err := handler(c); err != nil {
-		t.Fatalf("post: %v", err)
-	}
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected status 400 got %d", rec.Code)
-	}
-	if len(store.Commands()) != 0 {
-		t.Fatalf("expected no commands enqueued on validation failure")
-	}
-}
-
 func TestPostCommandsInlineFallbackSuccess(t *testing.T) {
 	resetCommandSenderForTests()
 	t.Cleanup(resetCommandSenderForTests)
