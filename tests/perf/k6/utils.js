@@ -4,8 +4,9 @@ import { SharedArray } from 'k6/data';
 const MAX_PAGE_SIZE = 1000;
 const DEFAULT_PAGE_SIZE = 250;
 const DEFAULT_ARRIVAL_RATE = 10;
-const DEFAULT_PRE_ALLOCATED_VUS = 20;
-const DEFAULT_MAX_VUS = 100;
+const DEFAULT_PRE_ALLOCATED_VUS = 200;
+const DEFAULT_MAX_VUS = 1000;
+const MAX_ALLOWED_VUS = 10000;
 const DEFAULT_TIME_UNIT = '1s';
 const DEFAULT_DURATION = '30s';
 
@@ -75,16 +76,18 @@ function resolveStringEnv(value, fallback) {
 }
 
 export function buildOpenModelScenario(overrides = {}) {
-  const legacyVus = parsePositiveInteger(__ENV.K6_VUS, DEFAULT_ARRIVAL_RATE);
-  const rate = parsePositiveInteger(__ENV.K6_ARRIVAL_RATE, legacyVus);
+  const rate = parsePositiveInteger(__ENV.K6_ARRIVAL_RATE, DEFAULT_ARRIVAL_RATE);
   const preAllocatedVUs = parsePositiveInteger(
     __ENV.K6_PRE_ALLOCATED_VUS,
-    Math.max(legacyVus, DEFAULT_PRE_ALLOCATED_VUS),
+    DEFAULT_PRE_ALLOCATED_VUS,
   );
   let maxVUs = parsePositiveInteger(
     __ENV.K6_MAX_VUS,
-    Math.max(preAllocatedVUs, DEFAULT_MAX_VUS, legacyVus),
+    Math.max(preAllocatedVUs, DEFAULT_MAX_VUS),
   );
+  if (maxVUs > MAX_ALLOWED_VUS) {
+    maxVUs = MAX_ALLOWED_VUS;
+  }
   if (maxVUs < preAllocatedVUs) {
     maxVUs = preAllocatedVUs;
   }
