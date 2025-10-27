@@ -188,6 +188,31 @@ services:
     <<: *domain-service-base
     environment:
       <<: *domain-service-env
+
+  domain-service-6:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-7:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-8:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-9:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-10:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
   
   read-model-updater:
     profiles:
