@@ -130,7 +130,7 @@ func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 		}
 
 		lr := io.LimitReader(c.Request().Body, postCommandMaxSize)
-		dec := sonic.ConfigStd.NewDecoder(lr)
+		dec := sonic.ConfigFastest.NewDecoder(lr)
 		dec.DisallowUnknownFields()
 
 		cmds := make([]domain.Command, 0, 4)
@@ -201,5 +201,5 @@ func respondJSON(c echo.Context, status int, payload any) error {
 	if err != nil {
 		return c.JSON(status, payload)
 	}
-	return c.Blob(status, echo.MIMEApplicationJSONCharsetUTF8, data)
+	return c.Blob(status, echo.MIMEApplicationJSON, data)
 }
