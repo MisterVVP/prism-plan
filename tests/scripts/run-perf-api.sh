@@ -80,23 +80,18 @@ else
 fi
 
 echo "Generating API tokens for up to $K6_MAX_VUS virtual users..."
-tokens="["
+tokens_file="tests/perf/k6/bearers.json"
+tokens_file_abs="$(pwd)/$tokens_file"
+mkdir -p "$(dirname "$tokens_file")"
+TEST_BEARER=$(cd tests/utils && go run ./cmd/gen-token \
+  -count "$K6_MAX_VUS" \
+  -prefix perf-user \
+  -output "$tokens_file_abs")
 
-for i in $(seq 1 "$K6_MAX_VUS"); do
-  user="perf-user-$i"
-  tok=$(cd tests/utils && go run ./cmd/gen-token "$user")
-
-  [ "$i" -eq 1 ] && TEST_BEARER=${TEST_BEARER:-$tok}
-
-  if [ "$i" -eq "$K6_MAX_VUS" ]; then
-    tokens="$tokens\"$tok\""
-  else
-    tokens="$tokens\"$tok\"," 
-  fi
-done
-
-tokens="$tokens]"
-echo "$tokens" > tests/perf/k6/bearers.json
+if [ -z "${TEST_BEARER:-}" ]; then
+  echo "Failed to capture bearer token" >&2
+  exit 1
+fi
 
 export TEST_BEARER K6_ARRIVAL_RATE K6_TIME_UNIT K6_DURATION K6_PRE_ALLOCATED_VUS K6_MAX_VUS PRISM_API_LB_BASE K6_TASK_PAGE_SIZE
 
