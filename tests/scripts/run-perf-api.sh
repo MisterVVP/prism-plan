@@ -58,24 +58,41 @@ $COMPOSE up -d
 tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${API_HEALTH_ENDPOINT}" 30
 tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
 
-K6_VUS=${K6_VUS:-10}
+LEGACY_K6_VUS=${K6_VUS:-}
+
+if [ -n "${LEGACY_K6_VUS:-}" ]; then
+  K6_ARRIVAL_RATE=${K6_ARRIVAL_RATE:-$LEGACY_K6_VUS}
+  K6_PRE_ALLOCATED_VUS=${K6_PRE_ALLOCATED_VUS:-$LEGACY_K6_VUS}
+  K6_MAX_VUS=${K6_MAX_VUS:-$LEGACY_K6_VUS}
+fi
+
+K6_ARRIVAL_RATE=${K6_ARRIVAL_RATE:-10}
+K6_TIME_UNIT=${K6_TIME_UNIT:-1s}
 K6_DURATION=${K6_DURATION:-30s}
+K6_PRE_ALLOCATED_VUS=${K6_PRE_ALLOCATED_VUS:-20}
+K6_MAX_VUS=${K6_MAX_VUS:-100}
+
+if [ "$K6_MAX_VUS" -lt "$K6_PRE_ALLOCATED_VUS" ]; then
+  K6_MAX_VUS=$K6_PRE_ALLOCATED_VUS
+fi
+
+K6_VUS=${LEGACY_K6_VUS:-$K6_PRE_ALLOCATED_VUS}
 if [ -z "${K6_TASK_PAGE_SIZE:-}" ] && [ -n "${TASKS_PAGE_SIZE:-}" ]; then
   K6_TASK_PAGE_SIZE=${TASKS_PAGE_SIZE}
 else
   K6_TASK_PAGE_SIZE=${K6_TASK_PAGE_SIZE:-${TASKS_PAGE_SIZE:-}}
 fi
 
-echo "Generating API tokens..."
+echo "Generating API tokens for up to $K6_MAX_VUS virtual users..."
 tokens="["
 
-for i in $(seq 1 "$K6_VUS"); do
+for i in $(seq 1 "$K6_MAX_VUS"); do
   user="perf-user-$i"
   tok=$(cd tests/utils && go run ./cmd/gen-token "$user")
 
   [ "$i" -eq 1 ] && TEST_BEARER=${TEST_BEARER:-$tok}
 
-  if [ "$i" -eq "$K6_VUS" ]; then
+  if [ "$i" -eq "$K6_MAX_VUS" ]; then
     tokens="$tokens\"$tok\""
   else
     tokens="$tokens\"$tok\"," 
@@ -85,7 +102,7 @@ done
 tokens="$tokens]"
 echo "$tokens" > tests/perf/k6/bearers.json
 
-export TEST_BEARER K6_VUS K6_DURATION PRISM_API_LB_BASE K6_TASK_PAGE_SIZE
+export TEST_BEARER K6_ARRIVAL_RATE K6_TIME_UNIT K6_DURATION K6_PRE_ALLOCATED_VUS K6_MAX_VUS K6_VUS PRISM_API_LB_BASE K6_TASK_PAGE_SIZE
 
 k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.json
 

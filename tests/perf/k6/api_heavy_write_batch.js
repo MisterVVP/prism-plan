@@ -1,13 +1,9 @@
 import http from 'k6/http';
-import { buildAuthHeaders } from './utils.js';
+import { buildAuthHeaders, buildOpenModelScenario } from './utils.js';
 
 export const options = {
   scenarios: {
-    default: {
-      executor: 'constant-vus',
-      vus: Number(__ENV.K6_VUS) || 10,
-      duration: __ENV.K6_DURATION || '30s',
-    },
+    default: buildOpenModelScenario(),
   },
   thresholds: {
     http_req_failed: ['rate<0.01'],

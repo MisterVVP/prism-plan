@@ -34,6 +34,11 @@ bash tests/scripts/run-perf-sse.sh
 - `DISABLE_AUTH_FOR_TESTS` – set to `1` to bypass auth if supported
 - `ENABLE_DOCKER_CMDS` – allow tests to start/stop services (default `0`)
 - `ENABLE_AZURE_ASSERTS` – enable deep Azurite assertions (default `0`)
+- `K6_ARRIVAL_RATE` – constant arrival rate (iterations per `K6_TIME_UNIT`) for k6 open-model scenarios (default `10`)
+- `K6_PRE_ALLOCATED_VUS` – number of k6 VUs to pre-allocate when using the open model (default `20`)
+- `K6_MAX_VUS` – maximum number of k6 VUs to allow during the run (default `100`)
+- `K6_TIME_UNIT` – time window used with `K6_ARRIVAL_RATE` (default `1s`)
+- `K6_DURATION` – total scenario duration (default `30s`)
 
 ## Thresholds & SLAs
 
