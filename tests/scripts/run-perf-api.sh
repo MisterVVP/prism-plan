@@ -58,33 +58,67 @@ $COMPOSE up -d
 tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${API_HEALTH_ENDPOINT}" 30
 tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
 
-K6_ARRIVAL_RATE=${K6_ARRIVAL_RATE:-10}
-K6_TIME_UNIT=${K6_TIME_UNIT:-1s}
-K6_DURATION=${K6_DURATION:-30s}
-K6_PRE_ALLOCATED_VUS=${K6_PRE_ALLOCATED_VUS:-200}
-K6_MAX_VUS=${K6_MAX_VUS:-1000}
+PRISM_K6_ARRIVAL_RATE=${PRISM_K6_ARRIVAL_RATE:-}
+if [ -z "$PRISM_K6_ARRIVAL_RATE" ] && [ -n "${K6_ARRIVAL_RATE:-}" ]; then
+  echo "Warning: K6_ARRIVAL_RATE is deprecated; use PRISM_K6_ARRIVAL_RATE instead." >&2
+  PRISM_K6_ARRIVAL_RATE=$K6_ARRIVAL_RATE
+fi
+PRISM_K6_ARRIVAL_RATE=${PRISM_K6_ARRIVAL_RATE:-10}
 
-if [ "$K6_MAX_VUS" -gt 10000 ]; then
-  echo "Capping K6_MAX_VUS to 10000 (was $K6_MAX_VUS)" >&2
-  K6_MAX_VUS=10000
+PRISM_K6_TIME_UNIT=${PRISM_K6_TIME_UNIT:-}
+if [ -z "$PRISM_K6_TIME_UNIT" ] && [ -n "${K6_TIME_UNIT:-}" ]; then
+  echo "Warning: K6_TIME_UNIT is deprecated; use PRISM_K6_TIME_UNIT instead." >&2
+  PRISM_K6_TIME_UNIT=$K6_TIME_UNIT
+fi
+PRISM_K6_TIME_UNIT=${PRISM_K6_TIME_UNIT:-1s}
+
+PRISM_K6_DURATION=${PRISM_K6_DURATION:-}
+if [ -z "$PRISM_K6_DURATION" ] && [ -n "${K6_DURATION:-}" ]; then
+  echo "Warning: K6_DURATION is deprecated; use PRISM_K6_DURATION instead." >&2
+  PRISM_K6_DURATION=$K6_DURATION
+fi
+PRISM_K6_DURATION=${PRISM_K6_DURATION:-30s}
+
+PRISM_K6_PRE_ALLOCATED_VUS=${PRISM_K6_PRE_ALLOCATED_VUS:-}
+if [ -z "$PRISM_K6_PRE_ALLOCATED_VUS" ] && [ -n "${K6_PRE_ALLOCATED_VUS:-}" ]; then
+  echo "Warning: K6_PRE_ALLOCATED_VUS is deprecated; use PRISM_K6_PRE_ALLOCATED_VUS instead." >&2
+  PRISM_K6_PRE_ALLOCATED_VUS=$K6_PRE_ALLOCATED_VUS
+fi
+PRISM_K6_PRE_ALLOCATED_VUS=${PRISM_K6_PRE_ALLOCATED_VUS:-200}
+
+PRISM_K6_MAX_VUS=${PRISM_K6_MAX_VUS:-}
+if [ -z "$PRISM_K6_MAX_VUS" ] && [ -n "${K6_MAX_VUS:-}" ]; then
+  echo "Warning: K6_MAX_VUS is deprecated; use PRISM_K6_MAX_VUS instead." >&2
+  PRISM_K6_MAX_VUS=$K6_MAX_VUS
+fi
+PRISM_K6_MAX_VUS=${PRISM_K6_MAX_VUS:-1000}
+
+if [ "$PRISM_K6_MAX_VUS" -gt 10000 ]; then
+  echo "Capping PRISM_K6_MAX_VUS to 10000 (was $PRISM_K6_MAX_VUS)" >&2
+  PRISM_K6_MAX_VUS=10000
 fi
 
-if [ "$K6_MAX_VUS" -lt "$K6_PRE_ALLOCATED_VUS" ]; then
-  K6_MAX_VUS=$K6_PRE_ALLOCATED_VUS
+if [ "$PRISM_K6_MAX_VUS" -lt "$PRISM_K6_PRE_ALLOCATED_VUS" ]; then
+  PRISM_K6_MAX_VUS=$PRISM_K6_PRE_ALLOCATED_VUS
 fi
 
-if [ -z "${K6_TASK_PAGE_SIZE:-}" ] && [ -n "${TASKS_PAGE_SIZE:-}" ]; then
-  K6_TASK_PAGE_SIZE=${TASKS_PAGE_SIZE}
-else
-  K6_TASK_PAGE_SIZE=${K6_TASK_PAGE_SIZE:-${TASKS_PAGE_SIZE:-}}
+PRISM_K6_TASK_PAGE_SIZE=${PRISM_K6_TASK_PAGE_SIZE:-}
+if [ -z "$PRISM_K6_TASK_PAGE_SIZE" ] && [ -n "${K6_TASK_PAGE_SIZE:-}" ]; then
+  echo "Warning: K6_TASK_PAGE_SIZE is deprecated; use PRISM_K6_TASK_PAGE_SIZE instead." >&2
+  PRISM_K6_TASK_PAGE_SIZE=$K6_TASK_PAGE_SIZE
+fi
+if [ -z "$PRISM_K6_TASK_PAGE_SIZE" ] && [ -n "${TASKS_PAGE_SIZE:-}" ]; then
+  PRISM_K6_TASK_PAGE_SIZE=$TASKS_PAGE_SIZE
 fi
 
-echo "Generating API tokens for up to $K6_MAX_VUS virtual users..."
+unset K6_ARRIVAL_RATE K6_TIME_UNIT K6_DURATION K6_PRE_ALLOCATED_VUS K6_MAX_VUS K6_TASK_PAGE_SIZE K6_VUS
+
+echo "Generating API tokens for up to $PRISM_K6_MAX_VUS virtual users..."
 tokens_file="tests/perf/k6/bearers.json"
 tokens_file_abs="$(pwd)/$tokens_file"
 mkdir -p "$(dirname "$tokens_file")"
 TEST_BEARER=$(cd tests/utils && go run ./cmd/gen-token \
-  -count "$K6_MAX_VUS" \
+  -count "$PRISM_K6_MAX_VUS" \
   -prefix perf-user \
   -output "$tokens_file_abs")
 
@@ -93,7 +127,14 @@ if [ -z "${TEST_BEARER:-}" ]; then
   exit 1
 fi
 
-export TEST_BEARER K6_ARRIVAL_RATE K6_TIME_UNIT K6_DURATION K6_PRE_ALLOCATED_VUS K6_MAX_VUS PRISM_API_LB_BASE K6_TASK_PAGE_SIZE
+export TEST_BEARER \
+  PRISM_K6_ARRIVAL_RATE \
+  PRISM_K6_TIME_UNIT \
+  PRISM_K6_DURATION \
+  PRISM_K6_PRE_ALLOCATED_VUS \
+  PRISM_K6_MAX_VUS \
+  PRISM_API_LB_BASE \
+  PRISM_K6_TASK_PAGE_SIZE
 
 k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.json
 

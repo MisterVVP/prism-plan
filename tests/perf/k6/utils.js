@@ -9,6 +9,43 @@ const DEFAULT_MAX_VUS = 1000;
 const MAX_ALLOWED_VUS = 10000;
 const DEFAULT_TIME_UNIT = '1s';
 const DEFAULT_DURATION = '30s';
+const warnedLegacyEnv = new Set();
+
+function pickEnvValue(keys) {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(__ENV, key)) {
+      return { key, value: __ENV[key] };
+    }
+  }
+  return { key: undefined, value: undefined };
+}
+
+function warnIfLegacyEnv(key, canonical) {
+  if (!key || key === canonical) {
+    return;
+  }
+  if (warnedLegacyEnv.has(key)) {
+    return;
+  }
+  console.warn(
+    `Environment variable "${key}" is deprecated; use "${canonical}" instead for Prism perf tests.`,
+  );
+  warnedLegacyEnv.add(key);
+}
+
+function resolvePositiveIntegerEnv(keys, fallback) {
+  const [canonical] = keys;
+  const { key, value } = pickEnvValue(keys);
+  warnIfLegacyEnv(key, canonical);
+  return parsePositiveInteger(value, fallback);
+}
+
+function resolveStringEnvFromKeys(keys, fallback) {
+  const [canonical] = keys;
+  const { key, value } = pickEnvValue(keys);
+  warnIfLegacyEnv(key, canonical);
+  return resolveStringEnv(value, fallback);
+}
 
 const tokens = new SharedArray('tokens', () => {
   try {
@@ -76,13 +113,16 @@ function resolveStringEnv(value, fallback) {
 }
 
 export function buildOpenModelScenario(overrides = {}) {
-  const rate = parsePositiveInteger(__ENV.K6_ARRIVAL_RATE, DEFAULT_ARRIVAL_RATE);
-  const preAllocatedVUs = parsePositiveInteger(
-    __ENV.K6_PRE_ALLOCATED_VUS,
+  const rate = resolvePositiveIntegerEnv(
+    ['PRISM_K6_ARRIVAL_RATE', 'K6_ARRIVAL_RATE'],
+    DEFAULT_ARRIVAL_RATE,
+  );
+  const preAllocatedVUs = resolvePositiveIntegerEnv(
+    ['PRISM_K6_PRE_ALLOCATED_VUS', 'K6_PRE_ALLOCATED_VUS'],
     DEFAULT_PRE_ALLOCATED_VUS,
   );
-  let maxVUs = parsePositiveInteger(
-    __ENV.K6_MAX_VUS,
+  let maxVUs = resolvePositiveIntegerEnv(
+    ['PRISM_K6_MAX_VUS', 'K6_MAX_VUS'],
     Math.max(preAllocatedVUs, DEFAULT_MAX_VUS),
   );
   if (maxVUs > MAX_ALLOWED_VUS) {
@@ -91,8 +131,14 @@ export function buildOpenModelScenario(overrides = {}) {
   if (maxVUs < preAllocatedVUs) {
     maxVUs = preAllocatedVUs;
   }
-  const timeUnit = resolveStringEnv(__ENV.K6_TIME_UNIT, DEFAULT_TIME_UNIT);
-  const duration = resolveStringEnv(__ENV.K6_DURATION, DEFAULT_DURATION);
+  const timeUnit = resolveStringEnvFromKeys(
+    ['PRISM_K6_TIME_UNIT', 'K6_TIME_UNIT'],
+    DEFAULT_TIME_UNIT,
+  );
+  const duration = resolveStringEnvFromKeys(
+    ['PRISM_K6_DURATION', 'K6_DURATION'],
+    DEFAULT_DURATION,
+  );
 
   return {
     executor: 'constant-arrival-rate',
@@ -147,7 +193,9 @@ export function fetchAllTasks(base, headers) {
 }
 
 function resolvePageSize() {
-  const raw = Number(__ENV.K6_TASK_PAGE_SIZE);
+  const { key, value } = pickEnvValue(['PRISM_K6_TASK_PAGE_SIZE', 'K6_TASK_PAGE_SIZE']);
+  warnIfLegacyEnv(key, 'PRISM_K6_TASK_PAGE_SIZE');
+  const raw = Number(value);
   if (Number.isFinite(raw) && raw > 0) {
     const floored = Math.floor(raw);
     if (floored > 0) {
