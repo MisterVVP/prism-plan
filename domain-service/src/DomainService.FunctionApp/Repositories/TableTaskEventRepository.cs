@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using Azure;
 using Azure.Data.Tables;
 using DomainService.Interfaces;
@@ -7,6 +11,13 @@ namespace DomainService.Repositories;
 
 internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRepository
 {
+    private const string IdempotencyPartitionKey = "__idempotency__";
+    private const string StatusProperty = "Status";
+    private const string InsertedAtProperty = "InsertedAt";
+    private const string UpdatedAtProperty = "UpdatedAt";
+    private const string ProcessingStatus = "Processing";
+    private const string CompletedStatus = "Completed";
+
     private readonly TableClient _table = table;
 
     public async Task<IReadOnlyList<IEvent>> Get(string taskId, CancellationToken ct)
@@ -25,6 +36,8 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
 
     public async Task Add(IEvent ev, CancellationToken ct)
     {
+        var insertedAt = DateTimeOffset.UtcNow;
+
         var entity = new TableEntity(ev.EntityId, ev.Id)
         {
             {"Type", ev.Type},
@@ -39,6 +52,8 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
             {"EntityType@odata.type", "Edm.String"},
             {"Dispatched", false},
             {"Dispatched@odata.type", "Edm.Boolean"},
+            {InsertedAtProperty, insertedAt},
+            {InsertedAtProperty + "@odata.type", "Edm.DateTimeOffset"},
         };
 
         if (ev.Data.HasValue)
@@ -63,16 +78,47 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
     public async Task<IReadOnlyList<StoredEvent>> FindByIdempotencyKey(string idempotencyKey, CancellationToken ct)
     {
         var filter = $"IdempotencyKey eq '{EscapeFilterValue(idempotencyKey)}'";
-        var results = new List<StoredEvent>();
+        var results = new List<(StoredEvent Stored, DateTimeOffset? InsertedAt, DateTimeOffset? TableTimestamp)>();
         await foreach (var entity in _table.QueryAsync<TableEntity>(filter: filter, cancellationToken: ct))
         {
             if (TryParseEvent(entity, out Event? ev) && ev != null)
             {
                 var dispatched = entity.TryGetValue("Dispatched", out var dispatchedObj) && dispatchedObj is bool dispatchedFlag && dispatchedFlag;
-                results.Add(new StoredEvent(ev, dispatched));
+                var insertedAt = ExtractDateTimeOffset(entity, InsertedAtProperty);
+                results.Add((new StoredEvent(ev, dispatched), insertedAt, entity.Timestamp));
             }
         }
-        return results;
+        results.Sort(static (left, right) =>
+        {
+            var timestampComparison = left.Stored.Event.Timestamp.CompareTo(right.Stored.Event.Timestamp);
+            if (timestampComparison != 0)
+            {
+                return timestampComparison;
+            }
+
+            var insertedComparison = CompareInsertion(left.InsertedAt, right.InsertedAt);
+            if (insertedComparison != 0)
+            {
+                return insertedComparison;
+            }
+
+            var tableTimestampComparison = Nullable.Compare(left.TableTimestamp, right.TableTimestamp);
+            if (tableTimestampComparison != 0)
+            {
+                return tableTimestampComparison;
+            }
+
+            return string.CompareOrdinal(left.Stored.Event.Id, right.Stored.Event.Id);
+        });
+
+        return results.ConvertAll(static entry => entry.Stored);
+    }
+
+    private static int CompareInsertion(DateTimeOffset? left, DateTimeOffset? right)
+    {
+        return left.HasValue && right.HasValue
+            ? left.Value.CompareTo(right.Value)
+            : 0;
     }
 
     public Task MarkAsDispatched(IEvent ev, CancellationToken ct)
@@ -84,6 +130,67 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
         };
 
         return _table.UpdateEntityAsync(entity, ETag.All, TableUpdateMode.Merge, ct);
+    }
+
+    public async Task<IdempotencyResult> TryStartProcessing(string idempotencyKey, CancellationToken ct)
+    {
+        var entity = CreateIdempotencyEntity(idempotencyKey, ProcessingStatus);
+        try
+        {
+            await _table.AddEntityAsync(entity, ct);
+            return IdempotencyResult.Started;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 409)
+        {
+            var status = await GetIdempotencyStatus(idempotencyKey, ct);
+            return string.Equals(status, CompletedStatus, StringComparison.Ordinal)
+                ? IdempotencyResult.AlreadyProcessed
+                : IdempotencyResult.InProgress;
+        }
+    }
+
+    public Task MarkProcessingSucceeded(string idempotencyKey, CancellationToken ct)
+    {
+        var entity = CreateIdempotencyEntity(idempotencyKey, CompletedStatus);
+        return _table.UpsertEntityAsync(entity, TableUpdateMode.Merge, ct);
+    }
+
+    public async Task MarkProcessingFailed(string idempotencyKey, CancellationToken ct)
+    {
+        try
+        {
+            await _table.DeleteEntityAsync(IdempotencyPartitionKey, idempotencyKey, ETag.All, ct);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+        }
+    }
+
+    private static TableEntity CreateIdempotencyEntity(string idempotencyKey, string status)
+    {
+        return new TableEntity(IdempotencyPartitionKey, idempotencyKey)
+        {
+            {StatusProperty, status},
+            {StatusProperty + "@odata.type", "Edm.String"},
+            {UpdatedAtProperty, DateTimeOffset.UtcNow},
+            {UpdatedAtProperty + "@odata.type", "Edm.DateTimeOffset"},
+        };
+    }
+
+    private async Task<string?> GetIdempotencyStatus(string idempotencyKey, CancellationToken ct)
+    {
+        try
+        {
+            var existing = await _table.GetEntityAsync<TableEntity>(IdempotencyPartitionKey, idempotencyKey, cancellationToken: ct);
+            if (existing.HasValue && existing.Value.TryGetValue(StatusProperty, out var statusObj) && statusObj is string status)
+            {
+                return status;
+            }
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+        }
+        return null;
     }
 
     private static bool TryParseEvent(TableEntity entity, out Event? ev)
@@ -126,6 +233,23 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
             DateTime dt => new DateTimeOffset(dt).ToUnixTimeMilliseconds(),
             DateTimeOffset dto => dto.ToUnixTimeMilliseconds(),
             _ => 0L,
+        };
+    }
+
+    private static DateTimeOffset? ExtractDateTimeOffset(TableEntity entity, string key)
+    {
+        if (!entity.TryGetValue(key, out var value) || value is null)
+        {
+            return null;
+        }
+
+        return value switch
+        {
+            DateTimeOffset dto => dto,
+            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)),
+            long l when l != 0 => DateTimeOffset.FromUnixTimeMilliseconds(l),
+            string s when DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed) => parsed,
+            _ => null,
         };
     }
 

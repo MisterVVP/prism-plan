@@ -10,7 +10,6 @@ x-prism-api: &prism-api-base
     ENQUEUE_WORKERS: ${ENQUEUE_WORKERS}
     ENQUEUE_BUFFER: ${ENQUEUE_BUFFER}
     ENQUEUE_TIMEOUT: ${ENQUEUE_TIMEOUT}
-    DEDUPER_TTL: ${DEDUPER_TTL}
   depends_on:
     azurite:
       condition: service_healthy
@@ -186,6 +185,31 @@ services:
       <<: *domain-service-env
 
   domain-service-5:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-6:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-7:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-8:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-9:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  domain-service-10:
     <<: *domain-service-base
     environment:
       <<: *domain-service-env

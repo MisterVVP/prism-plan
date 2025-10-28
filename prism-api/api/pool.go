@@ -2,7 +2,10 @@ package api
 
 import (
 	"context"
+	"os"
 	"prism-api/domain"
+	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -12,8 +15,19 @@ import (
 type enqueueJob struct {
 	userID string
 	cmds   []domain.Command
-	added  []string // keys added to deduper (for rollback on enqueue failure)
 }
+
+const (
+	minEnqueueWorkers     = 32
+	maxEnqueueWorkers     = 192
+	workersPerCPU         = 32
+	workersPerQueueUnit   = 4
+	bufferPerWorker       = 128
+	minEnqueueBuffer      = minEnqueueWorkers * bufferPerWorker
+	maxEnqueueBuffer      = 64 * 1024
+	defaultHandoffTimeout = 50 * time.Millisecond
+	defaultQueueParallel  = 8
+)
 
 var (
 	once           sync.Once
@@ -24,9 +38,17 @@ var (
 	handoffTimeout time.Duration
 	bg             = context.Background()
 	globalStore    Storage
-	globalDeduper  Deduper
 	globalLog      *log.Logger
 	workerWG       sync.WaitGroup
+	timerPool      = sync.Pool{
+		New: func() any {
+			t := time.NewTimer(time.Hour)
+			if !t.Stop() {
+				<-t.C
+			}
+			return t
+		},
+	}
 )
 
 // shutdownCommandSender stops worker goroutines and clears shared state. It is intended for tests.
@@ -39,7 +61,6 @@ func shutdownCommandSender() {
 	workerWG.Wait()
 
 	globalStore = nil
-	globalDeduper = nil
 	globalLog = nil
 	workerCount = 0
 	jobBuf = 0
@@ -49,19 +70,25 @@ func shutdownCommandSender() {
 	workerWG = sync.WaitGroup{}
 }
 
-func initCommandSender(store Storage, deduper Deduper, log *log.Logger) {
+func initCommandSender(store Storage, log *log.Logger) {
 	once.Do(func() {
 		globalStore = store
-		globalDeduper = deduper
 		if log == nil {
 			panic("Logger is not initialized")
 		}
 		globalLog = log
 
-		workerCount = envInt("ENQUEUE_WORKERS", 32)
-		jobBuf = envInt("ENQUEUE_BUFFER", 4096)
+		queueParallel := deriveQueueConcurrency()
+		autoWorkers, autoBuf := computeWorkerDefaults(queueParallel, runtime.NumCPU())
+
+		workerCount = lookupPositiveInt("ENQUEUE_WORKERS", autoWorkers)
+		jobBuf = lookupPositiveInt("ENQUEUE_BUFFER", autoBuf)
+		if jobBuf < workerCount {
+			jobBuf = workerCount
+		}
+
 		enqueueTimeout = envDur("ENQUEUE_TIMEOUT", 60*time.Second)
-		handoffTimeout = envDur("ENQUEUE_HANDOFF_TIMEOUT", 15*time.Millisecond)
+		handoffTimeout = envDur("ENQUEUE_HANDOFF_TIMEOUT", defaultHandoffTimeout)
 
 		jobs = make(chan enqueueJob, jobBuf)
 		for i := 0; i < workerCount; i++ {
@@ -80,11 +107,6 @@ func worker(id int, jobCh <-chan enqueueJob) {
 		cancel()
 
 		if err != nil {
-			for _, k := range j.added {
-				if rerr := globalDeduper.Remove(bg, j.userID, k); rerr != nil {
-					globalLog.Errorf("dedupe rollback failed, err : %v, key: %s, user: %s", rerr, k, j.userID)
-				}
-			}
 			globalLog.Errorf("enqueue failed, err: %v, user: %s, count: %d, worker: %d", err, j.userID, len(j.cmds), id)
 		}
 	}
@@ -105,14 +127,61 @@ func tryEnqueueJob(job enqueueJob) bool {
 		return false
 	}
 
-	timer := time.NewTimer(handoffTimeout)
-	defer timer.Stop()
-
+	timer := acquireTimer(handoffTimeout)
 	ok, closed := sendWithTimer(jobs, job, timer.C)
+	releaseTimer(timer)
 	if closed {
 		return false
 	}
 	return ok
+}
+
+func deriveQueueConcurrency() int {
+	if v := os.Getenv("COMMAND_QUEUE_CONCURRENCY"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultQueueParallel
+}
+
+func computeWorkerDefaults(queueConcurrency, numCPU int) (workers int, buffer int) {
+	if queueConcurrency <= 0 {
+		queueConcurrency = defaultQueueParallel
+	}
+	if numCPU <= 0 {
+		numCPU = 1
+	}
+
+	queueScaled := queueConcurrency * workersPerQueueUnit
+	cpuScaled := numCPU * workersPerCPU
+	workers = queueScaled
+	if cpuScaled > workers {
+		workers = cpuScaled
+	}
+	if workers < minEnqueueWorkers {
+		workers = minEnqueueWorkers
+	} else if workers > maxEnqueueWorkers {
+		workers = maxEnqueueWorkers
+	}
+
+	buffer = workers * bufferPerWorker
+	if buffer < minEnqueueBuffer {
+		buffer = minEnqueueBuffer
+	} else if buffer > maxEnqueueBuffer {
+		buffer = maxEnqueueBuffer
+	}
+
+	return workers, buffer
+}
+
+func lookupPositiveInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return fallback
 }
 
 func trySendNonBlocking(ch chan enqueueJob, job enqueueJob) (ok bool, closed bool) {
@@ -145,4 +214,20 @@ func sendWithTimer(ch chan enqueueJob, job enqueueJob, timer <-chan time.Time) (
 	case <-timer:
 		return false, false
 	}
+}
+
+func acquireTimer(d time.Duration) *time.Timer {
+	t := timerPool.Get().(*time.Timer)
+	t.Reset(d)
+	return t
+}
+
+func releaseTimer(t *time.Timer) {
+	if !t.Stop() {
+		select {
+		case <-t.C:
+		default:
+		}
+	}
+	timerPool.Put(t)
 }

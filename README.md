@@ -64,6 +64,13 @@ Fetch tasks from `/api/tasks`—the response includes a `nextPageToken` when mor
 
 See [tests/README.md](tests/README.md) for running integration and performance tests.
 
+To run the API performance suite with a specific Docker Compose environment file, pass the path as the first argument. For local
+setups use the bundled `tests/docker/env.test.local` configuration so the containers point to your developer resources:
+
+```bash
+bash tests/scripts/run-perf-api.sh tests/docker/env.test.local
+```
+
 ## ☁️ Deploying to Azure (free tiers)
 1. Build the static site:
    ```bash

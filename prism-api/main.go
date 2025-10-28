@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/MicahParks/keyfunc"
+	"github.com/labstack/echo-contrib/pprof"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/redis/go-redis/v9"
@@ -112,16 +113,6 @@ func main() {
 		log.Info("storage warmup completed")
 	}
 
-	ttl := 24 * time.Hour
-	if v := os.Getenv("DEDUPER_TTL"); v != "" {
-		d, err := time.ParseDuration(v)
-		if err != nil || d <= 0 {
-			log.Fatalf("invalid DEDUPER_TTL: %v", err)
-		}
-		ttl = d
-	}
-	deduper := api.NewRedisDeduper(rc, ttl)
-
 	testMode := os.Getenv("AUTH0_TEST_MODE") == "1"
 	var auth *api.Auth
 	if testMode {
@@ -147,12 +138,14 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 	e.Use(middleware.Gzip())
-
 	logger := log.New()
 	configureJSONLogger(logger)
 	logger.SetLevel(log.GetLevel())
-	api.Register(e, store, auth, deduper, logger)
-
+	api.Register(e, store, auth, logger)
+	if os.Getenv("APP_ENV") == "development" {
+		log.Println("Enabling pprof for profiling")
+		pprof.Register(e)
+	}
 	if port := os.Getenv("PORT"); port != "" {
 		e.Logger.Fatal(e.Start(":" + port))
 	} else {

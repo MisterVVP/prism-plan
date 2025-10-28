@@ -2,11 +2,11 @@ x-prism-api: &prism-api-base
   build:
     context: ./prism-api
   environment: &prism-api-env
+    APP_ENV: development
     DEBUG: ${DEBUG}
     ENQUEUE_WORKERS: ${ENQUEUE_WORKERS}
     ENQUEUE_BUFFER: ${ENQUEUE_BUFFER}
     ENQUEUE_TIMEOUT: ${ENQUEUE_TIMEOUT}
-    DEDUPER_TTL: ${DEDUPER_TTL}
     TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
     STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
     AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
@@ -61,8 +61,8 @@ services:
     environment:
       <<: *prism-api-env
       PORT: "${PRISM_API_PORT1}"
-    ports:
-      - "${PRISM_API_PORT1}:${PRISM_API_PORT1}"
+    expose:
+      - "${PRISM_API_PORT1}"
     restart: unless-stopped
 
   prism-api-2:
@@ -112,8 +112,8 @@ services:
     image: haproxy:3.0-alpine
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    expose:
-      - "${PRISM_API_LB_PORT}"
+    ports:
+      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
     sysctls:
         - net.ipv4.tcp_rmem=16384 4194304 536870912
         - net.ipv4.tcp_wmem=16384 4194304 536870912

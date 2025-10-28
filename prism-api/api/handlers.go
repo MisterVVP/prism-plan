@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -10,20 +9,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bytedance/sonic"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
 	"prism-api/domain"
 )
 
 // Register wires up all API routes on the provided Echo instance.
-func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, log *log.Logger) {
+func Register(e *echo.Echo, store Storage, auth Authenticator, log *log.Logger) {
 	e.GET("/api/tasks", getTasks(store, auth, log))
 	e.GET("/api/settings", getSettings(store, auth))
-	e.POST("/api/commands", postCommands(store, auth, deduper, log))
+	e.POST("/api/commands", postCommands(store, auth))
 	e.GET("/healthz", healthz(store))
+
+	initCommandSender(store, log)
 }
 
 type tasksResponse struct {
@@ -121,165 +122,84 @@ func getSettings(store Storage, auth Authenticator) echo.HandlerFunc {
 	}
 }
 
-type batchDeduper interface {
-	AddMany(ctx context.Context, userID string, keys []string) ([]bool, error)
-}
-
-func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.Logger) echo.HandlerFunc {
+func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		ctx := c.Request().Context()
-
-		initCommandSender(store, deduper, log)
-
 		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}
 
 		lr := io.LimitReader(c.Request().Body, postCommandMaxSize)
-		dec := json.NewDecoder(lr)
+		dec := sonic.ConfigFastest.NewDecoder(lr)
 		dec.DisallowUnknownFields()
 
-		raw := make([]postCommandRequest, 0, 4)
-		if err := dec.Decode(&raw); err != nil {
+		cmds := make([]domain.Command, 0, 4)
+		if err := dec.Decode(&cmds); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
 
-		cmds := make([]domain.Command, len(raw))
-		for i := range raw {
-			cmds[i] = domain.Command{
-				IdempotencyKey: raw[i].IdempotencyKey,
-				EntityType:     raw[i].EntityType,
-				Type:           raw[i].Type,
-				Data:           raw[i].Data,
-			}
-		}
-
-		keys := make([]string, len(cmds))
-		filtered := cmds[:0]
-		added := make([]string, 0, len(cmds))
-		addedIdxs := make([]int, 0, len(cmds))
-
-		for i := range cmds {
-			if cmds[i].IdempotencyKey == "" {
-				cmds[i].IdempotencyKey = uuid.NewString()
-			}
-			cmds[i].ID = cmds[i].IdempotencyKey
-			keys[i] = cmds[i].IdempotencyKey
-		}
-
-		var addedMask []bool
-		var addErr error
-		failedIndex := -1
-		usedBatch := false
-		if batch, ok := deduper.(batchDeduper); ok && len(cmds) > 0 {
-			addedMask, addErr = batch.AddMany(ctx, userID, keys)
-			usedBatch = true
-			for i, addedNow := range addedMask {
-				if addedNow {
-					addedIdxs = append(addedIdxs, i)
-				}
-			}
-		} else if len(cmds) > 0 {
-			for i := range cmds {
-				var addedNow bool
-				addedNow, addErr = deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
-				if addErr != nil {
-					failedIndex = i
-					break
-				}
-				if addedNow {
-					addedIdxs = append(addedIdxs, i)
-				}
-			}
-		}
-
-		if addErr != nil {
-			rollback := make(map[string]struct{}, len(keys))
-			for _, idx := range addedIdxs {
-				if idx >= 0 && idx < len(keys) {
-					rollback[keys[idx]] = struct{}{}
-				}
-			}
-			if !usedBatch && failedIndex >= 0 && failedIndex < len(keys) {
-				rollback[keys[failedIndex]] = struct{}{}
-			}
-			if usedBatch {
-				var idxErr interface{ RollbackIndexes() []int }
-				if errors.As(addErr, &idxErr) {
-					for _, idx := range idxErr.RollbackIndexes() {
-						if idx >= 0 && idx < len(keys) {
-							rollback[keys[idx]] = struct{}{}
-						}
-					}
-				} else if len(rollback) == 0 || len(addedMask) != len(cmds) {
-					for _, key := range keys {
-						rollback[key] = struct{}{}
-					}
-				}
-			} else if len(rollback) == 0 {
-				for _, key := range keys {
-					rollback[key] = struct{}{}
-				}
-			}
-			for key := range rollback {
-				if err := deduper.Remove(ctx, userID, key); err != nil {
-					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, key)
-				}
-			}
-			return c.String(http.StatusInternalServerError, addErr.Error())
-		}
-
-		if usedBatch && len(addedMask) != len(cmds) {
-			for _, key := range keys {
-				if err := deduper.Remove(ctx, userID, key); err != nil {
-					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", err, key)
-				}
-			}
-			return c.String(http.StatusInternalServerError, "failed to reserve idempotency keys")
-		}
-
-		if len(addedIdxs) == 0 {
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
-		}
-
-		filtered = filtered[:0]
-		added = added[:0]
-		for _, idx := range addedIdxs {
-			if idx < 0 || idx >= len(cmds) {
-				continue
-			}
-			cmds[idx].Timestamp = nextTimestamp()
-			filtered = append(filtered, cmds[idx])
-			added = append(added, keys[idx])
-		}
+		keys := finalizeCommands(cmds)
 
 		job := enqueueJob{
 			userID: userID,
-			cmds:   filtered,
-			added:  added,
+			cmds:   cmds,
 		}
 
 		if tryEnqueueJob(job) {
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+			return respondJSON(c, http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		}
 
-		globalLog.Warn("enqueue buffer saturated; processing inline")
+		if globalLog != nil {
+			globalLog.Warn("enqueue buffer saturated; processing inline")
+		}
 
-		enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
+		enqueueCtx := bg
+		var cancel context.CancelFunc
+		if enqueueTimeout > 0 {
+			enqueueCtx, cancel = context.WithTimeout(bg, enqueueTimeout)
+		}
 		enqueueErr := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
-		cancel()
+		if cancel != nil {
+			cancel()
+		}
 
 		if enqueueErr != nil {
-			for _, k := range added {
-				if rerr := deduper.Remove(ctx, userID, k); rerr != nil {
-					c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, k)
-				}
-			}
 			c.Logger().Errorf("enqueue inline failed: %v", enqueueErr)
 			return c.String(http.StatusInternalServerError, "failed to enqueue commands")
 		}
 
-		return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+		return respondJSON(c, http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 	}
+}
+
+func finalizeCommands(cmds []domain.Command) []string {
+	keys := make([]string, len(cmds))
+	if len(cmds) == 0 {
+		return keys
+	}
+
+	start := nextTimestampRange(len(cmds))
+	for i := range cmds {
+		ts := start + int64(i)
+		keys[i] = applyCommandMetadata(&cmds[i], ts)
+	}
+
+	return keys
+}
+
+func applyCommandMetadata(cmd *domain.Command, ts int64) string {
+	if cmd.IdempotencyKey == "" {
+		cmd.IdempotencyKey = strconv.FormatInt(ts, 36)
+	}
+	cmd.ID = cmd.IdempotencyKey
+	cmd.Timestamp = ts
+	return cmd.IdempotencyKey
+}
+
+func respondJSON(c echo.Context, status int, payload any) error {
+	data, err := sonic.Marshal(payload)
+	if err != nil {
+		return c.JSON(status, payload)
+	}
+	return c.Blob(status, echo.MIMEApplicationJSON, data)
 }

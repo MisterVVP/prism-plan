@@ -3,7 +3,14 @@ set -euo pipefail
 ROOT_DIR=$(dirname "$0")/..
 cd "$ROOT_DIR"/..
 
-ENV_FILE=tests/docker/env.test
+DEFAULT_ENV_FILE="tests/docker/env.test"
+ENV_FILE="${1:-$DEFAULT_ENV_FILE}"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "Environment file '$ENV_FILE' not found. Provide a valid env file path." >&2
+  exit 1
+fi
+
 set -a
 # shellcheck source=tests/docker/env.test
 source "$ENV_FILE"
@@ -58,35 +65,51 @@ $COMPOSE up -d
 tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${API_HEALTH_ENDPOINT}" 30
 tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
 
-K6_VUS=${K6_VUS:-10}
-K6_DURATION=${K6_DURATION:-30s}
-if [ -z "${K6_TASK_PAGE_SIZE:-}" ] && [ -n "${TASKS_PAGE_SIZE:-}" ]; then
-  K6_TASK_PAGE_SIZE=${TASKS_PAGE_SIZE}
-else
-  K6_TASK_PAGE_SIZE=${K6_TASK_PAGE_SIZE:-${TASKS_PAGE_SIZE:-}}
+
+PRISM_K6_ARRIVAL_RATE=${PRISM_K6_ARRIVAL_RATE:-10}
+PRISM_K6_TIME_UNIT=${PRISM_K6_TIME_UNIT:-1s}
+PRISM_K6_DURATION=${PRISM_K6_DURATION:-30s}
+PRISM_K6_PRE_ALLOCATED_VUS=${PRISM_K6_PRE_ALLOCATED_VUS:-200}
+PRISM_K6_MAX_VUS=${PRISM_K6_MAX_VUS:-1000}
+
+if [ "$PRISM_K6_MAX_VUS" -gt 10000 ]; then
+  echo "Capping PRISM_K6_MAX_VUS to 10000 (was $PRISM_K6_MAX_VUS)" >&2
+  PRISM_K6_MAX_VUS=10000
 fi
 
-tokens="["
+if [ "$PRISM_K6_MAX_VUS" -lt "$PRISM_K6_PRE_ALLOCATED_VUS" ]; then
+  PRISM_K6_MAX_VUS=$PRISM_K6_PRE_ALLOCATED_VUS
+fi
 
-for i in $(seq 1 "$K6_VUS"); do
-  user="perf-user-$i"
-  tok=$(cd tests/utils && go run ./cmd/gen-token "$user")
+PRISM_K6_TASK_PAGE_SIZE=${PRISM_K6_TASK_PAGE_SIZE:-}
+if [ -z "$PRISM_K6_TASK_PAGE_SIZE" ] && [ -n "${TASKS_PAGE_SIZE:-}" ]; then
+  PRISM_K6_TASK_PAGE_SIZE=$TASKS_PAGE_SIZE
+fi
 
-  [ "$i" -eq 1 ] && TEST_BEARER=${TEST_BEARER:-$tok}
+unset K6_ARRIVAL_RATE K6_TIME_UNIT K6_DURATION K6_PRE_ALLOCATED_VUS K6_MAX_VUS K6_TASK_PAGE_SIZE K6_VUS
 
-  if [ "$i" -eq "$K6_VUS" ]; then
-    tokens="$tokens\"$tok\""
-  else
-    tokens="$tokens\"$tok\"," 
-  fi
-done
+echo "Generating API tokens for up to $PRISM_K6_MAX_VUS virtual users..."
+tokens_file="tests/perf/k6/bearers.json"
+tokens_file_abs="$(pwd)/$tokens_file"
+mkdir -p "$(dirname "$tokens_file")"
+TEST_BEARER=$(cd tests/utils && go run ./cmd/gen-token \
+  -count "$PRISM_K6_MAX_VUS" \
+  -prefix perf-user \
+  -output "$tokens_file_abs")
 
-tokens="$tokens]"
+if [ -z "${TEST_BEARER:-}" ]; then
+  echo "Failed to capture bearer token" >&2
+  exit 1
+fi
 
-# write JSON array to file
-echo "$tokens" > tests/perf/k6/bearers.json
-
-export TEST_BEARER K6_VUS K6_DURATION PRISM_API_LB_BASE K6_TASK_PAGE_SIZE
+export TEST_BEARER \
+  PRISM_K6_ARRIVAL_RATE \
+  PRISM_K6_TIME_UNIT \
+  PRISM_K6_DURATION \
+  PRISM_K6_PRE_ALLOCATED_VUS \
+  PRISM_K6_MAX_VUS \
+  PRISM_API_LB_BASE \
+  PRISM_K6_TASK_PAGE_SIZE
 
 k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.json
 
