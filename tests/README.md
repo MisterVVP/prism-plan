@@ -15,9 +15,11 @@ bash tests/scripts/run-integration.sh
 ```
 
 ```bash
-bash tests/scripts/run-perf-api.sh
+bash tests/scripts/run-perf-api.sh [path/to/env.file]
 ```
-This script generates a `tests/perf/k6/bearers.json` file containing one bearer token per k6 virtual user.
+This script generates a `tests/perf/k6/bearers.json` file containing one bearer token per k6 virtual user. When running locally,
+pass `tests/docker/env.test.local` so Docker Compose points to the developer-focused defaults. The script falls back to
+`tests/docker/env.test` when no argument is provided (CI configuration).
 
 > **Note:** The API caches only the default task page size. Ensure `PRISM_K6_TASK_PAGE_SIZE` matches the Prism API `TASKS_PAGE_SIZE` (see `tests/docker/env.test`) so the perf run exercises the Redis cache instead of always falling back to Azure Table storage.
 

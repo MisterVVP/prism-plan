@@ -3,13 +3,20 @@ set -euo pipefail
 ROOT_DIR=$(dirname "$0")/..
 cd "$ROOT_DIR"/..
 
-ENV_FILE=tests/docker/env.test
+DEFAULT_ENV_FILE="tests/docker/env.test"
+ENV_FILE="${1:-$DEFAULT_ENV_FILE}"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "Environment file '$ENV_FILE' not found. Provide a valid env file path." >&2
+  exit 1
+fi
+
 set -a
 # shellcheck source=tests/docker/env.test
 source "$ENV_FILE"
 set +a
 
-COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
+COMPOSE="docker compose --env-file \"$ENV_FILE\" -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
 RESULT_DIR="tests/perf/results"
 SUMMARY_FILE_REL="$RESULT_DIR/task_request_metrics.json"
 SUMMARY_FILE="$(pwd)/$SUMMARY_FILE_REL"
