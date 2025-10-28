@@ -16,7 +16,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
-COMPOSE="docker compose --env-file \"$ENV_FILE\" -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
+COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
 RESULT_DIR="tests/perf/results"
 SUMMARY_FILE_REL="$RESULT_DIR/task_request_metrics.json"
 SUMMARY_FILE="$(pwd)/$SUMMARY_FILE_REL"
