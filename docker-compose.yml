@@ -1,0 +1,263 @@
+x-prism-api: &prism-api-base
+  build:
+    context: ./prism-api
+  environment: &prism-api-env
+    APP_ENV: development
+    DEBUG: ${DEBUG}
+    ENQUEUE_WORKERS: ${ENQUEUE_WORKERS}
+    ENQUEUE_BUFFER: ${ENQUEUE_BUFFER}
+    ENQUEUE_TIMEOUT: ${ENQUEUE_TIMEOUT}
+    TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
+    STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+    AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+    AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+    TASKS_TABLE: ${TASKS_TABLE}
+    SETTINGS_TABLE: ${SETTINGS_TABLE}
+    USERS_TABLE: ${USERS_TABLE}
+    COMMAND_QUEUE: ${COMMAND_QUEUE}
+    REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+  sysctls:
+      - net.ipv4.tcp_rmem=16384 4194304 536870912
+      - net.ipv4.tcp_wmem=16384 4194304 536870912
+      - net.core.somaxconn=1048576
+      - net.ipv4.tcp_tw_reuse=1
+      - net.ipv4.tcp_fin_timeout=1
+  ulimits:
+    nofile:
+      soft: "1048576"
+      hard: "1048576"
+  depends_on:
+    azurite:
+      condition: service_healthy
+    fauxzureq:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+
+services:
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+        VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
+        VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+        VITE_STREAM_URL: ${VITE_STREAM_URL}
+    environment:
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-.*}
+      PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
+      STREAM_SERVICE_PORT: ${STREAM_SERVICE_PORT}
+    ports:
+      - "${FRONTEND_PORT}:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - prism-api-lb
+      - stream-service
+    restart: unless-stopped
+
+  prism-api-1:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      PORT: "${PRISM_API_PORT1}"
+    expose:
+      - "${PRISM_API_PORT1}"
+    restart: unless-stopped
+
+  prism-api-2:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      PORT: "${PRISM_API_PORT2}"
+    expose:
+      - "${PRISM_API_PORT2}"
+    restart: unless-stopped
+
+  prism-api-3:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      PORT: "${PRISM_API_PORT3}"
+    expose:
+      - "${PRISM_API_PORT3}"
+    restart: unless-stopped
+
+  prism-api-4:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      PORT: "${PRISM_API_PORT4}"
+    expose:
+      - "${PRISM_API_PORT4}"
+    restart: unless-stopped
+
+  prism-api-5:
+    <<: *prism-api-base
+    environment:
+      <<: *prism-api-env
+      PORT: "${PRISM_API_PORT5}"
+    expose:
+      - "${PRISM_API_PORT5}"
+    restart: unless-stopped
+
+  prism-api-lb:
+    environment:
+      PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
+      PRISM_API_PORT1: ${PRISM_API_PORT1}
+      PRISM_API_PORT2: ${PRISM_API_PORT2}
+      PRISM_API_PORT3: ${PRISM_API_PORT3}
+      PRISM_API_PORT4: ${PRISM_API_PORT4}
+      PRISM_API_PORT5: ${PRISM_API_PORT5}
+    image: haproxy:3.0-alpine
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
+    sysctls:
+        - net.ipv4.tcp_rmem=16384 4194304 536870912
+        - net.ipv4.tcp_wmem=16384 4194304 536870912
+        - net.core.somaxconn=1048576
+        - net.ipv4.tcp_tw_reuse=1
+        - net.ipv4.tcp_fin_timeout=1
+    ulimits:
+      nofile:
+        soft: "1048576"
+        hard: "1048576"
+    depends_on:
+      - prism-api-1
+      - prism-api-2
+      - prism-api-3
+      - prism-api-4
+      - prism-api-5
+
+  stream-service:
+    build: ./stream-service
+    environment:
+      DEBUG: ${DEBUG}
+      AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+      AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+      STREAM_SERVICE_PORT: ${STREAM_SERVICE_PORT}
+      REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+      TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
+      SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
+      WEBSITES_INCLUDE_CLOUD_CERTS: "true"
+    expose:
+      - "${STREAM_SERVICE_PORT}"
+    restart: unless-stopped
+
+  domain-service:
+    build: ./domain-service
+    environment:
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+      USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+      COMMAND_QUEUE: ${COMMAND_QUEUE}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+    depends_on:
+      azurite:
+        condition: service_healthy
+      fauxzureq:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  read-model-updater:
+    build: ./read-model-updater
+    environment:
+      DEBUG: ${DEBUG}
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+      TASKS_TABLE: ${TASKS_TABLE}
+      SETTINGS_TABLE: ${SETTINGS_TABLE}
+      USERS_TABLE: ${USERS_TABLE}
+      TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
+      REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+      TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
+      SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+      FUNCTIONS_WORKER_RUNTIME: custom
+      ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
+    expose:
+      - "${READ_MODEL_UPDATER_PORT}"
+    depends_on:
+      azurite:
+        condition: service_healthy
+      fauxzureq:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    healthcheck:
+      test: nc 127.0.0.1 10000 -z
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    command: ["azurite", "-s", "-l", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0"]
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite_data:/data
+    restart: unless-stopped
+
+  fauxzureq:
+    image: mistervvp/fauxzureq:main
+    command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0", "--http-log=false"]
+    ports: ["10001:10001", "10002:10002"]
+    sysctls:
+        - net.ipv4.tcp_rmem=16384 4194304 536870912
+        - net.ipv4.tcp_wmem=16384 4194304 536870912
+        - net.core.somaxconn=1048576
+        - net.ipv4.tcp_tw_reuse=1
+        - net.ipv4.tcp_fin_timeout=1
+    ulimits:
+      nofile:
+        soft: "1048576"
+        hard: "1048576"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  storage-init:
+    build: ./storage-init
+    environment:
+      DEBUG: ${DEBUG}
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+      USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+      TASKS_TABLE: ${TASKS_TABLE}
+      SETTINGS_TABLE: ${SETTINGS_TABLE}
+      USERS_TABLE: ${USERS_TABLE}
+      COMMAND_QUEUE: ${COMMAND_QUEUE}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+    depends_on:
+      fauxzureq:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+    restart: "no"
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  azurite_data:
