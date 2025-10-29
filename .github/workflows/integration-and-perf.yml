@@ -30,10 +30,7 @@ jobs:
           go-version: '1.24'
       - name: Run integration test suite
         run: |
-          set -a
-          source $ENV_FILE
           tests/scripts/run-integration.sh
-          set +a
 
   perf:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_performance == 'true' || github.event_name == 'schedule'
@@ -51,11 +48,8 @@ jobs:
         uses: grafana/setup-k6-action@v1
       - name: Run performance tests
         run: |
-          set -a
-          source $ENV_FILE
           tests/scripts/run-perf-api.sh
           tests/scripts/run-perf-sse.sh
-          set +a
       - name: Upload API performance summaries
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
