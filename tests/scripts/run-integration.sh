@@ -19,7 +19,7 @@ set -a
 # shellcheck source=tests/docker/env.test
 source "$ENV_FILE"
 set +a
-
+ls
 COMPOSE=(
   docker compose
   --env-file "$ENV_FILE"
