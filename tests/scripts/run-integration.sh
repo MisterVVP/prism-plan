@@ -26,6 +26,11 @@ COMPOSE=(
   -f "$REPO_ROOT/tests/docker/docker-compose.tests.yml"
 )
 
+if [[ "$#" -gt 0 && "$1" == "--azurite" ]]; then
+  echo "Azurite exclusive mode is enabled"
+  COMPOSE+=(-f "$REPO_ROOT/azurite.yml")
+fi
+
 cleanup() {
   "${COMPOSE[@]}" down -v
 }

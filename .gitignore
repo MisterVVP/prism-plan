@@ -160,3 +160,4 @@ AzuriteConfig
 __azurite_db_*
 
 k6-summary*
+NUL

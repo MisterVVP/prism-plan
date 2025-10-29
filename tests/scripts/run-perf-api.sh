@@ -17,6 +17,11 @@ source "$ENV_FILE"
 set +a
 
 COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
+if [[ "$#" -gt 0 && "$1" == "--azurite" ]]; then
+  echo "Azurite exclusive mode is enabled"
+  COMPOSE+=(-f "azurite.yml")
+fi
+
 RESULT_DIR="tests/perf/results"
 SUMMARY_FILE_REL="$RESULT_DIR/task_request_metrics.json"
 SUMMARY_FILE="$(pwd)/$SUMMARY_FILE_REL"

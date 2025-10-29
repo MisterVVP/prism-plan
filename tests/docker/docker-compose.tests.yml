@@ -26,8 +26,15 @@ x-read-model-updater-test: &read-model-updater-test
     - "${READ_MODEL_UPDATER_PORT}"
 
 services:
-  domain-service: !reset null
-  read-model-updater: !reset null
+  domain-service: !override
+    <<: *domain-service-test
+    profiles:
+      - "disabled"
+  
+  read-model-updater: !override
+    <<: *read-model-updater-test
+    profiles:
+      - "disabled"
 
   web:
     extends:
