@@ -26,8 +26,8 @@ x-read-model-updater-test: &read-model-updater-test
     - "${READ_MODEL_UPDATER_PORT}"
 
 services:
-  domain-service: null
-  read-model-updater: null
+  domain-service: !reset null
+  read-model-updater: !reset null
 
   web:
     extends:

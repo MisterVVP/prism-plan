@@ -5,7 +5,7 @@ x-azurite-functions-env: &azurite-functions-env
   <<: *azurite-storage-env
   AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING_AZURITE:-${STORAGE_CONNECTION_STRING}}
 
-x-azurite-core-depends: &azurite-core-depends
+x-azurite-core-depends: &azurite-core-depends !override
   azurite:
     condition: service_healthy
   storage-init:
@@ -16,7 +16,7 @@ x-azurite-read-model-depends: &azurite-read-model-depends
   redis:
     condition: service_started
 
-x-azurite-init-depends: &azurite-init-depends
+x-azurite-init-depends: &azurite-init-depends !override
   azurite:
     condition: service_healthy
 
@@ -28,8 +28,8 @@ services:
       - "10001:10001"
       - "10002:10002"
 
-
-  fauxzureq: null
+  fauxzureq:
+    ports: !reset null
 
   prism-api-1:
     depends_on: *azurite-core-depends
