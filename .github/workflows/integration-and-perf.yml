@@ -30,6 +30,7 @@ jobs:
           go-version: '1.24'
       - name: Run integration test suite
         run: |
+          ls
           docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
           set -a
           source $ENV_FILE
