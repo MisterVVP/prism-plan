@@ -31,7 +31,7 @@ jobs:
       - name: Run integration test suite
         run: |
           ls
-          docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml up -d
+          docker compose --env-file $ENV_FILE -f ./docker-compose.yml -f ./tests/docker/docker-compose.tests.yml up -d
           set -a
           source $ENV_FILE
           PRISM_API_LB_BASE=http://localhost:${PRISM_API_LB_PORT}
@@ -44,7 +44,7 @@ jobs:
           go test -v -coverprofile=integration.out $(go list ./... | grep -v /internal/)
           go tool cover -func=integration.out
           popd
-          docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml down -v
+          docker compose --env-file $ENV_FILE -f ./docker-compose.yml -f ./tests/docker/docker-compose.tests.yml down -v
 
   perf:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_performance == 'true' || github.event_name == 'schedule'
