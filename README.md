@@ -27,6 +27,18 @@ Make sure to set up env variables in .env file (see .env.example)
 
 A self-signed certificate will be generated to serve the frontend over HTTPS. Storage tables and queues are provisioned by a `storage-init` service before the other containers start.
 
+### Docker Compose scenarios
+
+Use layered Compose files so each scenario only overrides what differs from the shared stack:
+
+| Scenario | Command |
+| --- | --- |
+| Local dev (fauxzureq for tables/queues + Azurite for blobs) | `docker compose up --build` |
+| CI / test harness (fauxzureq + Azurite, test env vars) | `docker compose -f docker-compose.yml -f tests/docker/docker-compose.tests.yml --env-file tests/docker/env.test up --build` |
+| Local Azurite-only stack (queues, tables, blobs) | `docker compose -f docker-compose.yml -f azurite.yml up --build` |
+
+The override files only change the pieces that differ (environment, scaling and the storage emulator). This keeps the shared stack maintainable while still covering all workflows.
+
 ## Custom Azure table and Queue storage emulator
 Self-written emulator called fauxzureq is used to replace Azurite in performance tests. Code will be open-source in future, but right now it is too experimental to make public.
 
