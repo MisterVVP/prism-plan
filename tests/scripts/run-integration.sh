@@ -18,7 +18,6 @@ fi
 set -a
 # shellcheck source=tests/docker/env.test
 source "$ENV_FILE"
-set +a
 
 COMPOSE=(
   docker compose
@@ -40,3 +39,4 @@ tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
 pushd tests/integration > /dev/null
 go test ./...
 popd > /dev/null
+set +a

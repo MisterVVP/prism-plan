@@ -108,23 +108,7 @@ services:
     <<: *domain-service-test
 
   domain-service-5:
-    <<: *domain-service-test
-
-  domain-service-6:
-    <<: *domain-service-test
-
-  domain-service-7:
-    <<: *domain-service-test
-
-  domain-service-8:
-    <<: *domain-service-test
-
-  domain-service-9:
-    <<: *domain-service-test
-
-  domain-service-10:
-    <<: *domain-service-test
-  
+    <<: *domain-service-test 
 
   read-model-updater-1:
     <<: *read-model-updater-test
