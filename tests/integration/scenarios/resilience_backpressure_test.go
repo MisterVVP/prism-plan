@@ -24,11 +24,11 @@ func TestResilienceBackpressure(t *testing.T) {
 		return cmd.Run()
 	}
 
-	if err := dc("stop", "domain-service-1 domain-service-2 domain-service-3 domain-service-4 domain-service-5"); err != nil {
+	if err := dc("stop", "domain-service-1", "domain-service-2", "domain-service-3", "domain-service-4", "domain-service-5"); err != nil {
 		t.Fatalf("stop domain-service: %v", err)
 	}
 	t.Cleanup(func() {
-		dc("start", "domain-service-1 domain-service-2 domain-service-3 domain-service-4 domain-service-5")
+		dc("start", "domain-service-1", "domain-service-2", "domain-service-3", "domain-service-4", "domain-service-5")
 	})
 
 	title := fmt.Sprintf("backpressure-title-%d", time.Now().UnixNano())
@@ -40,7 +40,7 @@ func TestResilienceBackpressure(t *testing.T) {
 		t.Fatalf("unexpected status %d", resp.StatusCode)
 	}
 
-	if err := dc("start", "domain-service-1 domain-service-2 domain-service-3 domain-service-4 domain-service-5"); err != nil {
+	if err := dc("start", "domain-service-1", "domain-service-2", "domain-service-3", "domain-service-4", "domain-service-5"); err != nil {
 		t.Fatalf("restart domain-service: %v", err)
 	}
 	start := time.Now()
