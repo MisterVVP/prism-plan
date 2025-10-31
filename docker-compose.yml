@@ -146,9 +146,9 @@ services:
       - "${STREAM_SERVICE_PORT}"
     restart: unless-stopped
 
-  domain-service:
+  domain-service: &domain-service-base
     build: ./domain-service
-    environment:
+    environment: &domain-service-env
       STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
       TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
       USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
@@ -168,9 +168,9 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  read-model-updater:
+  read-model-updater: &read-model-updater-base
     build: ./read-model-updater
-    environment:
+    environment: &read-model-updater-env
       DEBUG: ${DEBUG}
       STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
       DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}

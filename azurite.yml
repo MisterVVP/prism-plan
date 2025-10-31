@@ -67,43 +67,59 @@ services:
       <<: *azurite-functions-env
 
   domain-service-1:
+    <<: *domain-service-base
     depends_on: *azurite-core-depends
     environment:
+      <<: *domain-service-env
       <<: *azurite-functions-env
 
   domain-service-2:
+    <<: *domain-service-base
     depends_on: *azurite-core-depends
     environment:
+      <<: *domain-service-env
       <<: *azurite-functions-env
 
   domain-service-3:
+    <<: *domain-service-base
     depends_on: *azurite-core-depends
     environment:
+      <<: *domain-service-env
       <<: *azurite-functions-env
 
   domain-service-4:
+    <<: *domain-service-base
     depends_on: *azurite-core-depends
     environment:
+      <<: *domain-service-env
       <<: *azurite-functions-env
 
   domain-service-5:
+    <<: *domain-service-base
     depends_on: *azurite-core-depends
     environment:
+      <<: *domain-service-env
       <<: *azurite-functions-env
 
   read-model-updater-1:
+    <<: *read-model-updater-base
     depends_on: *azurite-read-model-depends
     environment:
+      <<: *read-model-updater-env
       <<: *azurite-functions-env
 
   read-model-updater-2:
+    <<: *read-model-updater-base
     depends_on: *azurite-read-model-depends
     environment:
+      <<: *read-model-updater-env
       <<: *azurite-functions-env
 
   read-model-updater-3:
+    <<: *read-model-updater-base
     depends_on: *azurite-read-model-depends
     environment:
+      <<: *read-model-updater-env
       <<: *azurite-functions-env
 
   storage-init:
