@@ -31,6 +31,7 @@ jobs:
       - name: Run integration test suite
         run: |
           tests/scripts/run-integration.sh
+          go clean --cache
       - name: Run integration test suite (Azurite exclusive)
         run: |
           tests/scripts/run-integration.sh --azurite
