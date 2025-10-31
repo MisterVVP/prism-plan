@@ -14,7 +14,7 @@ x-domain-service-test: &domain-service-test
     service: domain-service
   environment:
     APP_ENV: test
-    AzureFunctionsJobHost__Logging__Console__IsEnabled: false
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
 
 x-read-model-updater-test: &read-model-updater-test
   extends:
@@ -168,7 +168,7 @@ services:
     extends:
       file: docker-compose.yml
       service: azurite
-    command: ["azurite", "-s", "-l", "--inMemoryPersistence", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0"]
+    command: ["azurite", "-s", "--inMemoryPersistence", "--skipApiVersionCheck", "--blobHost", "0.0.0.0"]
 
 volumes:
   azurite_data:

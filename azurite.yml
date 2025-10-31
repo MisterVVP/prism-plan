@@ -22,14 +22,14 @@ x-azurite-init-depends: &azurite-init-depends !override
 
 services:
   azurite:
-    command: ["azurite", "-s", "-l", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0", "--tableHost", "0.0.0.0", "--queueHost", "0.0.0.0"]
+    command: ["azurite", "-s", "--inMemoryPersistence", "--skipApiVersionCheck", "--blobHost", "0.0.0.0","--queueHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
     ports:
       - "10000:10000"
       - "10001:10001"
       - "10002:10002"
 
   fauxzureq:
-    ports: !reset null
+    ports: !reset []
 
   prism-api-1:
     depends_on: *azurite-core-depends
@@ -62,6 +62,46 @@ services:
       <<: *azurite-functions-env
 
   read-model-updater:
+    depends_on: *azurite-read-model-depends
+    environment:
+      <<: *azurite-functions-env
+
+  domain-service-1:
+    depends_on: *azurite-core-depends
+    environment:
+      <<: *azurite-functions-env
+
+  domain-service-2:
+    depends_on: *azurite-core-depends
+    environment:
+      <<: *azurite-functions-env
+
+  domain-service-3:
+    depends_on: *azurite-core-depends
+    environment:
+      <<: *azurite-functions-env
+
+  domain-service-4:
+    depends_on: *azurite-core-depends
+    environment:
+      <<: *azurite-functions-env
+
+  domain-service-5:
+    depends_on: *azurite-core-depends
+    environment:
+      <<: *azurite-functions-env
+
+  read-model-updater-1:
+    depends_on: *azurite-read-model-depends
+    environment:
+      <<: *azurite-functions-env
+
+  read-model-updater-2:
+    depends_on: *azurite-read-model-depends
+    environment:
+      <<: *azurite-functions-env
+
+  read-model-updater-3:
     depends_on: *azurite-read-model-depends
     environment:
       <<: *azurite-functions-env

@@ -3,10 +3,34 @@ set -euo pipefail
 ROOT_DIR=$(dirname "$0")/..
 cd "$ROOT_DIR"/..
 
+REPO_ROOT=$(pwd)
 DEFAULT_ENV_FILE="tests/docker/env.test"
-ENV_FILE="${1:-$DEFAULT_ENV_FILE}"
+ENV_FILE=""
+AZURITE=false
 
-if [ ! -f "$ENV_FILE" ]; then
+usage() {
+  echo "Usage: $0 [<env-file>] [--azurite]" >&2
+  exit 2
+}
+
+nonflag_seen=""
+for arg in "${@:-}"; do
+  if [[ "$arg" == "--azurite" ]]; then
+    AZURITE=true
+  elif [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
+    usage
+  elif [[ -z "$nonflag_seen" ]]; then
+    ENV_FILE="$arg"
+    nonflag_seen="yes"
+  else
+    echo "Unexpected extra argument: $arg" >&2
+    usage
+  fi
+done
+
+ENV_FILE="${ENV_FILE:-$DEFAULT_ENV_FILE}"
+
+if [[ ! -f "$ENV_FILE" ]]; then
   echo "Environment file '$ENV_FILE' not found. Provide a valid env file path." >&2
   exit 1
 fi
@@ -16,10 +40,16 @@ set -a
 source "$ENV_FILE"
 set +a
 
-COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yml -f tests/docker/docker-compose.tests.yml"
-if [[ "$#" -gt 0 && "$1" == "--azurite" ]]; then
+COMPOSE=(
+  docker compose
+  --env-file "$ENV_FILE"
+  -f "$REPO_ROOT/docker-compose.yml"
+  -f "$REPO_ROOT/tests/docker/docker-compose.tests.yml"
+)
+
+if $AZURITE; then
   echo "Azurite exclusive mode is enabled"
-  COMPOSE+=(-f "azurite.yml")
+  COMPOSE+=(-f "$REPO_ROOT/azurite.yml")
 fi
 
 RESULT_DIR="tests/perf/results"
@@ -28,7 +58,7 @@ SUMMARY_FILE="$(pwd)/$SUMMARY_FILE_REL"
 ARTIFACT_DIR="${ARTIFACTS_DIR:-${CI_ARTIFACTS_DIR:-}}"
 
 ensure_artifact_dir() {
-  if [ -n "${ARTIFACT_DIR:-}" ]; then
+  if [[ -n "${ARTIFACT_DIR:-}" ]]; then
     mkdir -p "$ARTIFACT_DIR"
   fi
 }
@@ -37,13 +67,13 @@ collect_logs_and_teardown() {
   local exit_code=$?
   set +e
 
-  if [ -n "${COMPOSE:-}" ]; then
-    if [ -n "${SUMMARY_FILE:-}" ]; then
+  if [[ ${#COMPOSE[@]} -gt 0 ]]; then
+    if [[ -n "${SUMMARY_FILE:-}" ]]; then
       echo "Collecting task request observability events..."
-      if $COMPOSE logs --no-color --no-log-prefix prism-api-1 prism-api-2 prism-api-3 prism-api-4 prism-api-5 \
+      if "${COMPOSE[@]}" logs --no-color --no-log-prefix prism-api-1 prism-api-2 prism-api-3 prism-api-4 prism-api-5 \
         | (cd tests/utils && go run ./cmd/collect-otel-events -out "$SUMMARY_FILE"); then
         echo "Aggregated task metrics saved to $SUMMARY_FILE_REL"
-        if [ -n "${ARTIFACT_DIR:-}" ]; then
+        if [[ -n "${ARTIFACT_DIR:-}" ]]; then
           ensure_artifact_dir
           artifact_path="$ARTIFACT_DIR/task-request-metrics.json"
           if cp "$SUMMARY_FILE" "$artifact_path"; then
@@ -57,7 +87,7 @@ collect_logs_and_teardown() {
       fi
     fi
 
-    $COMPOSE down -v
+    "${COMPOSE[@]}" down -v
   fi
 
   return "$exit_code"
@@ -65,11 +95,10 @@ collect_logs_and_teardown() {
 
 trap collect_logs_and_teardown EXIT
 
-$COMPOSE up -d
+"${COMPOSE[@]}" up -d
 
 tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${API_HEALTH_ENDPOINT}" 30
 tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
-
 
 PRISM_K6_ARRIVAL_RATE=${PRISM_K6_ARRIVAL_RATE:-10}
 PRISM_K6_TIME_UNIT=${PRISM_K6_TIME_UNIT:-1s}
@@ -77,17 +106,17 @@ PRISM_K6_DURATION=${PRISM_K6_DURATION:-30s}
 PRISM_K6_PRE_ALLOCATED_VUS=${PRISM_K6_PRE_ALLOCATED_VUS:-200}
 PRISM_K6_MAX_VUS=${PRISM_K6_MAX_VUS:-1000}
 
-if [ "$PRISM_K6_MAX_VUS" -gt 10000 ]; then
+if [[ "$PRISM_K6_MAX_VUS" -gt 10000 ]]; then
   echo "Capping PRISM_K6_MAX_VUS to 10000 (was $PRISM_K6_MAX_VUS)" >&2
   PRISM_K6_MAX_VUS=10000
 fi
 
-if [ "$PRISM_K6_MAX_VUS" -lt "$PRISM_K6_PRE_ALLOCATED_VUS" ]; then
+if [[ "$PRISM_K6_MAX_VUS" -lt "$PRISM_K6_PRE_ALLOCATED_VUS" ]]; then
   PRISM_K6_MAX_VUS=$PRISM_K6_PRE_ALLOCATED_VUS
 fi
 
 PRISM_K6_TASK_PAGE_SIZE=${PRISM_K6_TASK_PAGE_SIZE:-}
-if [ -z "$PRISM_K6_TASK_PAGE_SIZE" ] && [ -n "${TASKS_PAGE_SIZE:-}" ]; then
+if [[ -z "$PRISM_K6_TASK_PAGE_SIZE" && -n "${TASKS_PAGE_SIZE:-}" ]]; then
   PRISM_K6_TASK_PAGE_SIZE=$TASKS_PAGE_SIZE
 fi
 
@@ -102,7 +131,7 @@ TEST_BEARER=$(cd tests/utils && go run ./cmd/gen-token \
   -prefix perf-user \
   -output "$tokens_file_abs")
 
-if [ -z "${TEST_BEARER:-}" ]; then
+if [[ -z "${TEST_BEARER:-}" ]]; then
   echo "Failed to capture bearer token" >&2
   exit 1
 fi
@@ -120,7 +149,8 @@ k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.
 
 echo "Waiting for command and event queues to drain before heavy read..."
 storage_conn="${STORAGE_CONNECTION_STRING_LOCAL:-${STORAGE_CONNECTION_STRING:-}}"
-if [ -n "$storage_conn" ]; then
+
+if [[ -n "$storage_conn" ]]; then
   if ! (cd tests/utils && go run ./cmd/wait-queues \
     -connection-string "$storage_conn" \
     -queue "${COMMAND_QUEUE}" \
@@ -136,6 +166,6 @@ fi
 k6 run tests/perf/k6/api_heavy_read.js --summary-export=k6-summary-heavy_read.json
 
 # TODO: can be enabled in future, not used right now
-#k6 run tests/perf/k6/api_heavy_write_batch.js --summary-export=k6-summary-heavy_write_batch.json
+# k6 run tests/perf/k6/api_heavy_write_batch.js --summary-export=k6-summary-heavy_write_batch.json
 
 mkdir -p "$RESULT_DIR"

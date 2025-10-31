@@ -41,25 +41,17 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
         var entity = new TableEntity(ev.EntityId, ev.Id)
         {
             {"Type", ev.Type},
-            {"Type@odata.type", "Edm.String"},
             {"EventTimestamp", ev.Timestamp},
-            {"EventTimestamp@odata.type", "Edm.Int64"},
             {"UserId", ev.UserId},
-            {"UserId@odata.type", "Edm.String"},
             {"IdempotencyKey", ev.IdempotencyKey},
-            {"IdempotencyKey@odata.type", "Edm.String"},
             {"EntityType", ev.EntityType},
-            {"EntityType@odata.type", "Edm.String"},
             {"Dispatched", false},
-            {"Dispatched@odata.type", "Edm.Boolean"},
             {InsertedAtProperty, insertedAt},
-            {InsertedAtProperty + "@odata.type", "Edm.DateTimeOffset"},
         };
 
         if (ev.Data.HasValue)
         {
             entity.Add("Data", ev.Data.Value.GetRawText());
-            entity.Add("Data@odata.type", "Edm.String");
         }
 
         await _table.AddEntityAsync(entity, ct);
@@ -126,7 +118,6 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
         var entity = new TableEntity(ev.EntityId, ev.Id)
         {
             {"Dispatched", true},
-            {"Dispatched@odata.type", "Edm.Boolean"},
         };
 
         return _table.UpdateEntityAsync(entity, ETag.All, TableUpdateMode.Merge, ct);
@@ -140,12 +131,17 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
             await _table.AddEntityAsync(entity, ct);
             return IdempotencyResult.Started;
         }
-        catch (RequestFailedException ex) when (ex.Status == 409)
+        catch (RequestFailedException ex) when (AzTableHelpers.IsInsertConflict(ex))
         {
             var status = await GetIdempotencyStatus(idempotencyKey, ct);
             return string.Equals(status, CompletedStatus, StringComparison.Ordinal)
                 ? IdempotencyResult.AlreadyProcessed
                 : IdempotencyResult.InProgress;
+        }
+        catch (RequestFailedException ex)
+        {
+            Console.WriteLine($"Tables error status={ex.Status}, code={ex.ErrorCode}, msg={ex.Message}");
+            throw;
         }
     }
 
@@ -171,9 +167,7 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
         return new TableEntity(IdempotencyPartitionKey, idempotencyKey)
         {
             {StatusProperty, status},
-            {StatusProperty + "@odata.type", "Edm.String"},
             {UpdatedAtProperty, DateTimeOffset.UtcNow},
-            {UpdatedAtProperty + "@odata.type", "Edm.DateTimeOffset"},
         };
     }
 
