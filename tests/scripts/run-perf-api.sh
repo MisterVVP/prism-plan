@@ -47,9 +47,11 @@ COMPOSE=(
   -f "$REPO_ROOT/tests/docker/docker-compose.tests.yml"
 )
 
+K6_SUMMARY_POSTFIX=""
 if $AZURITE; then
   echo "Azurite exclusive mode is enabled"
   COMPOSE+=(-f "$REPO_ROOT/azurite.yml")
+  K6_SUMMARY_POSTFIX+="_azurite"
 fi
 
 RESULT_DIR="tests/perf/results"
@@ -145,7 +147,7 @@ export TEST_BEARER \
   PRISM_API_LB_BASE \
   PRISM_K6_TASK_PAGE_SIZE
 
-k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write.json
+k6 run tests/perf/k6/api_heavy_write.js --summary-export=k6-summary-heavy_write$K6_SUMMARY_POSTFIX.json
 
 echo "Waiting for command and event queues to drain before heavy read..."
 storage_conn="${STORAGE_CONNECTION_STRING_LOCAL:-${STORAGE_CONNECTION_STRING:-}}"
@@ -163,7 +165,7 @@ else
   echo "Storage connection string not available; skipping queue drain wait" >&2
 fi
 
-k6 run tests/perf/k6/api_heavy_read.js --summary-export=k6-summary-heavy_read.json
+k6 run tests/perf/k6/api_heavy_read.js --summary-export=k6-summary-heavy_read$K6_SUMMARY_POSTFIX.json
 
 # TODO: can be enabled in future, not used right now
 # k6 run tests/perf/k6/api_heavy_write_batch.js --summary-export=k6-summary-heavy_write_batch.json
