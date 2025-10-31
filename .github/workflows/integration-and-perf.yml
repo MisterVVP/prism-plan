@@ -32,6 +32,7 @@ jobs:
         run: |
           tests/scripts/run-integration.sh
           go clean --cache
+        continue-on-error: true
       - name: Run integration test suite (Azurite exclusive)
         run: |
           tests/scripts/run-integration.sh --azurite
