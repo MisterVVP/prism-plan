@@ -45,8 +45,6 @@ Task and user events are stored in dedicated Azure Table Storage tables. Each ro
 | `IdempotencyKey` | Command idempotency key (`Edm.String`). |
 | `Data` | JSON payload that contains only domain-specific fields. Metadata fields such as `Id`, `EntityId`, `EntityType`, and `IdempotencyKey` are not duplicated here (`Edm.String`). |
 
-All persisted string and integer columns include explicit `@odata.type` annotations so downstream services can rely on consistent typing when reading the tables.
-
 ### Task ordering updates
 
 Reordering uses `task-updated` events that include only the `order` field for the affected tasks. When a task is moved to

@@ -39,16 +39,13 @@ func (s TaskService) Apply(ctx context.Context, ev Event) error {
 			return fmt.Errorf("task %s already exists", rk)
 		}
 		ent = &TaskEntity{
-			Entity:             Entity{PartitionKey: pk, RowKey: rk},
-			Title:              eventData.Title,
-			Notes:              eventData.Notes,
-			Category:           eventData.Category,
-			Order:              eventData.Order,
-			OrderType:          EdmInt32,
-			Done:               false,
-			DoneType:           EdmBoolean,
-			EventTimestamp:     ev.Timestamp,
-			EventTimestampType: EdmInt64,
+			Entity:         Entity{PartitionKey: pk, RowKey: rk},
+			Title:          eventData.Title,
+			Notes:          eventData.Notes,
+			Category:       eventData.Category,
+			Order:          eventData.Order,
+			Done:           false,
+			EventTimestamp: ev.Timestamp,
 		}
 		return s.st.InsertTask(ctx, *ent)
 	case TaskUpdated:
@@ -80,17 +77,11 @@ func (s TaskService) Apply(ctx context.Context, ev Event) error {
 		}
 		if eventData.Order != nil {
 			upd.Order = eventData.Order
-			t := EdmInt32
-			upd.OrderType = &t
 		}
 		if eventData.Done != nil {
 			upd.Done = eventData.Done
-			t := EdmBoolean
-			upd.DoneType = &t
 		}
 		upd.EventTimestamp = &ev.Timestamp
-		t := EdmInt64
-		upd.EventTimestampType = &t
 		if upd.Title != nil || upd.Notes != nil || upd.Category != nil || upd.Order != nil || upd.Done != nil {
 			return s.st.UpdateTask(ctx, upd)
 		}
@@ -109,15 +100,11 @@ func (s TaskService) Apply(ctx context.Context, ev Event) error {
 			return fmt.Errorf("task %s received stale completion", rk)
 		}
 		done := true
-		dt := EdmBoolean
 		ts := ev.Timestamp
-		tp := EdmInt64
 		upd := TaskUpdate{
-			Entity:             Entity{PartitionKey: pk, RowKey: rk},
-			Done:               &done,
-			DoneType:           &dt,
-			EventTimestamp:     &ts,
-			EventTimestampType: &tp,
+			Entity:         Entity{PartitionKey: pk, RowKey: rk},
+			Done:           &done,
+			EventTimestamp: &ts,
 		}
 		return s.st.UpdateTask(ctx, upd)
 	case TaskReopened:
@@ -134,15 +121,11 @@ func (s TaskService) Apply(ctx context.Context, ev Event) error {
 			return fmt.Errorf("task %s received stale reopen", rk)
 		}
 		done := false
-		dt := EdmBoolean
 		ts := ev.Timestamp
-		tp := EdmInt64
 		upd := TaskUpdate{
-			Entity:             Entity{PartitionKey: pk, RowKey: rk},
-			Done:               &done,
-			DoneType:           &dt,
-			EventTimestamp:     &ts,
-			EventTimestampType: &tp,
+			Entity:         Entity{PartitionKey: pk, RowKey: rk},
+			Done:           &done,
+			EventTimestamp: &ts,
 		}
 		return s.st.UpdateTask(ctx, upd)
 	default:

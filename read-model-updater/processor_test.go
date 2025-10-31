@@ -23,7 +23,7 @@ type fakeCache struct {
 	settingsRefreshed bool
 }
 
-func (f *fakeCache) RefreshTasks(ctx context.Context, userID string, lastUpdated int64) {
+func (f *fakeCache) RefreshTasks(ctx context.Context, userID string, entityID string, lastUpdated int64) {
 	f.tasksRefreshed = true
 }
 

@@ -19,7 +19,7 @@ type cacheStore interface {
 }
 
 type cacheRefresher interface {
-	RefreshTasks(ctx context.Context, userID string, lastUpdated int64)
+	RefreshTasks(ctx context.Context, userID string, entityID string, lastUpdated int64)
 	RefreshSettings(ctx context.Context, userID string, lastUpdated int64)
 }
 
@@ -87,7 +87,7 @@ func newCacheUpdater(store cacheStore, redis *redis.Client, limit int32, tasksTT
 	}
 }
 
-func (c *cacheUpdater) RefreshTasks(ctx context.Context, userID string, lastUpdated int64) {
+func (c *cacheUpdater) RefreshTasks(ctx context.Context, userID string, entityID string, lastUpdated int64) {
 	if c == nil || c.redis == nil || c.store == nil {
 		return
 	}
@@ -98,6 +98,7 @@ func (c *cacheUpdater) RefreshTasks(ctx context.Context, userID string, lastUpda
 	}
 	entries := make([]cachedTask, 0, len(tasks))
 	maxTs := lastUpdated
+	foundEntity := entityID == ""
 	for _, t := range tasks {
 		entries = append(entries, cachedTask{
 			ID:       t.RowKey,
@@ -110,6 +111,17 @@ func (c *cacheUpdater) RefreshTasks(ctx context.Context, userID string, lastUpda
 		if t.EventTimestamp > maxTs {
 			maxTs = t.EventTimestamp
 		}
+		if !foundEntity && t.RowKey == entityID {
+			foundEntity = true
+		}
+	}
+	if !foundEntity {
+		log.WithFields(log.Fields{"user": userID, "task": entityID}).Warn("cache refresh missing entity; purging entry")
+		key := cacheKey(userID, tasksCachePrefix)
+		if err := c.redis.Del(ctx, key).Err(); err != nil {
+			log.WithError(err).WithField("user", userID).Error("failed to delete tasks cache entry")
+		}
+		return
 	}
 	nextToken, err := encodeContinuationToken(nextPK, nextRK)
 	if err != nil {
