@@ -31,6 +31,9 @@ jobs:
       - name: Run integration test suite
         run: |
           tests/scripts/run-integration.sh
+      - name: Run integration test suite (Azurite exclusive)
+        run: |
+          tests/scripts/run-integration.sh --azurite
 
   perf:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_performance == 'true' || github.event_name == 'schedule'
@@ -50,6 +53,10 @@ jobs:
         run: |
           tests/scripts/run-perf-api.sh
           tests/scripts/run-perf-sse.sh
+      - name: Run performance tests (Azurite exclusive)
+        run: |
+          tests/scripts/run-perf-api.sh --azurite
+        continue-on-error: true
       - name: Upload API performance summaries
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
