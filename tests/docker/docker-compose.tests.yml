@@ -1,162 +1,99 @@
-x-prism-api: &prism-api-base
-  build:
-    context: ./prism-api
-  environment: &prism-api-env
-    APP_ENV: test
-    AUTH0_TEST_MODE: "1"
-    TEST_JWT_SECRET: ${TEST_JWT_SECRET}
-    REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
-    TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
-    ENQUEUE_WORKERS: ${ENQUEUE_WORKERS}
-    ENQUEUE_BUFFER: ${ENQUEUE_BUFFER}
-    ENQUEUE_TIMEOUT: ${ENQUEUE_TIMEOUT}
-  depends_on:
-    azurite:
-      condition: service_healthy
-    fauxzureq:
-      condition: service_healthy
-    storage-init:
-      condition: service_completed_successfully
+x-prism-api-test-env: &prism-api-test-env
+  APP_ENV: test
+  AUTH0_TEST_MODE: "1"
+  TEST_JWT_SECRET: ${TEST_JWT_SECRET}
 
-x-domain-service: &domain-service-base
-  build: ./domain-service
-  environment: &domain-service-env
-    APP_ENV: test
-    STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
-    TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
-    USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
-    COMMAND_QUEUE: ${COMMAND_QUEUE}
-    DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
-    READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
-    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-    AzureWebJobsScriptRoot: /home/site/wwwroot
-    AzureFunctionsJobHost__Logging__Console__IsEnabled: false
-    AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-  depends_on:
-    fauxzureq:
-      condition: service_healthy    
-    azurite:
-      condition: service_healthy
-    storage-init:
-      condition: service_completed_successfully
+x-stream-service-test-env: &stream-service-test-env
+  APP_ENV: test
+  AUTH0_TEST_MODE: "1"
+  TEST_JWT_SECRET: ${TEST_JWT_SECRET}
 
-x-read-model-updater: &read-model-updater-base
-  build: ./read-model-updater
-  environment: &read-model-updater-env
+x-domain-service-test: &domain-service-test
+  extends:
+    file: docker-compose.yml
+    service: domain-service
+  environment:
     APP_ENV: test
-    DEBUG: ${DEBUG}
-    STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
-    DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
-    TASKS_TABLE: ${TASKS_TABLE}
-    SETTINGS_TABLE: ${SETTINGS_TABLE}
-    USERS_TABLE: ${USERS_TABLE}
-    TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
-    REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
-    TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
-    SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
-    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-    AzureWebJobsScriptRoot: /home/site/wwwroot
-    AzureFunctionsJobHost__Logging__Console__IsEnabled: true
-    AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-    FUNCTIONS_WORKER_RUNTIME: custom
-    ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
-  depends_on:
-    fauxzureq:
-      condition: service_healthy
-    azurite:
-      condition: service_healthy
-    storage-init:
-      condition: service_completed_successfully
-    redis:
-      condition: service_started
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
+
+x-read-model-updater-test: &read-model-updater-test
+  extends:
+    file: docker-compose.yml
+    service: read-model-updater
+  environment:
+    APP_ENV: test
+  expose:
+    - "${READ_MODEL_UPDATER_PORT}"
 
 services:
+  domain-service: !override
+    <<: *domain-service-test
+    profiles:
+      - "disabled"
+  
+  read-model-updater: !override
+    <<: *read-model-updater-test
+    profiles:
+      - "disabled"
+
   web:
+    extends:
+      file: docker-compose.yml
+      service: web
     environment:
-      - APP_ENV=test
-      - PRISM_API_LB_PORT=${PRISM_API_LB_PORT}
-      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
+      APP_ENV: test
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 5s
       timeout: 3s
       retries: 5
-    depends_on:
-      prism-api-lb:
-        condition: service_started
-      stream-service:
-        condition: service_started
 
   prism-api-1:
-    <<: *prism-api-base
+    extends:
+      file: docker-compose.yml
+      service: prism-api-1
     environment:
-      <<: *prism-api-env
-      PORT: "${PRISM_API_PORT1}"
-    expose:
-      - "${PRISM_API_PORT1}"
-    restart: unless-stopped
+      <<: *prism-api-test-env
 
   prism-api-2:
-    <<: *prism-api-base
+    extends:
+      file: docker-compose.yml
+      service: prism-api-2
     environment:
-      <<: *prism-api-env
-      PORT: "${PRISM_API_PORT2}"
-    expose:
-      - "${PRISM_API_PORT2}"
-    restart: unless-stopped
+      <<: *prism-api-test-env
 
   prism-api-3:
-    <<: *prism-api-base
+    extends:
+      file: docker-compose.yml
+      service: prism-api-3
     environment:
-      <<: *prism-api-env
-      PORT: "${PRISM_API_PORT3}"
-    expose:
-      - "${PRISM_API_PORT3}"
-    restart: unless-stopped
+      <<: *prism-api-test-env
 
   prism-api-4:
-    <<: *prism-api-base
+    extends:
+      file: docker-compose.yml
+      service: prism-api-4
     environment:
-      <<: *prism-api-env
-      PORT: "${PRISM_API_PORT4}"
-    expose:
-      - "${PRISM_API_PORT4}"
-    restart: unless-stopped
+      <<: *prism-api-test-env
 
   prism-api-5:
-    <<: *prism-api-base
+    extends:
+      file: docker-compose.yml
+      service: prism-api-5
     environment:
-      <<: *prism-api-env
-      PORT: ${PRISM_API_PORT5}
-    expose:
-      - "${PRISM_API_PORT5}"
-    restart: unless-stopped
+      <<: *prism-api-test-env
 
   prism-api-lb:
-    environment:
-      PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
-      PRISM_API_PORT1: ${PRISM_API_PORT1}
-      PRISM_API_PORT2: ${PRISM_API_PORT2}
-      PRISM_API_PORT3: ${PRISM_API_PORT3}
-      PRISM_API_PORT4: ${PRISM_API_PORT4}
-      PRISM_API_PORT5: ${PRISM_API_PORT5}
-    image: haproxy:3.0-alpine
-    volumes:
-      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    ports:
-      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
-    depends_on:
-      - prism-api-1
-      - prism-api-2
-      - prism-api-3
-      - prism-api-4
-      - prism-api-5
+    extends:
+      file: docker-compose.yml
+      service: prism-api-lb
 
   stream-service:
+    extends:
+      file: docker-compose.yml
+      service: stream-service
     environment:
-      APP_ENV: test
-      AUTH0_TEST_MODE: 1
-      TEST_JWT_SECRET: ${TEST_JWT_SECRET}
+      <<: *stream-service-test-env
     depends_on:
       fauxzureq:
         condition: service_healthy    
@@ -164,80 +101,30 @@ services:
         condition: service_healthy
     ports:
       - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
+
   domain-service-1:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
+    <<: *domain-service-test
 
   domain-service-2:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
+    <<: *domain-service-test
 
   domain-service-3:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
+    <<: *domain-service-test
 
   domain-service-4:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
+    <<: *domain-service-test
 
   domain-service-5:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
-
-  domain-service-6:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
-
-  domain-service-7:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
-
-  domain-service-8:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
-
-  domain-service-9:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
-
-  domain-service-10:
-    <<: *domain-service-base
-    environment:
-      <<: *domain-service-env
-  
-  read-model-updater:
-    profiles:
-      - disabled
+    <<: *domain-service-test 
 
   read-model-updater-1:
-    <<: *read-model-updater-base
-    environment:
-      <<: *read-model-updater-env
-    expose:
-      - "${READ_MODEL_UPDATER_PORT}"
+    <<: *read-model-updater-test
 
   read-model-updater-2:
-    <<: *read-model-updater-base
-    environment:
-      <<: *read-model-updater-env
-    expose:
-      - "${READ_MODEL_UPDATER_PORT}"
+    <<: *read-model-updater-test
 
   read-model-updater-3:
-    <<: *read-model-updater-base
-    environment:
-      <<: *read-model-updater-env
-    expose:
-      - "${READ_MODEL_UPDATER_PORT}"
+    <<: *read-model-updater-test
 
   read-model-updater-lb:
     environment:
@@ -253,6 +140,9 @@ services:
       - read-model-updater-3
 
   storage-init:
+    extends:
+      file: docker-compose.yml
+      service: storage-init
     environment:
       APP_ENV: test
     depends_on:
@@ -263,6 +153,9 @@ services:
     restart: "no"
 
   redis:
+    extends:
+      file: docker-compose.yml
+      service: redis
     environment:
       APP_ENV: test
     depends_on:
@@ -272,7 +165,10 @@ services:
         condition: service_healthy
 
   azurite:
-    command: ["azurite", "-s", "-l", "--inMemoryPersistence", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0"]
+    extends:
+      file: docker-compose.yml
+      service: azurite
+    command: ["azurite", "-s", "--inMemoryPersistence", "--skipApiVersionCheck", "--blobHost", "0.0.0.0"]
 
 volumes:
   azurite_data:

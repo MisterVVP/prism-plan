@@ -114,7 +114,6 @@ public class TableEventRepositoryTests
         {
             var dto = DateTimeOffset.FromUnixTimeMilliseconds(insertedAt.Value);
             entity["InsertedAt"] = dto;
-            entity["InsertedAt@odata.type"] = "Edm.DateTimeOffset";
         }
 
         if (tableTimestamp.HasValue)

@@ -18,7 +18,6 @@ fi
 set -a
 # shellcheck source=tests/docker/env.test
 source "$ENV_FILE"
-set +a
 
 COMPOSE=(
   docker compose
@@ -26,6 +25,11 @@ COMPOSE=(
   -f "$REPO_ROOT/docker-compose.yml"
   -f "$REPO_ROOT/tests/docker/docker-compose.tests.yml"
 )
+
+if [[ "$#" -gt 0 && "$1" == "--azurite" ]]; then
+  echo "Azurite exclusive mode is enabled"
+  COMPOSE+=(-f "$REPO_ROOT/azurite.yml")
+fi
 
 cleanup() {
   "${COMPOSE[@]}" down -v
@@ -40,4 +44,4 @@ tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
 pushd tests/integration > /dev/null
 go test ./...
 popd > /dev/null
-
+set +a

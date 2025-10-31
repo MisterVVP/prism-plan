@@ -157,7 +157,7 @@ services:
       AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
       READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
       AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
       AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
     depends_on:
       azurite:
@@ -183,7 +183,7 @@ services:
       SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
       AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
       AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
       AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
       FUNCTIONS_WORKER_RUNTIME: custom
       ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
@@ -201,13 +201,13 @@ services:
     restart: unless-stopped
 
   azurite:
-    image: mcr.microsoft.com/azure-storage/azurite
+    image: mcr.microsoft.com/azure-storage/azurite:latest
     healthcheck:
       test: nc 127.0.0.1 10000 -z
       interval: 5s
       timeout: 3s
       retries: 5
-    command: ["azurite", "-s", "-l", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0"]
+    command: ["azurite", "-s", "-l", "/data","--skipApiVersionCheck", "--blobHost", "0.0.0.0"]
     ports:
       - "10000:10000"
     volumes:
