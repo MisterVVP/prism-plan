@@ -56,11 +56,12 @@ services:
     extends:
       file: docker-compose.yml
       service: prism-api-1
+
   prism-api-2:
     <<: *prism-api-test
     extends:
       file: docker-compose.yml
-      service: prism-api-1
+      service: prism-api-2
 
   prism-api-3:
     <<: *prism-api-test
