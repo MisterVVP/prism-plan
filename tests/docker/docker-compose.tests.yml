@@ -8,22 +8,25 @@ x-stream-service-test-env: &stream-service-test-env
   AUTH0_TEST_MODE: "1"
   TEST_JWT_SECRET: ${TEST_JWT_SECRET}
 
+x-prism-api-test: &prism-api-test
+  environment:
+    <<: *prism-api-test-env
+  depends_on:
+    azurite:
+      condition: service_healthy
+    fauxzureq:
+      condition: service_healthy
+
 x-domain-service-test: &domain-service-test
   extends:
     file: docker-compose.yml
-    service: domain-service
+    service: domain-service-1
   environment:
     APP_ENV: test
-    AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
 
 x-read-model-updater-test: &read-model-updater-test
-  extends:
-    file: docker-compose.yml
-    service: read-model-updater
   environment:
     APP_ENV: test
-  expose:
-    - "${READ_MODEL_UPDATER_PORT}"
 
 services:
   domain-service: !override
@@ -49,44 +52,33 @@ services:
       retries: 5
 
   prism-api-1:
+    <<: *prism-api-test
     extends:
       file: docker-compose.yml
       service: prism-api-1
-    environment:
-      <<: *prism-api-test-env
-
   prism-api-2:
+    <<: *prism-api-test
     extends:
       file: docker-compose.yml
-      service: prism-api-2
-    environment:
-      <<: *prism-api-test-env
+      service: prism-api-1
 
   prism-api-3:
+    <<: *prism-api-test
     extends:
       file: docker-compose.yml
       service: prism-api-3
-    environment:
-      <<: *prism-api-test-env
 
   prism-api-4:
+    <<: *prism-api-test
     extends:
       file: docker-compose.yml
       service: prism-api-4
-    environment:
-      <<: *prism-api-test-env
 
   prism-api-5:
+    <<: *prism-api-test
     extends:
       file: docker-compose.yml
       service: prism-api-5
-    environment:
-      <<: *prism-api-test-env
-
-  prism-api-lb:
-    extends:
-      file: docker-compose.yml
-      service: prism-api-lb
 
   stream-service:
     extends:
@@ -126,18 +118,30 @@ services:
   read-model-updater-3:
     <<: *read-model-updater-test
 
+  fauxzureq:
+    image: mistervvp/fauxzureq:main
+    command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0", "--http-log=false"]
+    ports: ["10001:10001", "10002:10002"]
+    sysctls:
+        - net.ipv4.tcp_rmem=16384 4194304 536870912
+        - net.ipv4.tcp_wmem=16384 4194304 536870912
+        - net.core.somaxconn=1048576
+        - net.ipv4.tcp_tw_reuse=1
+        - net.ipv4.tcp_fin_timeout=1
+    ulimits:
+      nofile:
+        soft: "1048576"
+        hard: "1048576"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   read-model-updater-lb:
-    environment:
-      READ_MODEL_UPDATER_PORT: ${READ_MODEL_UPDATER_PORT}
-    image: haproxy:3.0-alpine
-    volumes:
-      - ./haproxy/read-model-updater.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    ports:
-      - "${READ_MODEL_UPDATER_PORT}:${READ_MODEL_UPDATER_PORT}"
-    depends_on:
-      - read-model-updater-1
-      - read-model-updater-2
-      - read-model-updater-3
+    extends:
+      file: docker-compose.yml
+      service: read-model-updater-lb
 
   storage-init:
     extends:
@@ -169,6 +173,8 @@ services:
       file: docker-compose.yml
       service: azurite
     command: ["azurite", "-s", "--inMemoryPersistence", "--skipApiVersionCheck", "--blobHost", "0.0.0.0"]
+    ports: !override
+      - "10000:10000"
 
 volumes:
   azurite_data:
