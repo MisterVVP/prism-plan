@@ -56,11 +56,6 @@ services:
     environment:
       <<: *azurite-storage-env
 
-  read-model-updater:
-    depends_on: *azurite-read-model-depends
-    environment:
-      <<: *azurite-functions-env
-
   domain-service-1:
     depends_on: *azurite-core-depends
     environment:
