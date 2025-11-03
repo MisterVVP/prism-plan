@@ -1,11 +1,11 @@
 {
-  "scriptFile": "__init__.py",
+  "scriptFile": "cleanup_timer.py",
   "bindings": [
     {
       "name": "timer",
       "type": "timerTrigger",
       "direction": "in",
-      "schedule": "0 */5 * * * *"
+      "schedule": "%IDEMPOTENCY_CLEANER_SCHEDULE%"
     }
   ]
 }

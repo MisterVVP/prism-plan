@@ -82,6 +82,23 @@ x-domain-service: &domain-service-base
         condition: service_completed_successfully
     restart: unless-stopped
 
+x-idempotency-cleaner: &idempotency-cleaner-base
+  build: ./maintenance/idempotency-cleaner
+  environment: &idempotency-cleaner-env
+    STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+    USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+    IDEMPOTENCY_TABLES: ${IDEMPOTENCY_TABLES:-}
+    IDEMPOTENCY_STORAGE_CONNECTION_STRING: ${IDEMPOTENCY_STORAGE_CONNECTION_STRING:-}
+    IDEMPOTENCY_CLEANER_SCHEDULE: "${IDEMPOTENCY_CLEANER_SCHEDULE:-0 */5 * * * *}"
+  depends_on:
+    azurite:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+  restart: unless-stopped
+
 services:
   web:
     build:
@@ -198,6 +215,11 @@ services:
     <<: *domain-service-base
     environment:
       <<: *domain-service-env
+
+  idempotency-cleaner:
+    <<: *idempotency-cleaner-base
+    environment:
+      <<: *idempotency-cleaner-env
 
   domain-service-2:
     <<: *domain-service-base
