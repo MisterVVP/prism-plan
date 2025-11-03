@@ -87,6 +87,9 @@ x-idempotency-cleaner: &idempotency-cleaner-base
   environment: &idempotency-cleaner-env
     STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
     AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+    AzureWebJobsScriptRoot: /home/site/wwwroot
+    AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
+    AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
     TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
     USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
     IDEMPOTENCY_TABLES: ${IDEMPOTENCY_TABLES:-}
@@ -98,7 +101,7 @@ x-idempotency-cleaner: &idempotency-cleaner-base
     storage-init:
       condition: service_completed_successfully
   restart: unless-stopped
-
+    FUNCTIONS_WORKER_RUNTIME=python
 services:
   web:
     build:
