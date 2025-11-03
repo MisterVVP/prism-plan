@@ -39,6 +39,8 @@ Use layered Compose files so each scenario only overrides what differs from the 
 
 The override files only change the pieces that differ (environment, scaling and the storage emulator). This keeps the shared stack maintainable while still covering all workflows.
 
+Each stack also includes a Python Azure Functions container (`idempotency-cleaner`) that runs on a timer trigger. By default it executes every five minutes to remove completed idempotency rows from the task and user event tables so retries can reuse keys. Override the schedule with the `IDEMPOTENCY_CLEANER_SCHEDULE` environment variable when you need faster feedback (for example, the test compose file runs it every three seconds).
+
 ## Custom Azure table and Queue storage emulator
 Self-written emulator called fauxzureq is used to replace Azurite in performance tests. Code will be open-source in future, but right now it is too experimental to make public.
 
@@ -59,6 +61,7 @@ Use the following variables to configure storage resources:
 - `DOMAIN_EVENTS_QUEUE`: queue receiving domain events from the Domain Service
 - `TASK_EVENTS_TABLE`: table acting as the event store for tasks
 - `TASKS_TABLE`: table containing the read model queried by the API
+- `IDEMPOTENCY_CLEANER_SCHEDULE`: CRON expression controlling how frequently the idempotency cleaner runs (defaults to `0 */5 * * * *`)
 
 ### Read-model cache configuration
 

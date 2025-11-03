@@ -139,6 +139,21 @@ services:
       timeout: 3s
       retries: 5
 
+  idempotency-cleaner:
+    extends:
+      file: docker-compose.yml
+      service: idempotency-cleaner
+    environment:
+      APP_ENV: test
+      IDEMPOTENCY_CLEANER_SCHEDULE: "*/3 * * * * *"
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
+      fauxzureq:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+
   read-model-updater-lb:
     extends:
       file: docker-compose.yml

@@ -79,6 +79,37 @@ public class TableEventRepositoryTests
             });
     }
 
+    [Fact]
+    public async Task TryStartProcessing_reclaims_stale_processing_entry()
+    {
+        var idempotencyKey = "ik-stale";
+        var table = new Mock<TableClient>();
+        var conflict = new RequestFailedException(409, "Conflict", "EntityAlreadyExists", null);
+        table
+            .Setup(t => t.AddEntityAsync(It.IsAny<TableEntity>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(conflict);
+
+        var staleEntity = new TableEntity("__idempotency__", idempotencyKey)
+        {
+            ["Status"] = "Processing",
+            ["UpdatedAt"] = DateTimeOffset.UtcNow - TimeSpan.FromMinutes(10),
+        };
+        staleEntity.ETag = new ETag("\"etag\"");
+        table
+            .Setup(t => t.GetEntityAsync<TableEntity>("__idempotency__", idempotencyKey, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Response.FromValue(staleEntity, new TestResponse()));
+        table
+            .Setup(t => t.UpdateEntityAsync(It.IsAny<TableEntity>(), It.IsAny<ETag>(), TableUpdateMode.Replace, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TestResponse());
+
+        var repository = new TableTaskEventRepository(table.Object);
+
+        var result = await repository.TryStartProcessing(idempotencyKey, CancellationToken.None);
+
+        Assert.Equal(IdempotencyResult.Started, result);
+        table.Verify(t => t.UpdateEntityAsync(It.IsAny<TableEntity>(), It.IsAny<ETag>(), TableUpdateMode.Replace, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static Mock<TableClient> CreateTableClientMock(IReadOnlyList<TableEntity> entities)
     {
         var pageable = new TestAsyncPageable(entities);
