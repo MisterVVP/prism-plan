@@ -20,7 +20,7 @@ func processEvent(ctx context.Context, h eventApplier, cache cacheRefresher, rc 
 	if cache != nil {
 		switch ev.EntityType {
 		case "task":
-			cache.RefreshTasks(ctx, ev.UserID, ev.Timestamp)
+			cache.RefreshTasks(ctx, ev.UserID, ev.EntityID, ev.Timestamp)
 		case "user-settings":
 			cache.RefreshSettings(ctx, ev.UserID, ev.Timestamp)
 		}

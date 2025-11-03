@@ -54,13 +54,10 @@ func (s UserService) Apply(ctx context.Context, ev Event) error {
 			return fmt.Errorf("settings %s already exists", rk)
 		}
 		ent = &UserSettingsEntity{
-			Entity:               Entity{PartitionKey: rk, RowKey: rk},
-			TasksPerCategory:     sEvent.TasksPerCategory,
-			TasksPerCategoryType: EdmInt32,
-			ShowDoneTasks:        sEvent.ShowDoneTasks,
-			ShowDoneTasksType:    EdmBoolean,
-			EventTimestamp:       ev.Timestamp,
-			EventTimestampType:   EdmInt64,
+			Entity:           Entity{PartitionKey: rk, RowKey: rk},
+			TasksPerCategory: sEvent.TasksPerCategory,
+			ShowDoneTasks:    sEvent.ShowDoneTasks,
+			EventTimestamp:   ev.Timestamp,
 		}
 		return s.st.UpsertUserSettings(ctx, *ent)
 	case UserSettingsUpdated:
@@ -74,13 +71,10 @@ func (s UserService) Apply(ctx context.Context, ev Event) error {
 		}
 		if ent == nil {
 			newEnt := UserSettingsEntity{
-				Entity:               Entity{PartitionKey: rk, RowKey: rk},
-				TasksPerCategory:     0,
-				TasksPerCategoryType: EdmInt32,
-				ShowDoneTasks:        false,
-				ShowDoneTasksType:    EdmBoolean,
-				EventTimestamp:       ev.Timestamp,
-				EventTimestampType:   EdmInt64,
+				Entity:           Entity{PartitionKey: rk, RowKey: rk},
+				TasksPerCategory: 0,
+				ShowDoneTasks:    false,
+				EventTimestamp:   ev.Timestamp,
 			}
 			if sUpd.TasksPerCategory != nil {
 				newEnt.TasksPerCategory = *sUpd.TasksPerCategory
@@ -97,17 +91,11 @@ func (s UserService) Apply(ctx context.Context, ev Event) error {
 		upd := UserSettingsUpdate{Entity: Entity{PartitionKey: rk, RowKey: rk}}
 		if sUpd.TasksPerCategory != nil {
 			upd.TasksPerCategory = sUpd.TasksPerCategory
-			t := EdmInt32
-			upd.TasksPerCategoryType = &t
 		}
 		if sUpd.ShowDoneTasks != nil {
 			upd.ShowDoneTasks = sUpd.ShowDoneTasks
-			t := EdmBoolean
-			upd.ShowDoneTasksType = &t
 		}
 		upd.EventTimestamp = &ev.Timestamp
-		t := EdmInt64
-		upd.EventTimestampType = &t
 		if upd.TasksPerCategory != nil || upd.ShowDoneTasks != nil {
 			return s.st.UpdateUserSettings(ctx, upd)
 		}

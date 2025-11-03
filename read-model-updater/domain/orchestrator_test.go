@@ -60,21 +60,12 @@ func (f *fakeStore) UpdateTask(ctx context.Context, upd TaskUpdate) error {
 	}
 	if upd.Order != nil {
 		ent.Order = *upd.Order
-		if upd.OrderType != nil {
-			ent.OrderType = *upd.OrderType
-		}
 	}
 	if upd.Done != nil {
 		ent.Done = *upd.Done
-		if upd.DoneType != nil {
-			ent.DoneType = *upd.DoneType
-		}
 	}
 	if upd.EventTimestamp != nil {
 		ent.EventTimestamp = *upd.EventTimestamp
-		if upd.EventTimestampType != nil {
-			ent.EventTimestampType = *upd.EventTimestampType
-		}
 	}
 	f.tasks[upd.RowKey] = ent
 	return nil
@@ -115,21 +106,12 @@ func (f *fakeStore) UpdateUserSettings(ctx context.Context, ent UserSettingsUpda
 	}
 	if ent.TasksPerCategory != nil {
 		cur.TasksPerCategory = *ent.TasksPerCategory
-		if ent.TasksPerCategoryType != nil {
-			cur.TasksPerCategoryType = *ent.TasksPerCategoryType
-		}
 	}
 	if ent.ShowDoneTasks != nil {
 		cur.ShowDoneTasks = *ent.ShowDoneTasks
-		if ent.ShowDoneTasksType != nil {
-			cur.ShowDoneTasksType = *ent.ShowDoneTasksType
-		}
 	}
 	if ent.EventTimestamp != nil {
 		cur.EventTimestamp = *ent.EventTimestamp
-		if ent.EventTimestampType != nil {
-			cur.EventTimestampType = *ent.EventTimestampType
-		}
 	}
 	f.settings[ent.RowKey] = cur
 	f.updateSettings = ent
@@ -177,7 +159,6 @@ func TestApplyTaskCompletedStaleEventReturnsError(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
 		Done:           false,
-		DoneType:       EdmBoolean,
 		EventTimestamp: 5,
 	}}}
 	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
@@ -204,7 +185,6 @@ func TestApplyTaskReopenedStaleEventReturnsError(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
 		Done:           false,
-		DoneType:       EdmBoolean,
 		EventTimestamp: 5,
 	}}}
 	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
@@ -222,7 +202,6 @@ func TestApplyTaskReopened(t *testing.T) {
 	fs := &fakeStore{tasks: map[string]TaskEntity{"t1": {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
 		Done:           true,
-		DoneType:       EdmBoolean,
 		EventTimestamp: 5,
 	}}}
 	orch := NewOrchestrator(NewTaskService(fs), NewUserService(fs))
@@ -241,9 +220,7 @@ func TestApplyTaskUpdatedStaleEventReturnsError(t *testing.T) {
 		Entity:         Entity{PartitionKey: "u1", RowKey: "t1"},
 		Title:          "a",
 		Order:          10,
-		OrderType:      EdmInt32,
 		Done:           true,
-		DoneType:       EdmBoolean,
 		EventTimestamp: 5,
 	}}}
 	done := false
@@ -280,13 +257,10 @@ func TestApplyUserCreated(t *testing.T) {
 
 func TestApplyUserSettingsUpdatedStaleEventReturnsError(t *testing.T) {
 	fs := &fakeStore{settings: map[string]UserSettingsEntity{"u1": {
-		Entity:               Entity{PartitionKey: "u1", RowKey: "u1"},
-		TasksPerCategory:     10,
-		TasksPerCategoryType: EdmInt32,
-		ShowDoneTasks:        true,
-		ShowDoneTasksType:    EdmBoolean,
-		EventTimestamp:       5,
-		EventTimestampType:   EdmInt64,
+		Entity:           Entity{PartitionKey: "u1", RowKey: "u1"},
+		TasksPerCategory: 10,
+		ShowDoneTasks:    true,
+		EventTimestamp:   5,
 	}}}
 	tpc := 3
 	sdt := false
@@ -306,13 +280,10 @@ func TestApplyUserSettingsUpdatedStaleEventReturnsError(t *testing.T) {
 func TestApplyUserSettingsUpdatedUpdatesExisting(t *testing.T) {
 	fs := &fakeStore{settings: map[string]UserSettingsEntity{
 		"u1": {
-			Entity:               Entity{PartitionKey: "u1", RowKey: "u1"},
-			TasksPerCategory:     3,
-			TasksPerCategoryType: EdmInt32,
-			ShowDoneTasks:        false,
-			ShowDoneTasksType:    EdmBoolean,
-			EventTimestamp:       1,
-			EventTimestampType:   EdmInt64,
+			Entity:           Entity{PartitionKey: "u1", RowKey: "u1"},
+			TasksPerCategory: 3,
+			ShowDoneTasks:    false,
+			EventTimestamp:   1,
 		},
 	}}
 	sdt := true

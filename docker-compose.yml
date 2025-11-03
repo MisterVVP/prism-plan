@@ -29,10 +29,58 @@ x-prism-api: &prism-api-base
   depends_on:
     azurite:
       condition: service_healthy
-    fauxzureq:
-      condition: service_healthy
     storage-init:
       condition: service_completed_successfully
+
+x-read-model-updater: &read-model-updater-base
+    build: ./read-model-updater
+    environment: &read-model-updater-env
+      DEBUG: ${DEBUG}
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+      TASKS_TABLE: ${TASKS_TABLE}
+      SETTINGS_TABLE: ${SETTINGS_TABLE}
+      USERS_TABLE: ${USERS_TABLE}
+      TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
+      REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
+      TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
+      SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+      FUNCTIONS_WORKER_RUNTIME: custom
+      ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
+    depends_on:
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    expose:
+      - "${READ_MODEL_UPDATER_PORT}"
+    restart: unless-stopped
+
+x-domain-service: &domain-service-base
+    build: ./domain-service
+    environment: &domain-service-env
+      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
+      TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
+      USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
+      COMMAND_QUEUE: ${COMMAND_QUEUE}
+      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
+      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
+      READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
+      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+    depends_on:
+      azurite:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
 services:
   web:
@@ -146,59 +194,48 @@ services:
       - "${STREAM_SERVICE_PORT}"
     restart: unless-stopped
 
-  domain-service:
-    build: ./domain-service
+  domain-service-1:
+    <<: *domain-service-base
     environment:
-      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
-      TASK_EVENTS_TABLE: ${TASK_EVENTS_TABLE}
-      USER_EVENTS_TABLE: ${USER_EVENTS_TABLE}
-      COMMAND_QUEUE: ${COMMAND_QUEUE}
-      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
-      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-      READ_MODEL_UPDATER_URL: ${READ_MODEL_UPDATER_URL}
-      AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
-      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-    depends_on:
-      azurite:
-        condition: service_healthy
-      fauxzureq:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
-    restart: unless-stopped
+      <<: *domain-service-env
 
-  read-model-updater:
-    build: ./read-model-updater
+  domain-service-2:
+    <<: *domain-service-base
     environment:
-      DEBUG: ${DEBUG}
-      STORAGE_CONNECTION_STRING: ${STORAGE_CONNECTION_STRING}
-      DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
-      TASKS_TABLE: ${TASKS_TABLE}
-      SETTINGS_TABLE: ${SETTINGS_TABLE}
-      USERS_TABLE: ${USERS_TABLE}
-      TASKS_PAGE_SIZE: ${TASKS_PAGE_SIZE}
-      REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
-      TASK_UPDATES_CHANNEL: ${TASK_UPDATES_CHANNEL}
-      SETTINGS_UPDATES_CHANNEL: ${SETTINGS_UPDATES_CHANNEL}
-      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-      AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: ${AZ_FUNC_JOB_HOST_LOGS_ENABLED}
-      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-      FUNCTIONS_WORKER_RUNTIME: custom
-      ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
-    expose:
-      - "${READ_MODEL_UPDATER_PORT}"
+      <<: *domain-service-env
+
+  domain-service-3:
+    <<: *domain-service-base
+    environment:
+      <<: *domain-service-env
+
+  read-model-updater-1:
+    <<: *read-model-updater-base
+    environment:
+      <<: *read-model-updater-env
+
+  read-model-updater-2:
+    <<: *read-model-updater-base
+    environment:
+      <<: *read-model-updater-env
+
+  read-model-updater-3:
+    <<: *read-model-updater-base
+    environment:
+      <<: *read-model-updater-env
+
+  read-model-updater-lb:
+    environment:
+      READ_MODEL_UPDATER_PORT: ${READ_MODEL_UPDATER_PORT}
+    image: haproxy:3.0-alpine
+    volumes:
+      - ./haproxy/read-model-updater.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "${READ_MODEL_UPDATER_PORT}:${READ_MODEL_UPDATER_PORT}"
     depends_on:
-      azurite:
-        condition: service_healthy
-      fauxzureq:
-        condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
-    restart: unless-stopped
+      - read-model-updater-1
+      - read-model-updater-2
+      - read-model-updater-3
 
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:latest
@@ -207,32 +244,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    command: ["azurite", "-s", "-l", "/data","--skipApiVersionCheck", "--blobHost", "0.0.0.0"]
+    command: ["azurite", "-s", "-l", "/data","--skipApiVersionCheck", "--blobHost", "0.0.0.0","--queueHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
     ports:
       - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
     volumes:
       - azurite_data:/data
     restart: unless-stopped
-
-  fauxzureq:
-    image: mistervvp/fauxzureq:main
-    command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0", "--http-log=false"]
-    ports: ["10001:10001", "10002:10002"]
-    sysctls:
-        - net.ipv4.tcp_rmem=16384 4194304 536870912
-        - net.ipv4.tcp_wmem=16384 4194304 536870912
-        - net.core.somaxconn=1048576
-        - net.ipv4.tcp_tw_reuse=1
-        - net.ipv4.tcp_fin_timeout=1
-    ulimits:
-      nofile:
-        soft: "1048576"
-        hard: "1048576"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
 
   storage-init:
     build: ./storage-init
@@ -247,8 +266,6 @@ services:
       COMMAND_QUEUE: ${COMMAND_QUEUE}
       DOMAIN_EVENTS_QUEUE: ${DOMAIN_EVENTS_QUEUE}
     depends_on:
-      fauxzureq:
-        condition: service_healthy
       azurite:
         condition: service_healthy
     restart: "no"

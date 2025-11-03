@@ -63,7 +63,7 @@ func TestCacheUpdaterRefreshTasksStoresPayload(t *testing.T) {
 	freeze := time.Unix(123, 0).UTC()
 	updater.now = func() time.Time { return freeze }
 
-	updater.RefreshTasks(ctx, "user", 42)
+	updater.RefreshTasks(ctx, "user", "task1", 42)
 
 	raw, err := rc.Get(ctx, cacheKey("user", tasksCachePrefix)).Result()
 	if err != nil {
@@ -107,11 +107,10 @@ func TestCacheUpdaterRefreshSettingsStoresPayload(t *testing.T) {
 
 	store := &stubCacheStore{
 		settingsResp: &domain.UserSettingsEntity{
-			Entity:             domain.Entity{PartitionKey: "user", RowKey: "user"},
-			TasksPerCategory:   3,
-			ShowDoneTasks:      true,
-			EventTimestamp:     50,
-			EventTimestampType: "Edm.Int64",
+			Entity:           domain.Entity{PartitionKey: "user", RowKey: "user"},
+			TasksPerCategory: 3,
+			ShowDoneTasks:    true,
+			EventTimestamp:   50,
 		},
 	}
 	updater := newCacheUpdater(store, rc, 4, time.Hour, 30*time.Minute)
@@ -161,5 +160,36 @@ func TestCacheUpdaterRefreshSettingsDeletesMissingEntry(t *testing.T) {
 
 	if _, err := rc.Get(ctx, cacheKey("user", settingsCachePrefix)).Result(); err != redis.Nil {
 		t.Fatalf("expected redis nil, got %v", err)
+	}
+}
+
+func TestCacheUpdaterRefreshTasksDeletesStaleEntryWhenEntityMissing(t *testing.T) {
+	m, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	defer m.Close()
+	rc := redis.NewClient(&redis.Options{Addr: m.Addr()})
+	ctx := context.Background()
+
+	if err := rc.Set(ctx, cacheKey("user", tasksCachePrefix), "seed", time.Hour).Err(); err != nil {
+		t.Fatalf("seed redis: %v", err)
+	}
+
+	store := &stubCacheStore{
+		tasksResp: []domain.TaskEntity{{
+			Entity:         domain.Entity{PartitionKey: "user", RowKey: "other"},
+			Title:          "Task",
+			Category:       "cat",
+			Order:          1,
+			EventTimestamp: 10,
+		}},
+	}
+	updater := newCacheUpdater(store, rc, 5, time.Hour, time.Hour)
+
+	updater.RefreshTasks(ctx, "user", "missing", 99)
+
+	if _, err := rc.Get(ctx, cacheKey("user", tasksCachePrefix)).Result(); err != redis.Nil {
+		t.Fatalf("expected cache eviction when entity missing, got %v", err)
 	}
 }

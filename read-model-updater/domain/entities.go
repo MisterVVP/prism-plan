@@ -15,29 +15,23 @@ const (
 // TaskEntity represents a task stored in the read model.
 type TaskEntity struct {
 	Entity
-	Title              string `json:"Title,omitempty"`
-	Notes              string `json:"Notes,omitempty"`
-	Category           string `json:"Category,omitempty"`
-	Order              int    `json:"Order"`
-	OrderType          string `json:"Order@odata.type"`
-	Done               bool   `json:"Done"`
-	DoneType           string `json:"Done@odata.type"`
-	EventTimestamp     int64  `json:"EventTimestamp,string"`
-	EventTimestampType string `json:"EventTimestamp@odata.type"`
+	Title          string `json:"Title,omitempty"`
+	Notes          string `json:"Notes,omitempty"`
+	Category       string `json:"Category,omitempty"`
+	Order          int    `json:"Order"`
+	Done           bool   `json:"Done"`
+	EventTimestamp int64  `json:"EventTimestamp,string"`
 }
 
 // TaskUpdate carries partial updates for a task.
 type TaskUpdate struct {
 	Entity
-	Title              *string `json:"Title,omitempty"`
-	Notes              *string `json:"Notes,omitempty"`
-	Category           *string `json:"Category,omitempty"`
-	Order              *int    `json:"Order,omitempty"`
-	OrderType          *string `json:"Order@odata.type,omitempty"`
-	Done               *bool   `json:"Done,omitempty"`
-	DoneType           *string `json:"Done@odata.type,omitempty"`
-	EventTimestamp     *int64  `json:"EventTimestamp,omitempty,string"`
-	EventTimestampType *string `json:"EventTimestamp@odata.type,omitempty"`
+	Title          *string `json:"Title,omitempty"`
+	Notes          *string `json:"Notes,omitempty"`
+	Category       *string `json:"Category,omitempty"`
+	Order          *int    `json:"Order,omitempty"`
+	Done           *bool   `json:"Done,omitempty"`
+	EventTimestamp *int64  `json:"EventTimestamp,omitempty,string"`
 }
 
 // UserEntity represents a user stored in the read model.
@@ -49,20 +43,14 @@ type UserEntity struct {
 
 type UserSettingsEntity struct {
 	Entity
-	TasksPerCategory     int    `json:"TasksPerCategory"`
-	TasksPerCategoryType string `json:"TasksPerCategory@odata.type"`
-	ShowDoneTasks        bool   `json:"ShowDoneTasks"`
-	ShowDoneTasksType    string `json:"ShowDoneTasks@odata.type"`
-	EventTimestamp       int64  `json:"EventTimestamp,string"`
-	EventTimestampType   string `json:"EventTimestamp@odata.type"`
+	TasksPerCategory int   `json:"TasksPerCategory"`
+	ShowDoneTasks    bool  `json:"ShowDoneTasks"`
+	EventTimestamp   int64 `json:"EventTimestamp,string"`
 }
 
 type UserSettingsUpdate struct {
 	Entity
-	TasksPerCategory     *int    `json:"TasksPerCategory,omitempty"`
-	TasksPerCategoryType *string `json:"TasksPerCategory@odata.type,omitempty"`
-	ShowDoneTasks        *bool   `json:"ShowDoneTasks,omitempty"`
-	ShowDoneTasksType    *string `json:"ShowDoneTasks@odata.type,omitempty"`
-	EventTimestamp       *int64  `json:"EventTimestamp,omitempty,string"`
-	EventTimestampType   *string `json:"EventTimestamp@odata.type,omitempty"`
+	TasksPerCategory *int   `json:"TasksPerCategory,omitempty"`
+	ShowDoneTasks    *bool  `json:"ShowDoneTasks,omitempty"`
+	EventTimestamp   *int64 `json:"EventTimestamp,omitempty,string"`
 }
