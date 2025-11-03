@@ -17,6 +17,7 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
     private const string UpdatedAtProperty = "UpdatedAt";
     private const string ProcessingStatus = "Processing";
     private const string CompletedStatus = "Completed";
+    private static readonly TimeSpan ProcessingLeaseDuration = TimeSpan.FromSeconds(30);
 
     private readonly TableClient _table = table;
 
@@ -126,22 +127,41 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
     public async Task<IdempotencyResult> TryStartProcessing(string idempotencyKey, CancellationToken ct)
     {
         var entity = CreateIdempotencyEntity(idempotencyKey, ProcessingStatus);
-        try
+
+        while (true)
         {
-            await _table.AddEntityAsync(entity, ct);
-            return IdempotencyResult.Started;
-        }
-        catch (RequestFailedException ex) when (AzTableHelpers.IsInsertConflict(ex))
-        {
-            var status = await GetIdempotencyStatus(idempotencyKey, ct);
-            return string.Equals(status, CompletedStatus, StringComparison.Ordinal)
-                ? IdempotencyResult.AlreadyProcessed
-                : IdempotencyResult.InProgress;
-        }
-        catch (RequestFailedException ex)
-        {
-            Console.WriteLine($"Tables error status={ex.Status}, code={ex.ErrorCode}, msg={ex.Message}");
-            throw;
+            try
+            {
+                await _table.AddEntityAsync(entity, ct);
+                return IdempotencyResult.Started;
+            }
+            catch (RequestFailedException ex) when (AzTableHelpers.IsInsertConflict(ex))
+            {
+                var record = await GetIdempotencyRecord(idempotencyKey, ct);
+                if (record is null)
+                {
+                    // The competing record disappeared between the failed insert and the lookup.
+                    // Retry the loop so we can attempt the insert again.
+                    continue;
+                }
+
+                if (string.Equals(record.Value.Status, CompletedStatus, StringComparison.Ordinal))
+                {
+                    return IdempotencyResult.AlreadyProcessed;
+                }
+
+                if (IsProcessingStale(record.Value.UpdatedAt) && await TryReclaimProcessing(record.Value.ETag, idempotencyKey, ct))
+                {
+                    return IdempotencyResult.Started;
+                }
+
+                return IdempotencyResult.InProgress;
+            }
+            catch (RequestFailedException ex)
+            {
+                Console.WriteLine($"Tables error status={ex.Status}, code={ex.ErrorCode}, msg={ex.Message}");
+                throw;
+            }
         }
     }
 
@@ -171,21 +191,56 @@ internal sealed class TableTaskEventRepository(TableClient table) : ITaskEventRe
         };
     }
 
-    private async Task<string?> GetIdempotencyStatus(string idempotencyKey, CancellationToken ct)
+    private async Task<IdempotencyRecord?> GetIdempotencyRecord(string idempotencyKey, CancellationToken ct)
     {
         try
         {
-            var existing = await _table.GetEntityAsync<TableEntity>(IdempotencyPartitionKey, idempotencyKey, cancellationToken: ct);
-            if (existing.HasValue && existing.Value.TryGetValue(StatusProperty, out var statusObj) && statusObj is string status)
+            var response = await _table.GetEntityAsync<TableEntity>(IdempotencyPartitionKey, idempotencyKey, cancellationToken: ct);
+            if (!response.HasValue)
             {
-                return status;
+                return null;
             }
+
+            var entity = response.Value;
+            if (!entity.TryGetValue(StatusProperty, out var statusObj) || statusObj is not string status)
+            {
+                return null;
+            }
+
+            var updatedAt = ExtractDateTimeOffset(entity, UpdatedAtProperty);
+            return new IdempotencyRecord(status, updatedAt, response.Value.ETag);
         }
         catch (RequestFailedException ex) when (ex.Status == 404)
         {
         }
         return null;
     }
+
+    private static bool IsProcessingStale(DateTimeOffset? updatedAt)
+    {
+        if (!updatedAt.HasValue)
+        {
+            return true;
+        }
+
+        return DateTimeOffset.UtcNow - updatedAt.Value >= ProcessingLeaseDuration;
+    }
+
+    private async Task<bool> TryReclaimProcessing(ETag etag, string idempotencyKey, CancellationToken ct)
+    {
+        try
+        {
+            var takeover = CreateIdempotencyEntity(idempotencyKey, ProcessingStatus);
+            await _table.UpdateEntityAsync(takeover, etag, TableUpdateMode.Replace, ct);
+            return true;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404 || ex.Status == 412)
+        {
+            return false;
+        }
+    }
+
+    private readonly record struct IdempotencyRecord(string Status, DateTimeOffset? UpdatedAt, ETag ETag);
 
     private static bool TryParseEvent(TableEntity entity, out Event? ev)
     {

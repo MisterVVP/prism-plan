@@ -119,8 +119,16 @@ services:
   read-model-updater-3:
     <<: *read-model-updater-test
 
+  poor-man-s-cache:
+    image: mistervvp/poor-man-s-cache:latest
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9001/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   fauxzureq:
-    image: mistervvp/fauxzureq:main
+    image: mistervvp/fauxzureq:pmcache
     command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0", "--http-log=false"]
     ports: ["10001:10001", "10002:10002"]
     sysctls:
@@ -133,6 +141,9 @@ services:
       nofile:
         soft: "1048576"
         hard: "1048576"
+    depends_on:
+      poor-man-s-cache:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
       interval: 5s
