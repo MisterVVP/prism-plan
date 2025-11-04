@@ -9,15 +9,8 @@ status is marked as `Completed`.
 
 Set the following environment variables when deploying:
 
-- `IDEMPOTENCY_STORAGE_CONNECTION_STRING` (optional): overrides the
-  storage account connection string.
-- `STORAGE_CONNECTION_STRING` or `AzureWebJobsStorage`: fallback storage
-  connection strings.
-- `IDEMPOTENCY_TABLES`: comma-separated list of tables to clean. When
-  not provided the function falls back to `TASK_EVENTS_TABLE` and
-  `USER_EVENTS_TABLE` if present.
+- `STORAGE_CONNECTION_STRING`: storage
+  connection string.
+- `IDEMPOTENCY_TABLES`: comma-separated list of tables to clean.
 - `IDEMPOTENCY_CLEANER_SCHEDULE`: CRON expression describing how often
   to run the cleanup. Defaults to `0 */5 * * * *` (every five minutes).
-
-The function uses batch deletes (up to 100 entities per request) and
-ignores tables that are missing or already empty.

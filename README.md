@@ -118,11 +118,10 @@ You can also run `scripts/deploy-azure.sh` to execute the same steps automatical
 ## TODO
 1. Handle edge-case and error scenarios related to event sourcing and complex design
    - connection and other errors (consider circuit breakers, exponential retries, transactional outbox, sagas and other patterns)
-2. Deploy this project to Azure/GCP or AWS on free tier. Budget infra costs to 10 EUR per month.
-3. Observability setup would've been beneficial, consider adding wide events or traces
-4. Try to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
-5. Re-populate Redis caches when a miss occurs for the latest tasks page so cold caches do not force repeated table scans.
-6. Evaluate how to surface or recover from stale `nextPageToken` values if cached task pages become outdated before TTL expiry (e.g. when multiple concurrent writes happen).
+2. Try to replace azure functions with AWS lambdas and/or GCP Cloud Run functions. Check whether they work better locally and cost less when deployed and scaled out
+3. Re-populate Redis caches when a miss occurs for the latest tasks page so cold caches do not force repeated table scans.
+4. Evaluate how to surface or recover from stale `nextPageToken` values if cached task pages become outdated before TTL expiry (e.g. when multiple concurrent writes happen).
+5. Check idempotency handling again (simplest fix is to handle it via message broker, but is it fun to do?)
 
 ### Accepted risks
 1. Edge case scenario where 2 events contain equal timestamp in nanoseconds is not handled. Probability of such event is extremely low and (for now) it's considered to be out of scope.

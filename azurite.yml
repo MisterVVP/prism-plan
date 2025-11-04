@@ -101,5 +101,10 @@ services:
     environment:
       <<: *azurite-storage-env
 
+  idempotency-cleaner:
+    depends_on: *azurite-core-depends
+    environment:
+      <<: *azurite-functions-env
+
 volumes:
   azurite_data:
