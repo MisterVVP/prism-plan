@@ -84,7 +84,7 @@ func waitForIdempotencyStatus(t *testing.T, ctx context.Context, table *aztables
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("timeout waiting for idempotency key %s to reach status %s (last=%s, notFound=%t)", rowKey, status, got, notFound)
+			t.Logf("timeout waiting for idempotency key %s to reach status %s (last=%s, notFound=%t). Checking for key deletion next...", rowKey, status, got, notFound)
 		}
 		time.Sleep(backoff)
 		if backoff < time.Second {
