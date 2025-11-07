@@ -110,7 +110,7 @@ services:
     <<: *read-model-updater-test
 
   fauxzureq:
-    image: mistervvp/fauxzureq:latest
+    image: mistervvp/fauxzureq:main
     command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0", "--http-log=false"]
     ports: ["10001:10001", "10002:10002"]
     sysctls:
