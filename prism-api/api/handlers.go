@@ -2,30 +2,41 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/bytedance/sonic"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
 	"prism-api/domain"
 )
 
 // Register wires up all API routes on the provided Echo instance.
-func Register(e *echo.Echo, store Storage, auth Authenticator, deduper Deduper, log *log.Logger) {
+func Register(e *echo.Echo, store Storage, auth Authenticator, log *log.Logger) {
 	e.GET("/api/tasks", getTasks(store, auth, log))
 	e.GET("/api/settings", getSettings(store, auth))
-	e.POST("/api/commands", postCommands(store, auth, deduper, log))
+	e.POST("/api/commands", postCommands(store, auth))
+	e.GET("/healthz", healthz(store))
+
+	initCommandSender(store, log)
 }
 
 type tasksResponse struct {
 	Tasks         []domain.Task `json:"tasks"`
 	NextPageToken string        `json:"nextPageToken,omitempty"`
+}
+
+func healthz(_ Storage) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		//TODO: implement healthcheck
+		return c.NoContent(http.StatusOK)
+	}
 }
 
 func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.HandlerFunc {
@@ -52,8 +63,20 @@ func getTasks(store Storage, auth Authenticator, logger *log.Logger) echo.Handle
 		pageToken := c.QueryParam("pageToken")
 		metrics.SetPageTokenProvided(pageToken != "")
 
+		pageSizeParam := strings.TrimSpace(c.QueryParam("pageSize"))
+		pageSize := 0
+		if pageSizeParam != "" {
+			var parseErr error
+			pageSize, parseErr = strconv.Atoi(pageSizeParam)
+			if parseErr != nil || pageSize <= 0 {
+				metrics.SetErrorStage("invalid_page_size")
+				err = c.String(http.StatusBadRequest, "invalid page size")
+				return err
+			}
+		}
+
 		fetchStart := time.Now()
-		tasks, nextToken, fetchErr := store.FetchTasks(ctx, userID, pageToken)
+		tasks, nextToken, fetchErr := store.FetchTasks(ctx, userID, pageToken, pageSize)
 		metrics.ObserveFetch(time.Since(fetchStart))
 		if fetchErr != nil {
 			var invalidTokenErr InvalidContinuationTokenError
@@ -99,94 +122,84 @@ func getSettings(store Storage, auth Authenticator) echo.HandlerFunc {
 	}
 }
 
-func postCommands(store Storage, auth Authenticator, deduper Deduper, log *log.Logger) echo.HandlerFunc {
+func postCommands(store Storage, auth Authenticator) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		ctx := c.Request().Context()
-
-		initCommandSender(store, deduper, log)
-
 		userID, err := auth.UserIDFromAuthHeader(c.Request().Header.Get("Authorization"))
 		if err != nil {
 			return c.String(http.StatusUnauthorized, err.Error())
 		}
 
 		lr := io.LimitReader(c.Request().Body, postCommandMaxSize)
-		dec := json.NewDecoder(lr)
+		dec := sonic.ConfigFastest.NewDecoder(lr)
 		dec.DisallowUnknownFields()
 
-		raw := make([]postCommandRequest, 0, 4)
-		if err := dec.Decode(&raw); err != nil {
+		cmds := make([]domain.Command, 0, 4)
+		if err := dec.Decode(&cmds); err != nil {
 			return c.String(http.StatusBadRequest, "invalid body")
 		}
 
-		cmds := make([]domain.Command, len(raw))
-		for i := range raw {
-			cmds[i] = domain.Command{
-				IdempotencyKey: raw[i].IdempotencyKey,
-				EntityType:     raw[i].EntityType,
-				Type:           raw[i].Type,
-				Data:           raw[i].Data,
-			}
-		}
-
-		keys := make([]string, len(cmds))
-		filtered := make([]domain.Command, 0, len(cmds))
-		added := make([]string, 0, len(cmds))
-
-		for i := range cmds {
-			if cmds[i].IdempotencyKey == "" {
-				cmds[i].IdempotencyKey = uuid.NewString()
-			}
-			cmds[i].ID = cmds[i].IdempotencyKey
-			keys[i] = cmds[i].IdempotencyKey
-
-			addedNow, err := deduper.Add(ctx, userID, cmds[i].IdempotencyKey)
-			if err != nil {
-				for _, key := range added {
-					_ = deduper.Remove(ctx, userID, key)
-				}
-				_ = deduper.Remove(ctx, userID, cmds[i].IdempotencyKey)
-				return c.String(http.StatusInternalServerError, err.Error())
-			}
-			if !addedNow {
-				continue
-			}
-			added = append(added, cmds[i].IdempotencyKey)
-			cmds[i].Timestamp = nextTimestamp()
-			filtered = append(filtered, cmds[i])
-		}
-
-		if len(filtered) == 0 {
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
-		}
+		keys := finalizeCommands(cmds)
 
 		job := enqueueJob{
 			userID: userID,
-			cmds:   append([]domain.Command(nil), filtered...),
-			added:  append([]string(nil), added...),
+			cmds:   cmds,
 		}
 
-		select {
-		case jobs <- job:
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
-		default:
-			globalLog.Warn("enqueue buffer full; processing inline")
+		if tryEnqueueJob(job) {
+			return respondJSON(c, http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
+		}
 
-			enqueueCtx, cancel := context.WithTimeout(bg, enqueueTimeout)
-			err := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
+		if globalLog != nil {
+			globalLog.Warn("enqueue buffer saturated; processing inline")
+		}
+
+		enqueueCtx := bg
+		var cancel context.CancelFunc
+		if enqueueTimeout > 0 {
+			enqueueCtx, cancel = context.WithTimeout(bg, enqueueTimeout)
+		}
+		enqueueErr := store.EnqueueCommands(enqueueCtx, userID, job.cmds)
+		if cancel != nil {
 			cancel()
-
-			if err != nil {
-				for _, k := range added {
-					if rerr := deduper.Remove(ctx, userID, k); rerr != nil {
-						c.Logger().Errorf("dedupe rollback failed, err: %v, key: %s", rerr, k)
-					}
-				}
-				c.Logger().Errorf("enqueue inline failed: %v", err)
-				return c.String(http.StatusInternalServerError, "failed to enqueue commands")
-			}
-
-			return c.JSON(http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 		}
+
+		if enqueueErr != nil {
+			c.Logger().Errorf("enqueue inline failed: %v", enqueueErr)
+			return c.String(http.StatusInternalServerError, "failed to enqueue commands")
+		}
+
+		return respondJSON(c, http.StatusAccepted, postCommandResponse{IdempotencyKeys: keys})
 	}
+}
+
+func finalizeCommands(cmds []domain.Command) []string {
+	keys := make([]string, len(cmds))
+	if len(cmds) == 0 {
+		return keys
+	}
+
+	start := nextTimestampRange(len(cmds))
+	for i := range cmds {
+		ts := start + int64(i)
+		keys[i] = applyCommandMetadata(&cmds[i], ts)
+	}
+
+	return keys
+}
+
+func applyCommandMetadata(cmd *domain.Command, ts int64) string {
+	if cmd.IdempotencyKey == "" {
+		cmd.IdempotencyKey = strconv.FormatInt(ts, 36)
+	}
+	cmd.ID = cmd.IdempotencyKey
+	cmd.Timestamp = ts
+	return cmd.IdempotencyKey
+}
+
+func respondJSON(c echo.Context, status int, payload any) error {
+	data, err := sonic.Marshal(payload)
+	if err != nil {
+		return c.JSON(status, payload)
+	}
+	return c.Blob(status, echo.MIMEApplicationJSON, data)
 }

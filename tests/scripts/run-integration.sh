@@ -7,7 +7,7 @@ REPO_ROOT=$(pwd)
 ENV_FILE="$REPO_ROOT/tests/docker/env.test"
 
 if [[ -n "${MSYSTEM:-}" ]]; then
-  excludes="API_HEALTH_ENDPOINT;AZ_FUNC_HEALTH_ENDPOINT"
+  excludes="API_HEALTH_ENDPOINT;"
   if [[ -n "${MSYS2_ENV_CONV_EXCL:-}" ]]; then
     export MSYS2_ENV_CONV_EXCL="${MSYS2_ENV_CONV_EXCL};${excludes}"
   else
@@ -18,7 +18,6 @@ fi
 set -a
 # shellcheck source=tests/docker/env.test
 source "$ENV_FILE"
-set +a
 
 COMPOSE=(
   docker compose
@@ -27,6 +26,11 @@ COMPOSE=(
   -f "$REPO_ROOT/tests/docker/docker-compose.tests.yml"
 )
 
+if [[ "$#" -gt 0 && "$1" == "--azurite" ]]; then
+  echo "Azurite exclusive mode is enabled"
+  COMPOSE+=(-f "$REPO_ROOT/azurite.yml")
+fi
+
 cleanup() {
   "${COMPOSE[@]}" down -v
 }
@@ -34,10 +38,10 @@ trap cleanup EXIT
 
 "${COMPOSE[@]}" up -d
 
-tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${AZ_FUNC_HEALTH_ENDPOINT}" 30
+tests/docker/wait-for.sh "${PRISM_API_LB_BASE}${API_HEALTH_ENDPOINT}" 30
 tests/docker/wait-for.sh "${STREAM_SERVICE_BASE}${API_HEALTH_ENDPOINT}" 30
 
 pushd tests/integration > /dev/null
 go test ./...
 popd > /dev/null
-
+set +a

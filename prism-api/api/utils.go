@@ -12,14 +12,29 @@ var (
 )
 
 func nextTimestamp() int64 {
+	return nextTimestampRange(1)
+}
+
+func nextTimestampRange(n int) int64 {
+	if n <= 0 {
+		return 0
+	}
+
+	// Reserve a contiguous, monotonically increasing sequence of timestamps with a
+	// single atomic update. This avoids calling time.Now for every element in the
+	// batch and keeps timestamp assignment contention low under high concurrency.
 	for {
 		now := time.Now().UnixNano()
 		last := atomic.LoadInt64(&lastTimestamp)
+
+		start := now
 		if now <= last {
-			now = last + 1
+			start = last + 1
 		}
-		if atomic.CompareAndSwapInt64(&lastTimestamp, last, now) {
-			return now
+
+		end := start + int64(n-1)
+		if atomic.CompareAndSwapInt64(&lastTimestamp, last, end) {
+			return start
 		}
 	}
 }

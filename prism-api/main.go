@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/MicahParks/keyfunc"
+	"github.com/labstack/echo-contrib/pprof"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/redis/go-redis/v9"
@@ -42,7 +43,8 @@ func main() {
 	if connStr == "" || tasksTableName == "" || settingsTableName == "" || commandQueueName == "" {
 		log.Fatal("missing storage config")
 	}
-	taskPageSize := 30
+
+	taskPageSize := 10
 	if v := os.Getenv("TASKS_PAGE_SIZE"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil {
@@ -53,17 +55,16 @@ func main() {
 		}
 		taskPageSize = n
 	}
-	store, err := storage.New(connStr, tasksTableName, settingsTableName, commandQueueName, taskPageSize)
-	if err != nil {
-		log.Fatalf("storage: %v", err)
-	}
-
-	warmupCtx, cancelWarmup := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancelWarmup()
-	if err := store.Warmup(warmupCtx); err != nil {
-		log.WithError(err).Warn("storage warmup failed")
-	} else {
-		log.Info("storage warmup completed")
+	queueConcurrency := storage.DefaultQueueConcurrency()
+	if v := os.Getenv("COMMAND_QUEUE_CONCURRENCY"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			log.Fatalf("invalid COMMAND_QUEUE_CONCURRENCY: %v", err)
+		}
+		if n <= 0 {
+			log.Fatalf("invalid COMMAND_QUEUE_CONCURRENCY: must be greater than zero")
+		}
+		queueConcurrency = n
 	}
 
 	redisConn := os.Getenv("REDIS_CONNECTION_STRING")
@@ -90,15 +91,27 @@ func main() {
 		}
 	}
 	rc := redis.NewClient(redisOpts)
-	ttl := 24 * time.Hour
-	if v := os.Getenv("DEDUPER_TTL"); v != "" {
-		d, err := time.ParseDuration(v)
-		if err != nil || d <= 0 {
-			log.Fatalf("invalid DEDUPER_TTL: %v", err)
-		}
-		ttl = d
+
+	store, err := storage.New(
+		connStr,
+		tasksTableName,
+		settingsTableName,
+		commandQueueName,
+		taskPageSize,
+		storage.WithQueueConcurrency(queueConcurrency),
+		storage.WithCache(rc),
+	)
+	if err != nil {
+		log.Fatalf("storage: %v", err)
 	}
-	deduper := api.NewRedisDeduper(rc, ttl)
+
+	warmupCtx, cancelWarmup := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancelWarmup()
+	if err := store.Warmup(warmupCtx); err != nil {
+		log.WithError(err).Warn("storage warmup failed")
+	} else {
+		log.Info("storage warmup completed")
+	}
 
 	testMode := os.Getenv("AUTH0_TEST_MODE") == "1"
 	var auth *api.Auth
@@ -125,16 +138,17 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 	e.Use(middleware.Gzip())
-
 	logger := log.New()
 	configureJSONLogger(logger)
 	logger.SetLevel(log.GetLevel())
-	api.Register(e, store, auth, deduper, logger)
-
-	listenAddr := ":8080"
-	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
-		listenAddr = ":" + val
+	api.Register(e, store, auth, logger)
+	if os.Getenv("APP_ENV") == "development" {
+		log.Println("Enabling pprof for profiling")
+		pprof.Register(e)
 	}
-
-	e.Logger.Fatal(e.Start(listenAddr))
+	if port := os.Getenv("PORT"); port != "" {
+		e.Logger.Fatal(e.Start(":" + port))
+	} else {
+		log.Fatal("PORT is empty")
+	}
 }

@@ -1,107 +1,82 @@
-x-prism-api: &prism-api-base
-  environment: &prism-api-env
-    APP_ENV: test
-    AUTH0_TEST_MODE: "1"
-    TEST_JWT_SECRET: ${TEST_JWT_SECRET}
-    REDIS_CONNECTION_STRING: ${REDIS_CONNECTION_STRING}
-    AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-    AzureWebJobsScriptRoot: /home/site/wwwroot
-    AzureFunctionsJobHost__Logging__Console__IsEnabled: "true"
-    FUNCTIONS_WORKER_RUNTIME: custom
-    ENQUEUE_WORKERS: ${ENQUEUE_WORKERS}
-    ENQUEUE_BUFFER: ${ENQUEUE_BUFFER}
-    ENQUEUE_TIMEOUT: ${ENQUEUE_TIMEOUT}
-    DEDUPER_TTL: ${DEDUPER_TTL}
+x-prism-api-test-env: &prism-api-test-env
+  APP_ENV: test
+  AUTH0_TEST_MODE: "1"
+  TEST_JWT_SECRET: ${TEST_JWT_SECRET}
+
+x-stream-service-test-env: &stream-service-test-env
+  APP_ENV: test
+  AUTH0_TEST_MODE: "1"
+  TEST_JWT_SECRET: ${TEST_JWT_SECRET}
+
+x-prism-api-test: &prism-api-test
+  environment:
+    <<: *prism-api-test-env
   depends_on:
     azurite:
       condition: service_healthy
     fauxzureq:
       condition: service_healthy
-    storage-init:
-      condition: service_completed_successfully
+
+x-domain-service-test: &domain-service-test
+  extends:
+    file: docker-compose.yml
+    service: domain-service-1
+  environment:
+    APP_ENV: test
+
+x-read-model-updater-test: &read-model-updater-test
+  environment:
+    APP_ENV: test
 
 services:
   web:
+    extends:
+      file: docker-compose.yml
+      service: web
     environment:
-      - APP_ENV=test
-      - PRISM_API_LB_PORT=${PRISM_API_LB_PORT}
-      - STREAM_SERVICE_PORT=${STREAM_SERVICE_PORT}
+      APP_ENV: test
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 5s
       timeout: 3s
       retries: 5
-    depends_on:
-      prism-api-lb:
-        condition: service_started
-      stream-service:
-        condition: service_started
 
   prism-api-1:
-    <<: *prism-api-base
-    environment:
-      <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7072
-    expose:
-      - "7072"
-    restart: unless-stopped
+    <<: *prism-api-test
+    extends:
+      file: docker-compose.yml
+      service: prism-api-1
 
   prism-api-2:
-    <<: *prism-api-base
-    environment:
-      <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7073
-    expose:
-      - "7073"
-    restart: unless-stopped
+    <<: *prism-api-test
+    extends:
+      file: docker-compose.yml
+      service: prism-api-2
 
   prism-api-3:
-    <<: *prism-api-base
-    environment:
-      <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7074
-    expose:
-      - "7074"
-    restart: unless-stopped
+    <<: *prism-api-test
+    extends:
+      file: docker-compose.yml
+      service: prism-api-3
 
   prism-api-4:
-    <<: *prism-api-base
-    environment:
-      <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7075
-    expose:
-      - "7075"
-    restart: unless-stopped
+    <<: *prism-api-test
+    extends:
+      file: docker-compose.yml
+      service: prism-api-4
 
   prism-api-5:
-    <<: *prism-api-base
-    environment:
-      <<: *prism-api-env
-      ASPNETCORE_URLS: http://+:7076
-    expose:
-      - "7076"
-    restart: unless-stopped
-
-  prism-api-lb:
-    environment:
-      PRISM_API_LB_PORT: ${PRISM_API_LB_PORT}
-    image: haproxy:3.0-alpine
-    volumes:
-      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    ports:
-      - "${PRISM_API_LB_PORT}:${PRISM_API_LB_PORT}"
-    depends_on:
-      - prism-api-1
-      - prism-api-2
-      - prism-api-3
-      - prism-api-4
-      - prism-api-5
+    <<: *prism-api-test
+    extends:
+      file: docker-compose.yml
+      service: prism-api-5
 
   stream-service:
+    extends:
+      file: docker-compose.yml
+      service: stream-service
     environment:
-      APP_ENV: test
-      AUTH0_TEST_MODE: 1
-      TEST_JWT_SECRET: ${TEST_JWT_SECRET}
+      <<: *stream-service-test-env
     depends_on:
       fauxzureq:
         condition: service_healthy    
@@ -109,42 +84,75 @@ services:
         condition: service_healthy
     ports:
       - "${STREAM_SERVICE_PORT}:${STREAM_SERVICE_PORT}"
-  domain-service:
+
+  domain-service-1:
+    <<: *domain-service-test
+
+  domain-service-2:
+    <<: *domain-service-test
+
+  domain-service-3:
+    <<: *domain-service-test
+
+  domain-service-4:
+    <<: *domain-service-test
+
+  domain-service-5:
+    <<: *domain-service-test 
+
+  read-model-updater-1:
+    <<: *read-model-updater-test
+
+  read-model-updater-2:
+    <<: *read-model-updater-test
+
+  read-model-updater-3:
+    <<: *read-model-updater-test
+
+  fauxzureq:
+    image: mistervvp/fauxzureq:main
+    command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0", "--http-log=false"]
+    ports: ["10001:10001", "10002:10002"]
+    sysctls:
+        - net.ipv4.tcp_rmem=16384 4194304 536870912
+        - net.ipv4.tcp_wmem=16384 4194304 536870912
+        - net.core.somaxconn=1048576
+        - net.ipv4.tcp_tw_reuse=1
+        - net.ipv4.tcp_fin_timeout=1
+    ulimits:
+      nofile:
+        soft: "1048576"
+        hard: "1048576"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  idempotency-cleaner:
+    extends:
+      file: docker-compose.yml
+      service: idempotency-cleaner
     environment:
       APP_ENV: test
-      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-      AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
-      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
+      IDEMPOTENCY_CLEANER_SCHEDULE: "*/3 * * * * *"
     depends_on:
-      fauxzureq:
-        condition: service_healthy    
-      azurite:
-        condition: service_healthy
       storage-init:
         condition: service_completed_successfully
-  read-model-updater:
-    environment:
-      APP_ENV: test
-      AzureWebJobsStorage: ${STORAGE_CONNECTION_STRING}
-      AzureWebJobsScriptRoot: /home/site/wwwroot
-      AzureFunctionsJobHost__Logging__Console__IsEnabled: true
-      AzureFunctionsJobHost__Logging__LogLevel__Default: ${AZ_FUNC_JOB_HOST_LOG_LEVEL}
-      FUNCTIONS_WORKER_RUNTIME: custom
-      ASPNETCORE_URLS: http://+:${READ_MODEL_UPDATER_PORT}
-    ports:
-      - "${READ_MODEL_UPDATER_PORT}:${READ_MODEL_UPDATER_PORT}"
-    depends_on:
       fauxzureq:
-        condition: service_healthy    
+        condition: service_healthy
       azurite:
         condition: service_healthy
-      storage-init:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
+
+  read-model-updater-lb:
+    extends:
+      file: docker-compose.yml
+      service: read-model-updater-lb
 
   storage-init:
+    extends:
+      file: docker-compose.yml
+      service: storage-init
     environment:
       APP_ENV: test
     depends_on:
@@ -155,6 +163,9 @@ services:
     restart: "no"
 
   redis:
+    extends:
+      file: docker-compose.yml
+      service: redis
     environment:
       APP_ENV: test
     depends_on:
@@ -164,25 +175,12 @@ services:
         condition: service_healthy
 
   azurite:
-    image: mcr.microsoft.com/azure-storage/azurite
-    healthcheck:
-      test: nc 127.0.0.1 10000 -z
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    command: ["azurite", "-s", "-l", "--inMemoryPersistence", "--skipApiVersionCheck", "/data", "--blobHost", "0.0.0.0"]
-    ports:
+    extends:
+      file: docker-compose.yml
+      service: azurite
+    command: ["azurite", "-s", "--inMemoryPersistence", "--skipApiVersionCheck", "--blobHost", "0.0.0.0"]
+    ports: !override
       - "10000:10000"
-
-  fauxzureq:
-    image: mistervvp/fauxzureq:latest
-    command: ["--listen=:10001", "--table-listen=:10002", "--account=devstoreaccount1", "--queue-delete-hold-ms=0"]
-    ports: ["10001:10001", "10002:10002"]
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:10001/__health"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
 
 volumes:
   azurite_data:

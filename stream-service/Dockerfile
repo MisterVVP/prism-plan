@@ -9,4 +9,4 @@ FROM alpine
 WORKDIR /app
 COPY --from=build /src/stream-service ./stream-service
 EXPOSE 80
-CMD ["./stream-service"]
+ENTRYPOINT ["./stream-service"]

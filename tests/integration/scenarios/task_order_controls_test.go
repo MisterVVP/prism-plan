@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -28,14 +29,14 @@ func TestTaskOrderControls(t *testing.T) {
 
 	// create three tasks in the normal lane
 	normalTitles := make([]string, 3)
-	for i := 0; i < len(normalTitles); i++ {
+	for i := range normalTitles {
 		normalTitles[i] = fmt.Sprintf("%s-normal-%d", prefix, i)
 		create(normalTitles[i], "normal", i)
 	}
 
 	// create two tasks in the fun lane to establish an existing order baseline
 	funTitles := make([]string, 2)
-	for i := 0; i < len(funTitles); i++ {
+	for i := range funTitles {
 		funTitles[i] = fmt.Sprintf("%s-fun-%d", prefix, i)
 		create(funTitles[i], "fun", i+len(normalTitles))
 	}
@@ -142,13 +143,7 @@ func TestTaskOrderControls(t *testing.T) {
 		}
 	}
 	assertx.Equal(t, len(funTitles)+1, len(funOrders))
-	found := false
-	for _, ord := range funOrders {
-		if ord == targetOrder {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(funOrders, targetOrder)
 	if !found {
 		t.Fatalf("expected to find order %d in %v", targetOrder, funOrders)
 	}

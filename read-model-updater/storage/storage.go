@@ -23,6 +23,8 @@ type Storage struct {
 	settingsTable *aztables.Client
 }
 
+var taskListSelectClause = "PartitionKey,RowKey,Title,Notes,Category,Order,Done,EventTimestamp"
+
 func parseTimestamp(raw json.RawMessage) int64 {
 	var i int64
 	if err := json.Unmarshal(raw, &i); err == nil {
@@ -107,32 +109,26 @@ func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntit
 		return nil, err
 	}
 	var raw struct {
-		PartitionKey       string          `json:"PartitionKey"`
-		RowKey             string          `json:"RowKey"`
-		Title              string          `json:"Title,omitempty"`
-		Notes              string          `json:"Notes,omitempty"`
-		Category           string          `json:"Category,omitempty"`
-		Order              int             `json:"Order"`
-		OrderType          string          `json:"Order@odata.type"`
-		Done               bool            `json:"Done"`
-		DoneType           string          `json:"Done@odata.type"`
-		EventTimestamp     json.RawMessage `json:"EventTimestamp"`
-		EventTimestampType string          `json:"EventTimestamp@odata.type"`
+		PartitionKey   string          `json:"PartitionKey"`
+		RowKey         string          `json:"RowKey"`
+		Title          string          `json:"Title,omitempty"`
+		Notes          string          `json:"Notes,omitempty"`
+		Category       string          `json:"Category,omitempty"`
+		Order          int             `json:"Order"`
+		Done           bool            `json:"Done"`
+		EventTimestamp json.RawMessage `json:"EventTimestamp"`
 	}
 	if err := json.Unmarshal(ent.Value, &raw); err != nil {
 		return nil, err
 	}
 	task := domain.TaskEntity{
-		Entity:             domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
-		Title:              raw.Title,
-		Notes:              raw.Notes,
-		Category:           raw.Category,
-		Order:              raw.Order,
-		OrderType:          raw.OrderType,
-		Done:               raw.Done,
-		DoneType:           raw.DoneType,
-		EventTimestamp:     parseTimestamp(raw.EventTimestamp),
-		EventTimestampType: raw.EventTimestampType,
+		Entity:         domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
+		Title:          raw.Title,
+		Notes:          raw.Notes,
+		Category:       raw.Category,
+		Order:          raw.Order,
+		Done:           raw.Done,
+		EventTimestamp: parseTimestamp(raw.EventTimestamp),
 	}
 	return &task, nil
 }
@@ -144,6 +140,52 @@ func (s *Storage) InsertTask(ctx context.Context, ent domain.TaskEntity) error {
 		_, err = s.taskTable.AddEntity(ctx, payload, nil)
 	}
 	return err
+}
+
+// ListTasksPage returns up to limit tasks for the given user ordered by partition and row key.
+func (s *Storage) ListTasksPage(ctx context.Context, userID string, limit int32) ([]domain.TaskEntity, *string, *string, error) {
+	if limit <= 0 {
+		limit = 1
+	}
+	filter := "PartitionKey eq '" + userID + "'"
+	format := aztables.MetadataFormatNone
+	opts := aztables.ListEntitiesOptions{Filter: &filter, Select: &taskListSelectClause, Top: &limit, Format: &format}
+	pager := s.taskTable.NewListEntitiesPager(&opts)
+	if !pager.More() {
+		return []domain.TaskEntity{}, nil, nil, nil
+	}
+	resp, err := pager.NextPage(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	tasks := make([]domain.TaskEntity, 0, len(resp.Entities))
+	for _, e := range resp.Entities {
+		var raw struct {
+			PartitionKey   string          `json:"PartitionKey"`
+			RowKey         string          `json:"RowKey"`
+			Title          string          `json:"Title,omitempty"`
+			Notes          string          `json:"Notes,omitempty"`
+			Category       string          `json:"Category,omitempty"`
+			Order          int             `json:"Order"`
+			Done           bool            `json:"Done"`
+			EventTimestamp json.RawMessage `json:"EventTimestamp"`
+		}
+		if err := json.Unmarshal(e, &raw); err != nil {
+			return nil, nil, nil, err
+		}
+		tasks = append(tasks, domain.TaskEntity{
+			Entity:         domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
+			Title:          raw.Title,
+			Notes:          raw.Notes,
+			Category:       raw.Category,
+			Order:          raw.Order,
+			Done:           raw.Done,
+			EventTimestamp: parseTimestamp(raw.EventTimestamp),
+		})
+	}
+
+	return tasks, resp.NextPartitionKey, resp.NextRowKey, nil
 }
 
 // UpdateTask merges changes into an existing task entity.
@@ -176,26 +218,20 @@ func (s *Storage) GetUserSettings(ctx context.Context, id string) (*domain.UserS
 		return nil, err
 	}
 	var raw struct {
-		PartitionKey       string          `json:"PartitionKey"`
-		RowKey             string          `json:"RowKey"`
-		TasksPerCategory   int             `json:"TasksPerCategory"`
-		TasksPerCategoryTy string          `json:"TasksPerCategory@odata.type"`
-		ShowDoneTasks      bool            `json:"ShowDoneTasks"`
-		ShowDoneTasksType  string          `json:"ShowDoneTasks@odata.type"`
-		EventTimestamp     json.RawMessage `json:"EventTimestamp"`
-		EventTimestampType string          `json:"EventTimestamp@odata.type"`
+		PartitionKey     string          `json:"PartitionKey"`
+		RowKey           string          `json:"RowKey"`
+		TasksPerCategory int             `json:"TasksPerCategory"`
+		ShowDoneTasks    bool            `json:"ShowDoneTasks"`
+		EventTimestamp   json.RawMessage `json:"EventTimestamp"`
 	}
 	if err := json.Unmarshal(ent.Value, &raw); err != nil {
 		return nil, err
 	}
 	sEnt := domain.UserSettingsEntity{
-		Entity:               domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
-		TasksPerCategory:     raw.TasksPerCategory,
-		TasksPerCategoryType: raw.TasksPerCategoryTy,
-		ShowDoneTasks:        raw.ShowDoneTasks,
-		ShowDoneTasksType:    raw.ShowDoneTasksType,
-		EventTimestamp:       parseTimestamp(raw.EventTimestamp),
-		EventTimestampType:   raw.EventTimestampType,
+		Entity:           domain.Entity{PartitionKey: raw.PartitionKey, RowKey: raw.RowKey},
+		TasksPerCategory: raw.TasksPerCategory,
+		ShowDoneTasks:    raw.ShowDoneTasks,
+		EventTimestamp:   parseTimestamp(raw.EventTimestamp),
 	}
 	return &sEnt, nil
 }
