@@ -21,6 +21,7 @@ type TaskEntity struct {
 	Order          int    `json:"Order"`
 	Done           bool   `json:"Done"`
 	EventTimestamp int64  `json:"EventTimestamp,string"`
+	ETag           string `json:"-"`
 }
 
 // TaskUpdate carries partial updates for a task.

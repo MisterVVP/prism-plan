@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -130,6 +131,7 @@ func (s *Storage) GetTask(ctx context.Context, pk, rk string) (*domain.TaskEntit
 		Done:           raw.Done,
 		EventTimestamp: parseTimestamp(raw.EventTimestamp),
 	}
+	task.ETag = string(ent.ETag)
 	return &task, nil
 }
 
@@ -189,11 +191,21 @@ func (s *Storage) ListTasksPage(ctx context.Context, userID string, limit int32)
 }
 
 // UpdateTask merges changes into an existing task entity.
-func (s *Storage) UpdateTask(ctx context.Context, ent domain.TaskUpdate) error {
+func (s *Storage) UpdateTask(ctx context.Context, ent domain.TaskUpdate, etag string) error {
 	payload, err := json.Marshal(ent)
-	if err == nil {
-		et := azcore.ETagAny
-		_, err = s.taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &et, UpdateMode: aztables.UpdateModeMerge})
+	if err != nil {
+		return err
+	}
+	match := azcore.ETagAny
+	if etag != "" {
+		match = azcore.ETag(etag)
+	}
+	_, err = s.taskTable.UpdateEntity(ctx, payload, &aztables.UpdateEntityOptions{IfMatch: &match, UpdateMode: aztables.UpdateModeMerge})
+	if err != nil {
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == http.StatusPreconditionFailed {
+			return domain.ErrConcurrencyConflict
+		}
 	}
 	return err
 }

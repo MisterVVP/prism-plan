@@ -40,7 +40,7 @@ func (f *fakeStore) InsertTask(ctx context.Context, ent TaskEntity) error {
 	return nil
 }
 
-func (f *fakeStore) UpdateTask(ctx context.Context, upd TaskUpdate) error {
+func (f *fakeStore) UpdateTask(ctx context.Context, upd TaskUpdate, _ string) error {
 	if f.tasks == nil {
 		f.tasks = map[string]TaskEntity{}
 	}
