@@ -70,8 +70,8 @@ current settings snapshot. Keys are namespaced as `<userId>:ts` for tasks and `<
 
 - `TASKS_CACHE_TTL`: expiration for cached task pages (defaults to 12h)
 - `SETTINGS_CACHE_TTL`: expiration for cached user settings (defaults to 4h)
-- `TASKS_CACHE_SIZE`: number of tasks stored per user in cache. When omitted the value falls back to `TASKS_PAGE_SIZE`; keep the
-  two aligned so the cache always holds the first page that Prism API serves without hitting storage.
+- `NUM_CACHED_PAGES`: number of task pages stored per user in cache. The service caches `NUM_CACHED_PAGES × TASKS_PAGE_SIZE`
+  tasks so that the API can serve multiple sequential pages without round-tripping to storage.
 
 Fetch tasks from `/api/tasks`—the response includes a `nextPageToken` when more items are available—and post commands to `/api/commands`.
 

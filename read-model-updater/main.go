@@ -87,23 +87,24 @@ func main() {
 		}
 		settingsTTL = d
 	}
-	cacheSize := 10
+	tasksPerPage := 10
 	if v := os.Getenv("TASKS_PAGE_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			cacheSize = n
+			tasksPerPage = n
 		}
 	}
-	if v := os.Getenv("TASKS_CACHE_SIZE"); v != "" {
+	cachedPages := 1
+	if v := os.Getenv("NUM_CACHED_PAGES"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil {
-			log.Fatalf("invalid TASKS_CACHE_SIZE: %v", err)
+			log.Fatalf("invalid NUM_CACHED_PAGES: %v", err)
 		}
 		if n <= 0 {
-			log.Fatalf("invalid TASKS_CACHE_SIZE: must be greater than zero")
+			log.Fatalf("invalid NUM_CACHED_PAGES: must be greater than zero")
 		}
-		cacheSize = n
+		cachedPages = n
 	}
-	cache := newCacheUpdater(st, rc, int32(cacheSize), tasksTTL, settingsTTL)
+	cache := newCacheUpdater(st, rc, int32(tasksPerPage), cachedPages, tasksTTL, settingsTTL)
 	taskUpdatesChannel := os.Getenv("TASK_UPDATES_CHANNEL")
 	settingsUpdatesChannel := os.Getenv("SETTINGS_UPDATES_CHANNEL")
 	if taskUpdatesChannel == "" || settingsUpdatesChannel == "" {

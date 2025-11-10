@@ -176,6 +176,8 @@ type cachedTasks struct {
 	CachedAt      time.Time     `json:"cachedAt"`
 	LastUpdatedAt int64         `json:"lastUpdatedAt"`
 	PageSize      int           `json:"pageSize"`
+	CachedPages   int           `json:"cachedPages,omitempty"`
+	PageTokens    []string      `json:"pageTokens,omitempty"`
 	NextPageToken string        `json:"nextPageToken,omitempty"`
 	Tasks         []domain.Task `json:"tasks"`
 }
@@ -289,16 +291,9 @@ func resolveTaskPageSize(requested int, defaultSize int32) int32 {
 
 func (s *Storage) FetchTasks(ctx context.Context, userID, token string, limit int) ([]domain.Task, string, error) {
 	pageSize := resolveTaskPageSize(limit, s.taskPageSize)
-	if token == "" && pageSize == s.taskPageSize {
-		if cached, ok := s.loadTasksFromCache(ctx, userID); ok {
-			if cached == nil {
-				return []domain.Task{}, "", nil
-			}
-			tasks := cached.Tasks
-			if tasks == nil {
-				tasks = []domain.Task{}
-			}
-			return tasks, cached.NextPageToken, nil
+	if pageSize == s.taskPageSize {
+		if tasks, next, ok := s.fetchTasksFromCache(ctx, userID, token, pageSize); ok {
+			return tasks, next, nil
 		}
 	}
 
@@ -336,6 +331,62 @@ func (s *Storage) FetchTasks(ctx context.Context, userID, token string, limit in
 		return nil, "", err
 	}
 	return tasks, nextToken, nil
+}
+
+func (s *Storage) fetchTasksFromCache(ctx context.Context, userID, token string, pageSize int32) ([]domain.Task, string, bool) {
+	cached, ok := s.loadTasksFromCache(ctx, userID)
+	if !ok {
+		return nil, "", false
+	}
+	if cached == nil {
+		return nil, "", false
+	}
+
+	tasks := cached.Tasks
+	if tasks == nil {
+		tasks = []domain.Task{}
+	}
+	if len(tasks) == 0 {
+		return nil, "", false
+	}
+
+	cachedPages := cached.CachedPages
+	if cachedPages <= 0 {
+		cachedPages = (len(tasks) + int(pageSize) - 1) / int(pageSize)
+	}
+
+	pageIndex := -1
+	if token == "" {
+		pageIndex = 0
+	} else {
+		for i, tkn := range cached.PageTokens {
+			if tkn == token {
+				pageIndex = i + 1
+				break
+			}
+		}
+	}
+	if pageIndex < 0 || pageIndex >= cachedPages {
+		return nil, "", false
+	}
+
+	start := pageIndex * int(pageSize)
+	if start >= len(tasks) {
+		return nil, "", false
+	}
+	end := start + int(pageSize)
+	if end > len(tasks) {
+		end = len(tasks)
+	}
+
+	nextToken := cached.NextPageToken
+	if pageIndex < len(cached.PageTokens) {
+		nextToken = cached.PageTokens[pageIndex]
+	}
+
+	page := make([]domain.Task, end-start)
+	copy(page, tasks[start:end])
+	return page, nextToken, true
 }
 
 func decodeSettingsEntity(data []byte) (domain.Settings, error) {

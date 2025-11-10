@@ -145,13 +145,13 @@ func (s *Storage) InsertTask(ctx context.Context, ent domain.TaskEntity) error {
 }
 
 // ListTasksPage returns up to limit tasks for the given user ordered by partition and row key.
-func (s *Storage) ListTasksPage(ctx context.Context, userID string, limit int32) ([]domain.TaskEntity, *string, *string, error) {
+func (s *Storage) ListTasksPage(ctx context.Context, userID string, limit int32, nextPartitionKey, nextRowKey *string) ([]domain.TaskEntity, *string, *string, error) {
 	if limit <= 0 {
 		limit = 1
 	}
 	filter := "PartitionKey eq '" + userID + "'"
 	format := aztables.MetadataFormatNone
-	opts := aztables.ListEntitiesOptions{Filter: &filter, Select: &taskListSelectClause, Top: &limit, Format: &format}
+	opts := aztables.ListEntitiesOptions{Filter: &filter, Select: &taskListSelectClause, Top: &limit, Format: &format, NextPartitionKey: nextPartitionKey, NextRowKey: nextRowKey}
 	pager := s.taskTable.NewListEntitiesPager(&opts)
 	if !pager.More() {
 		return []domain.TaskEntity{}, nil, nil, nil
