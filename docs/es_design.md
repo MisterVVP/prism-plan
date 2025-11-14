@@ -90,7 +90,7 @@ flowchart LR
 
 ## Operational Notes
 
-* **Idempotency**: API stores command idempotency keys in Redis so all instances skip duplicates; Domain Service also keeps a per‑aggregate hash to drop any that slip through.
+* **Idempotency & Caching**: Domain Service persists command idempotency keys in the Azure Tables that back the event store so retries never emit duplicate events. Prism API relies on Redis purely for serving hot read-model slices and a trimmed set of user profile fields, letting repeated queries avoid the read-model store when the cache is warm.
 * **Schema evolution**: version events, keep up‑casters in Domain Service; read‑models are rebuildable.
 * **Local Dev**: run Azure Storage emulator in Docker (`Azurite`) for queues and table storage.
 * **Observability**: correlate `commandId` ↔ `eventId` across logs for easy tracing.
