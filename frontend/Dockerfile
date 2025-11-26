@@ -12,7 +12,7 @@ ENV VITE_STREAM_URL=$VITE_STREAM_URL
 
 RUN test -n "$VITE_AUTH0_DOMAIN" && test -n "$VITE_AUTH0_CLIENT_ID" && test -n "$VITE_AUTH0_AUDIENCE"
 COPY package*.json ./
-RUN npm install
+RUN npm install --ignore-scripts
 COPY . .
 RUN npm run build
 
