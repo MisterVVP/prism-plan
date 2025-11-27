@@ -110,12 +110,14 @@ func (c *cacheUpdater) RefreshTasks(ctx context.Context, userID string, entityID
 		tasks, pk, rk, err := c.store.ListTasksPage(ctx, userID, limit, nextPK, nextRK)
 		if err != nil {
 			log.WithError(err).WithField("user", userID).Error("failed to list tasks for cache")
+			c.purgeTasksCache(ctx, userID)
 			return
 		}
 		if len(tasks) == 0 {
 			token, encErr := encodeContinuationToken(pk, rk)
 			if encErr != nil {
 				log.WithError(encErr).WithField("user", userID).Error("failed to encode continuation token for cache")
+				c.purgeTasksCache(ctx, userID)
 			} else {
 				nextToken = token
 			}
@@ -140,6 +142,7 @@ func (c *cacheUpdater) RefreshTasks(ctx context.Context, userID string, entityID
 		token, encErr := encodeContinuationToken(pk, rk)
 		if encErr != nil {
 			log.WithError(encErr).WithField("user", userID).Error("failed to encode continuation token for cache")
+			c.purgeTasksCache(ctx, userID)
 			return
 		}
 		nextToken = token
@@ -181,10 +184,21 @@ func (c *cacheUpdater) RefreshTasks(ctx context.Context, userID string, entityID
 	data, err := json.Marshal(payload)
 	if err != nil {
 		log.WithError(err).WithField("user", userID).Error("failed to marshal tasks cache payload")
+		c.purgeTasksCache(ctx, userID)
 		return
 	}
 	if err := c.redis.Set(ctx, cacheKey(userID, tasksCachePrefix), data, c.tasksTTL).Err(); err != nil {
 		log.WithError(err).WithField("user", userID).Error("failed to store tasks cache entry")
+		c.purgeTasksCache(ctx, userID)
+	}
+}
+
+func (c *cacheUpdater) purgeTasksCache(ctx context.Context, userID string) {
+	if c == nil || c.redis == nil {
+		return
+	}
+	if err := c.redis.Del(ctx, cacheKey(userID, tasksCachePrefix)).Err(); err != nil {
+		log.WithError(err).WithField("user", userID).Error("failed to delete tasks cache entry")
 	}
 }
 
