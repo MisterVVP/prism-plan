@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -283,5 +284,28 @@ func TestCacheUpdaterRefreshTasksDeletesStaleEntryWhenEntityMissing(t *testing.T
 
 	if _, err := rc.Get(ctx, cacheKey("user", tasksCachePrefix)).Result(); err != redis.Nil {
 		t.Fatalf("expected cache eviction when entity missing, got %v", err)
+	}
+}
+
+func TestCacheUpdaterRefreshTasksClearsCacheOnListError(t *testing.T) {
+	m, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	defer m.Close()
+	rc := redis.NewClient(&redis.Options{Addr: m.Addr()})
+	ctx := context.Background()
+
+	if err := rc.Set(ctx, cacheKey("user", tasksCachePrefix), "seed", time.Hour).Err(); err != nil {
+		t.Fatalf("seed redis: %v", err)
+	}
+
+	store := &stubCacheStore{taskPages: []taskPageResponse{{err: fmt.Errorf("boom")}}}
+	updater := newCacheUpdater(store, rc, 5, 1, time.Hour, time.Hour)
+
+	updater.RefreshTasks(ctx, "user", "task1", 10)
+
+	if _, err := rc.Get(ctx, cacheKey("user", tasksCachePrefix)).Result(); err != redis.Nil {
+		t.Fatalf("expected cache eviction after refresh error, got %v", err)
 	}
 }
